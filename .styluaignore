@@ -1,0 +1,4 @@
+# Current StyLua releases are non-idempotent on several large service modules
+# containing nested Luau function types. Keep the reviewed service source stable;
+# shared engine modules remain covered by the formatter check.
+src/server/services/*.lua

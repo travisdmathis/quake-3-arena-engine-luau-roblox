@@ -1,0 +1,20 @@
+{
+  "name": "Q3 Engine for Roblox",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Q3Engine": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Q3Engine": {
+        "$className": "Folder",
+        "services": {
+          "$path": "src/server/services"
+        }
+      }
+    }
+  }
+}
+

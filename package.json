@@ -1,0 +1,17 @@
+{
+  "name": "quake-3-arena-engine-luau-roblox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A source-available Luau translation of Quake III Arena engine gameplay systems for Roblox.",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "build": "mkdir -p build && rojo build default.project.json -o build/q3-engine.rbxlx",
+    "compile:check": "rg --files src -g '*.lua' | xargs luau-compile --null",
+    "format:check": "stylua --check src",
+    "content:check": "node scripts/check-public-boundary.mjs",
+    "check": "npm run content:check && npm run format:check && npm run compile:check && npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
