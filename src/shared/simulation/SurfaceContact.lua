@@ -14,9 +14,9 @@ Modified for the Roblox Luau port on 2026-07-10.
 
 --!strict
 
-local SLICK_ATTRIBUTE = "ArenaSurfaceSlick"
-local NO_DAMAGE_ATTRIBUTE = "ArenaSurfaceNoDamage"
-local NO_IMPACT_ATTRIBUTE = "ArenaSurfaceNoImpact"
+local SLICK_ATTRIBUTE = "Q3EngineSurfaceSlick"
+local NO_DAMAGE_ATTRIBUTE = "Q3EngineSurfaceNoDamage"
+local NO_IMPACT_ATTRIBUTE = "Q3EngineSurfaceNoImpact"
 
 local SurfaceContact = {}
 

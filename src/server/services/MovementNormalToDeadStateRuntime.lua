@@ -126,14 +126,19 @@ function MovementNormalToDeadStateRuntime.BuildLethal(
 		return nil, nil, "invalid-normal-to-dead-knockback-time"
 	end
 	local nextVelocity = state.velocity + (velocityDeltaValue :: Vector3)
-	if not isFinite(nextVelocity.X) or not isFinite(nextVelocity.Y) or not isFinite(nextVelocity.Z) then
+	if
+		not isFinite(nextVelocity.X)
+		or not isFinite(nextVelocity.Y)
+		or not isFinite(nextVelocity.Z)
+	then
 		return nil, nil, "normal-to-dead-lethal-velocity-overflow"
 	end
 	local retainedKnockbackSeconds = knockbackSecondsValue :: number?
 	local nextMovementTime = state.movementTime
 	local nextTimeKnockback = state.timeKnockback
 	if nextMovementTime <= 0 and retainedKnockbackSeconds and retainedKnockbackSeconds > 0 then
-		nextMovementTime = math.clamp(retainedKnockbackSeconds, minimumKnockbackSeconds, maximumKnockbackSeconds)
+		nextMovementTime =
+			math.clamp(retainedKnockbackSeconds, minimumKnockbackSeconds, maximumKnockbackSeconds)
 		nextTimeKnockback = true
 	end
 	local nextState: State = table.clone(state)

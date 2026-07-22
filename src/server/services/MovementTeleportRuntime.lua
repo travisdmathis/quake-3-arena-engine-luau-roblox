@@ -92,7 +92,11 @@ function MovementTeleportRuntime.new(config: Config): Runtime
 		local occupants = {}
 		for otherPlayer, otherRecord in config.records do
 			local otherState = otherRecord.state
-			if otherPlayer ~= player and otherPlayer:GetAttribute("ArenaAlive") == true and otherState then
+			if
+				otherPlayer ~= player
+				and otherPlayer:GetAttribute("Q3EngineAlive") == true
+				and otherState
+			then
 				table.insert(occupants, {
 					userId = otherPlayer.UserId,
 					origin = otherState.position,
@@ -174,7 +178,7 @@ function MovementTeleportRuntime.new(config: Config): Runtime
 	): (Prepared?, PreparedSummary?, string?)
 		if
 			config.records[player] ~= record
-			or player:GetAttribute("ArenaAlive") ~= true
+			or player:GetAttribute("Q3EngineAlive") ~= true
 			or record.state == nil
 			or record.lifeBinding ~= lifeBinding
 			or type(record.revision) ~= "number"
@@ -217,7 +221,7 @@ function MovementTeleportRuntime.new(config: Config): Runtime
 		local record = capability.record
 		if
 			config.records[summary.player] ~= record
-			or summary.player:GetAttribute("ArenaAlive") ~= true
+			or summary.player:GetAttribute("Q3EngineAlive") ~= true
 			or record.state ~= capability.baseState
 			or record.revision ~= summary.baseRevision
 			or record.lifeBinding ~= summary.lifeBinding

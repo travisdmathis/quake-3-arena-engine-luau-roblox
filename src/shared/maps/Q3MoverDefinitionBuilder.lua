@@ -7,9 +7,9 @@ Data-only translation helpers for reviewed Quake III brush movers:
   code/game/bg_misc.c (BG_EvaluateTrajectory)
 
 The helpers retain Q3 units and entity measurements at the authoring callsite,
-then apply the arena's canonical (X, Z-up, -Y) transform once. Inline brush
-models are represented by their reviewed model bounds because the current
-authoritative mover schema accepts one bounded Block per source gentity.
+then apply the arena's canonical (X, Z-up, -Y) transform once. Each call emits
+one bounded Block. Compound inline models may preserve their reviewed Solid
+brush bounds as synchronized members sharing one mover team.
 
 Upstream commit: dbe4ddb10315479fc00086f08e25d968b4b43c49
 Modified for the Roblox Luau port on 2026-07-19.

@@ -44,7 +44,8 @@ assert(RunService:IsServer(), "ProjectileEntityService is server-only")
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
 local combatRoot = sharedRoot:WaitForChild("combat")
 local simulationRoot = sharedRoot:WaitForChild("simulation")
-local ProjectileEntityLifecycleRules = require(combatRoot:WaitForChild("ProjectileEntityLifecycleRules"))
+local ProjectileEntityLifecycleRules =
+	require(combatRoot:WaitForChild("ProjectileEntityLifecycleRules"))
 local ProjectileTrajectory = require(combatRoot:WaitForChild("ProjectileTrajectory"))
 local EntitySourceOrderRules = require(simulationRoot:WaitForChild("EntitySourceOrderRules"))
 local AuthoritativeFrameService = require(script.Parent.AuthoritativeFrameService)
@@ -257,11 +258,24 @@ local authority: Authority = table.freeze({
 local activePrepared: PreparedMutation? = nil
 local dynamicBindingActivated = false
 local dynamicHandler: EntityFrameDispatcherService.DynamicHandler? = nil
-local sourceCapabilities: { [ProjectileSource]: SourceCapability } = setmetatable({}, { __mode = "k" })
-local preparedCapabilities: { [PreparedMutation]: PreparedCapability } = setmetatable({}, { __mode = "k" })
-local deathInflictorCapabilities: { [DeathInflictor]: DeathInflictorCapability } = setmetatable({}, { __mode = "k" })
+local sourceCapabilities: { [ProjectileSource]: SourceCapability } = setmetatable(
+	{},
+	{ __mode = "k" }
+)
+local preparedCapabilities: { [PreparedMutation]: PreparedCapability } = setmetatable(
+	{},
+	{ __mode = "k" }
+)
+local deathInflictorCapabilities: { [DeathInflictor]: DeathInflictorCapability } = setmetatable(
+	{},
+	{ __mode = "k" }
+)
 
-local function hasExactRawKeys(value: unknown, allowed: { [string]: boolean }, expectedCount: number): boolean
+local function hasExactRawKeys(
+	value: unknown,
+	allowed: { [string]: boolean },
+	expectedCount: number
+): boolean
 	if type(value) ~= "table" or getmetatable(value) ~= nil then
 		return false
 	end
@@ -276,15 +290,20 @@ local function hasExactRawKeys(value: unknown, allowed: { [string]: boolean }, e
 	return count == expectedCount
 end
 
-local function currentFrameTime(
-	frameValue: unknown
-): (AuthoritativeFrameService.Frame?, AuthoritativeFrameService.Summary?, number?)
+local function currentFrameTime(frameValue: unknown): (
+	AuthoritativeFrameService.Frame?,
+	AuthoritativeFrameService.Summary?,
+	number?
+)
 	if type(frameValue) ~= "table" then
 		return nil, nil, nil
 	end
 	if
 		dynamicBindingActivated
-		and (not EntityFrameDispatcherService.IsStarted() or EntityFrameDispatcherService.IsFaulted())
+		and (
+			not EntityFrameDispatcherService.IsStarted()
+			or EntityFrameDispatcherService.IsFaulted()
+		)
 	then
 		return nil, nil, nil
 	end
@@ -323,7 +342,10 @@ local function currentFrameTime(
 		return nil, nil, nil
 	end
 	local entitySlotSnapshot = EntitySlotService.GetDebugSnapshot()
-	if not entitySlotSnapshot.started or levelTimeMilliseconds < entitySlotSnapshot.levelTimeMilliseconds then
+	if
+		not entitySlotSnapshot.started
+		or levelTimeMilliseconds < entitySlotSnapshot.levelTimeMilliseconds
+	then
 		return nil, nil, nil
 	end
 	return frame, summary, levelTimeMilliseconds
@@ -336,10 +358,13 @@ local function isShotId(value: unknown): boolean
 		and string.match(value, "^[%w_:%-%.]+$") ~= nil
 end
 
-local function canonicalTrajectoryBinding(
-	trajectoryStateValue: unknown
-): (ProjectileEntityLifecycleRules.TrajectoryBinding?, string?)
-	if type(trajectoryStateValue) ~= "table" or not table.isfrozen(trajectoryStateValue :: table) then
+local function canonicalTrajectoryBinding(trajectoryStateValue: unknown): (
+	ProjectileEntityLifecycleRules.TrajectoryBinding?,
+	string?
+)
+	if
+		type(trajectoryStateValue) ~= "table" or not table.isfrozen(trajectoryStateValue :: table)
+	then
 		return nil, "projectile-trajectory-state-not-frozen"
 	end
 	local trajectoryState = trajectoryStateValue :: ProjectileTrajectory.State
@@ -347,7 +372,8 @@ local function canonicalTrajectoryBinding(
 end
 
 local function currentWorldRegistration(record: ProjectileRecord): boolean
-	return EntitySlotService.GetWorldRegistrationBySourceOrder(record.registration.sourceOrder) == record.registration
+	return EntitySlotService.GetWorldRegistrationBySourceOrder(record.registration.sourceOrder)
+			== record.registration
 		and EntitySlotService.GetWorldRegistrationByBodyId(record.registration.bodyId) == record.registration
 		and EntitySlotService.GetWorldLease(record.registration) == record.lease
 end
@@ -362,7 +388,11 @@ end
 local function recordHasExpectedDynamicBinding(record: ProjectileRecord): boolean
 	local binding = record.dynamicBinding
 	return record.summary.dynamicBinding == binding
-		and (if dynamicBindingActivated then binding ~= nil and isOpaqueDynamicBinding(binding) else binding == nil)
+		and (
+			if dynamicBindingActivated
+				then binding ~= nil and isOpaqueDynamicBinding(binding)
+				else binding == nil
+		)
 end
 
 local function makeSourceSummary(recordData: {
@@ -447,7 +477,10 @@ local function nextAuthorityWith(
 	levelTimeMilliseconds: number
 ): Authority
 	assert(base.revision < MAXIMUM_AUTHORITY_REVISION, "projectile authority revision exhausted")
-	assert(levelTimeMilliseconds >= base.levelTimeMilliseconds, "projectile authority level time regressed")
+	assert(
+		levelTimeMilliseconds >= base.levelTimeMilliseconds,
+		"projectile authority level time regressed"
+	)
 	local order: { ProjectileRecord } = {}
 	local bySource: { [ProjectileSource]: ProjectileRecord } = {}
 	local byShotId: { [string]: ProjectileRecord } = {}
@@ -460,10 +493,16 @@ local function nextAuthorityWith(
 			selected = nextRecord
 		end
 		if selected then
-			assert(recordHasExpectedDynamicBinding(selected), "projectile record has an invalid dynamic binding")
+			assert(
+				recordHasExpectedDynamicBinding(selected),
+				"projectile record has an invalid dynamic binding"
+			)
 			assert(bySource[selected.source] == nil, "duplicate projectile source")
 			assert(byShotId[selected.shotId] == nil, "duplicate projectile shot identity")
-			assert(byRegistration[selected.registration] == nil, "duplicate projectile registration")
+			assert(
+				byRegistration[selected.registration] == nil,
+				"duplicate projectile registration"
+			)
 			bySource[selected.source] = selected
 			byShotId[selected.shotId] = selected
 			byRegistration[selected.registration] = selected
@@ -472,7 +511,10 @@ local function nextAuthorityWith(
 	end
 	assert(replaced, "projectile authority replacement record missing")
 	if baseRecord == nil and nextRecord then
-		assert(recordHasExpectedDynamicBinding(nextRecord), "spawn projectile record has an invalid dynamic binding")
+		assert(
+			recordHasExpectedDynamicBinding(nextRecord),
+			"spawn projectile record has an invalid dynamic binding"
+		)
 		assert(bySource[nextRecord.source] == nil, "duplicate projectile source")
 		assert(byShotId[nextRecord.shotId] == nil, "duplicate projectile shot identity")
 		assert(byRegistration[nextRecord.registration] == nil, "duplicate projectile registration")
@@ -526,7 +568,12 @@ local function prepareCapability(
 	dispatcherOutcome: EntityFrameDispatcherService.DynamicOutcome?
 ): PreparedMutation
 	local baseAuthority = authority
-	local nextAuthority = nextAuthorityWith(baseAuthority, baseRecord, nextRecord, nextLifecycle.levelTimeMilliseconds)
+	local nextAuthority = nextAuthorityWith(
+		baseAuthority,
+		baseRecord,
+		nextRecord,
+		nextLifecycle.levelTimeMilliseconds
+	)
 	local prepared: PreparedMutation = table.freeze({})
 	local receipt: ApplyReceipt = table.freeze({
 		kind = kind,
@@ -687,7 +734,8 @@ local function abortPreparedDependencies(
 	entitySlotToken: EntitySlotService.TransactionToken?
 ): boolean
 	if dispatcherPrepared then
-		local dispatcherAborted = EntityFrameDispatcherService.AbortPreparedDynamicBatch(dispatcherPrepared)
+		local dispatcherAborted =
+			EntityFrameDispatcherService.AbortPreparedDynamicBatch(dispatcherPrepared)
 		if not dispatcherAborted and not EntityFrameDispatcherService.IsFaulted() then
 			return false
 		end
@@ -803,14 +851,21 @@ local function preparedCurrentError(
 		return "incomplete-projectile-dispatcher-dependency"
 	end
 	if dispatcherPrepared and dispatcherSummary and dispatcherReceipt and dispatcherOutcome then
-		if dispatcherSummary.outcomes[1] ~= dispatcherOutcome or #dispatcherSummary.outcomes ~= 1 then
+		if
+			dispatcherSummary.outcomes[1] ~= dispatcherOutcome
+			or #dispatcherSummary.outcomes ~= 1
+		then
 			return "stale-projectile-dispatcher-outcome"
 		end
 		local baseRecord = capability.baseRecord
 		if capability.nextRecord and not baseRecord then
 			if
-				not dispatcherOutcomeMatches(dispatcherOutcome, "Bound", capability.nextRecord.registration, nil)
-				or capability.nextRecord.dynamicBinding ~= dispatcherOutcome.binding
+				not dispatcherOutcomeMatches(
+					dispatcherOutcome,
+					"Bound",
+					capability.nextRecord.registration,
+					nil
+				) or capability.nextRecord.dynamicBinding ~= dispatcherOutcome.binding
 			then
 				return "stale-projectile-dispatcher-bind-outcome"
 			end
@@ -834,7 +889,10 @@ local function preparedCurrentError(
 	end
 	if
 		dynamicBindingActivated
-		and (not EntityFrameDispatcherService.IsStarted() or EntityFrameDispatcherService.IsFaulted())
+		and (
+			not EntityFrameDispatcherService.IsStarted()
+			or EntityFrameDispatcherService.IsFaulted()
+		)
 	then
 		return "stale-projectile-dynamic-dispatcher"
 	end
@@ -844,8 +902,12 @@ local function preparedCurrentError(
 		else openFrame or AuthoritativeFrameService.GetCurrentFrame()
 	if
 		activeFrame ~= capability.frame
-		or not AuthoritativeFrameService.ValidateFrameDependency(capability.frame, capability.frameSummary)
-		or capability.nextLifecycle.levelTimeMilliseconds ~= capability.frameSummary.currentTimeMilliseconds
+		or not AuthoritativeFrameService.ValidateFrameDependency(
+			capability.frame,
+			capability.frameSummary
+		)
+		or capability.nextLifecycle.levelTimeMilliseconds
+			~= capability.frameSummary.currentTimeMilliseconds
 	then
 		return "stale-projectile-authoritative-frame"
 	end
@@ -885,7 +947,9 @@ local function preparedCurrentError(
 				dispatcherPrepared,
 				dispatcherSummary
 			)
-			or EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared)
+			or EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(
+					dispatcherPrepared
+				)
 				~= dispatcherReceipt
 		then
 			return "stale-projectile-dispatcher-dependency"
@@ -894,7 +958,9 @@ local function preparedCurrentError(
 	return nil
 end
 
-function ProjectileEntityService.PrepareSpawn(requestValue: unknown): (PreparedMutation?, ProjectileSource?, string?)
+function ProjectileEntityService.PrepareSpawn(
+	requestValue: unknown
+): (PreparedMutation?, ProjectileSource?, string?)
 	if activePrepared ~= nil then
 		return nil, nil, "projectile-mutation-active"
 	end
@@ -925,7 +991,8 @@ function ProjectileEntityService.PrepareSpawn(requestValue: unknown): (PreparedM
 	if not trajectory then
 		return nil, nil, trajectoryError
 	end
-	local lifecycle, lifecycleError = ProjectileEntityLifecycleRules.Create(trajectory, levelTimeValue :: number)
+	local lifecycle, lifecycleError =
+		ProjectileEntityLifecycleRules.Create(trajectory, levelTimeValue :: number)
 	if not lifecycle then
 		return nil, nil, lifecycleError
 	end
@@ -963,7 +1030,12 @@ function ProjectileEntityService.PrepareSpawn(requestValue: unknown): (PreparedM
 		local dispatcherError: string?
 		dispatcherPrepared, dispatcherSummary, dispatcherReceipt, dispatcherOutcome, dispatcherError =
 			prepareDispatcherOutcome(entityPrepared, entitySummary, registration, "Bound", nil)
-		if not dispatcherPrepared or not dispatcherSummary or not dispatcherReceipt or not dispatcherOutcome then
+		if
+			not dispatcherPrepared
+			or not dispatcherSummary
+			or not dispatcherReceipt
+			or not dispatcherOutcome
+		then
 			abortEntitySlotToken(token)
 			return nil, nil, dispatcherError
 		end
@@ -1052,14 +1124,23 @@ local function prepareTrajectoryTransition(
 	local nextLifecycle: ProjectileEntityLifecycleRules.State?
 	local transitionError: string?
 	if kind == "Bounce" then
-		nextLifecycle, transitionError =
-			ProjectileEntityLifecycleRules.Bounce(baseRecord.lifecycle, trajectory, levelTimeValue :: number)
+		nextLifecycle, transitionError = ProjectileEntityLifecycleRules.Bounce(
+			baseRecord.lifecycle,
+			trajectory,
+			levelTimeValue :: number
+		)
 	elseif kind == "Impact" then
-		nextLifecycle, transitionError =
-			ProjectileEntityLifecycleRules.Impact(baseRecord.lifecycle, trajectory, levelTimeValue :: number)
+		nextLifecycle, transitionError = ProjectileEntityLifecycleRules.Impact(
+			baseRecord.lifecycle,
+			trajectory,
+			levelTimeValue :: number
+		)
 	else
-		nextLifecycle, transitionError =
-			ProjectileEntityLifecycleRules.Fuse(baseRecord.lifecycle, trajectory, levelTimeValue :: number)
+		nextLifecycle, transitionError = ProjectileEntityLifecycleRules.Fuse(
+			baseRecord.lifecycle,
+			trajectory,
+			levelTimeValue :: number
+		)
 	end
 	if not nextLifecycle then
 		return nil, transitionError
@@ -1109,7 +1190,10 @@ function ProjectileEntityService.PrepareFuse(requestValue: unknown): (PreparedMu
 	return prepareTrajectoryTransition("Fuse", requestValue)
 end
 
-local function prepareRelease(kind: ReleasePreparationKind, requestValue: unknown): (PreparedMutation?, string?)
+local function prepareRelease(
+	kind: ReleasePreparationKind,
+	requestValue: unknown
+): (PreparedMutation?, string?)
 	if activePrepared ~= nil then
 		return nil, "projectile-mutation-active"
 	end
@@ -1155,7 +1239,10 @@ local function prepareRelease(kind: ReleasePreparationKind, requestValue: unknow
 	elseif kind == "EventExpired" then
 		nextLifecycle, lifecycleError =
 			ProjectileEntityLifecycleRules.Advance(baseRecord.lifecycle, levelTimeValue :: number)
-		if nextLifecycle and nextLifecycle.phase ~= ProjectileEntityLifecycleRules.Phase.Released then
+		if
+			nextLifecycle
+			and nextLifecycle.phase ~= ProjectileEntityLifecycleRules.Phase.Released
+		then
 			return nil, "projectile-event-not-expired"
 		end
 	else
@@ -1200,7 +1287,12 @@ local function prepareRelease(kind: ReleasePreparationKind, requestValue: unknow
 				"Unbound",
 				baseRecord.dynamicBinding
 			)
-		if not dispatcherPrepared or not dispatcherSummary or not dispatcherReceipt or not dispatcherOutcome then
+		if
+			not dispatcherPrepared
+			or not dispatcherSummary
+			or not dispatcherReceipt
+			or not dispatcherOutcome
+		then
 			abortEntitySlotToken(token)
 			return nil, dispatcherError
 		end
@@ -1227,15 +1319,21 @@ local function prepareRelease(kind: ReleasePreparationKind, requestValue: unknow
 		nil
 end
 
-function ProjectileEntityService.PrepareNoImpact(requestValue: unknown): (PreparedMutation?, string?)
+function ProjectileEntityService.PrepareNoImpact(
+	requestValue: unknown
+): (PreparedMutation?, string?)
 	return prepareRelease("NoImpact", requestValue)
 end
 
-function ProjectileEntityService.PrepareEventExpired(requestValue: unknown): (PreparedMutation?, string?)
+function ProjectileEntityService.PrepareEventExpired(
+	requestValue: unknown
+): (PreparedMutation?, string?)
 	return prepareRelease("EventExpired", requestValue)
 end
 
-function ProjectileEntityService.PrepareAdministrativeRelease(requestValue: unknown): (PreparedMutation?, string?)
+function ProjectileEntityService.PrepareAdministrativeRelease(
+	requestValue: unknown
+): (PreparedMutation?, string?)
 	return prepareRelease("AdministrativeRelease", requestValue)
 end
 
@@ -1251,7 +1349,8 @@ function ProjectileEntityService.CanApplyPrepared(preparedValue: unknown): (bool
 		return false, currentError
 	end
 	if capability.entitySlotPrepared then
-		local canApply, canApplyError = EntitySlotService.CanApplyPrepared(capability.entitySlotPrepared)
+		local canApply, canApplyError =
+			EntitySlotService.CanApplyPrepared(capability.entitySlotPrepared)
 		if not canApply then
 			return false, canApplyError
 		end
@@ -1267,7 +1366,10 @@ function ProjectileEntityService.CanApplyPrepared(preparedValue: unknown): (bool
 	return true, nil
 end
 
-local function applyPreparedLocal(prepared: PreparedMutation, capability: PreparedCapability): ApplyReceipt
+local function applyPreparedLocal(
+	prepared: PreparedMutation,
+	capability: PreparedCapability
+): ApplyReceipt
 	assert(capability.applyValidated, "prepared projectile mutation was not validated")
 	assert(
 		preparedCurrentError(prepared, capability, false) == nil,
@@ -1312,7 +1414,8 @@ function ProjectileEntityService.CommitPrepared(preparedValue: unknown): (ApplyR
 	end
 	local dispatcherPrepared = capability.dispatcherPrepared
 	if dispatcherPrepared then
-		local dispatcherReceipt = EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
+		local dispatcherReceipt =
+			EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
 		assert(
 			dispatcherReceipt == capability.dispatcherReceipt,
 			"dispatcher returned a different prebuilt projectile receipt"
@@ -1414,9 +1517,11 @@ end
 -- exact immutable projectile record is retained privately so an Event
 -- transition, bounce generation, release, or active prepared mutation makes
 -- the proof fail closed without accepting a caller-authored trajectory base.
-function ProjectileEntityService.CaptureDeathInflictor(
-	sourceValue: unknown
-): (DeathInflictor?, DeathInflictorSummary?, string?)
+function ProjectileEntityService.CaptureDeathInflictor(sourceValue: unknown): (
+	DeathInflictor?,
+	DeathInflictorSummary?,
+	string?
+)
 	local sourceSummary = ProjectileEntityService.InspectSource(sourceValue)
 	if not sourceSummary then
 		return nil, nil, "invalid-projectile-death-inflictor-source"
@@ -1427,7 +1532,12 @@ function ProjectileEntityService.CaptureDeathInflictor(
 	local source = sourceValue :: ProjectileSource
 	local sourceCapability = sourceCapabilities[source]
 	local record = authority.bySource[source]
-	if not sourceCapability or not record or sourceCapability.record ~= record or record.summary ~= sourceSummary then
+	if
+		not sourceCapability
+		or not record
+		or sourceCapability.record ~= record
+		or record.summary ~= sourceSummary
+	then
 		return nil, nil, "stale-projectile-death-inflictor-source"
 	end
 	local inflictor: DeathInflictor = table.freeze({})
@@ -1454,7 +1564,9 @@ function ProjectileEntityService.CaptureDeathInflictor(
 	return inflictor, summary, nil
 end
 
-function ProjectileEntityService.InspectDeathInflictor(inflictorValue: unknown): DeathInflictorSummary?
+function ProjectileEntityService.InspectDeathInflictor(
+	inflictorValue: unknown
+): DeathInflictorSummary?
 	if type(inflictorValue) ~= "table" then
 		return nil
 	end
@@ -1545,7 +1657,10 @@ function ProjectileEntityService.InspectSourceForRegistration(
 	return source, record.summary
 end
 
-function ProjectileEntityService.ValidateSourceDependency(sourceValue: unknown, summaryValue: unknown): boolean
+function ProjectileEntityService.ValidateSourceDependency(
+	sourceValue: unknown,
+	summaryValue: unknown
+): boolean
 	local summary = ProjectileEntityService.InspectSource(sourceValue)
 	return summary ~= nil and summary == summaryValue
 end

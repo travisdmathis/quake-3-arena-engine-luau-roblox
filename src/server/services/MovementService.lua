@@ -910,8 +910,8 @@ local function stableViewFallbackCommand(
 	}
 end
 
-local CANONICAL_HITBOX_NAME = "ArenaHitbox"
-local CANONICAL_HITBOX_ATTRIBUTE = "ArenaCanonicalCombatHitbox"
+local CANONICAL_HITBOX_NAME = "Q3EngineHitbox"
+local CANONICAL_HITBOX_ATTRIBUTE = "Q3EngineCanonicalCombatHitbox"
 
 local records: { [Player]: PlayerRecord } = {}
 local lifeBindingRuntime = MovementLifeBindingRuntime.new()
@@ -4007,10 +4007,10 @@ local function collectSpawnPoints(worldFolder: Folder, fallbackOrigin: Vector3):
 	} =
 		{}
 	for _, descendant in worldFolder:GetDescendants() do
-		local origin = descendant:GetAttribute("ArenaSpawnOrigin")
+		local origin = descendant:GetAttribute("Q3EngineSpawnOrigin")
 		if typeof(origin) == "Vector3" then
-			local teamValue = descendant:GetAttribute("ArenaSpawnTeam")
-			local facingValue = descendant:GetAttribute("ArenaSpawnFacing")
+			local teamValue = descendant:GetAttribute("Q3EngineSpawnTeam")
+			local facingValue = descendant:GetAttribute("Q3EngineSpawnFacing")
 			local horizontalFacing = if typeof(facingValue) == "Vector3"
 				then Vector3.new(facingValue.X, 0, facingValue.Z)
 				else Vector3.zero
@@ -4019,7 +4019,7 @@ local function collectSpawnPoints(worldFolder: Folder, fallbackOrigin: Vector3):
 					and horizontalFacing.Magnitude > 1e-6
 				then horizontalFacing.Unit
 				else Vector3.new(0, 0, -1)
-			local spawnClassValue = descendant:GetAttribute("ArenaSpawnClass")
+			local spawnClassValue = descendant:GetAttribute("Q3EngineSpawnClass")
 			table.insert(markers, {
 				key = descendant:GetFullName(),
 				origin = origin,
@@ -4063,7 +4063,7 @@ local function collectCanonicalPlayerBodies(player: Player): { SweptAABB.Body }
 		local otherState = otherRecord.state
 		if
 			otherPlayer ~= player
-			and otherPlayer:GetAttribute("ArenaAlive") == true
+			and otherPlayer:GetAttribute("Q3EngineAlive") == true
 			and otherState
 		then
 			table.insert(bodies, {
@@ -4327,7 +4327,7 @@ local function prepareCharacter(character: Model)
 	hitbox.Anchored = true
 	hitbox.CanCollide = false
 	hitbox.CanTouch = false
-	hitbox.CanQuery = character:GetAttribute("ArenaCombatQueryEnabled") == true
+	hitbox.CanQuery = character:GetAttribute("Q3EngineCombatQueryEnabled") == true
 	hitbox.CastShadow = false
 	hitbox.Massless = true
 	hitbox.Size = Constants.StandingColliderSize
@@ -4337,10 +4337,10 @@ local function prepareCharacter(character: Model)
 	hitbox:SetAttribute(CANONICAL_HITBOX_ATTRIBUTE, true)
 	hitbox.Parent = character
 	assert(
-		hitbox.CanQuery == (character:GetAttribute("ArenaCombatQueryEnabled") == true)
+		hitbox.CanQuery == (character:GetAttribute("Q3EngineCombatQueryEnabled") == true)
 			and not hitbox.CanCollide
 			and not hitbox.CanTouch,
-		"ArenaHitbox query state must follow the server combat gate"
+		"Q3EngineHitbox query state must follow the server combat gate"
 	)
 
 	character.DescendantAdded:Connect(function(descendant: Instance)
@@ -4381,22 +4381,22 @@ local function renderCharacter(player: Player, record: PlayerRecord)
 		hitbox.Size = Constants.ColliderSizeFor(state.crouched)
 		hitbox.CFrame = CFrame.lookAt(center, center + look)
 	end
-	if player:GetAttribute("ArenaCrouched") ~= state.crouched then
-		player:SetAttribute("ArenaCrouched", state.crouched)
+	if player:GetAttribute("Q3EngineCrouched") ~= state.crouched then
+		player:SetAttribute("Q3EngineCrouched", state.crouched)
 	end
 	local resolvedCommand = Movement.ResolveCommand(state, record.command)
 	local walking = resolvedCommand ~= nil and resolvedCommand.walking
-	if player:GetAttribute("ArenaWalking") ~= walking then
-		player:SetAttribute("ArenaWalking", walking)
+	if player:GetAttribute("Q3EngineWalking") ~= walking then
+		player:SetAttribute("Q3EngineWalking", walking)
 	end
-	if player:GetAttribute("ArenaWaterLevel") ~= state.waterLevel then
-		player:SetAttribute("ArenaWaterLevel", state.waterLevel)
+	if player:GetAttribute("Q3EngineWaterLevel") ~= state.waterLevel then
+		player:SetAttribute("Q3EngineWaterLevel", state.waterLevel)
 	end
-	if player:GetAttribute("ArenaWaterType") ~= state.waterType then
-		player:SetAttribute("ArenaWaterType", state.waterType)
+	if player:GetAttribute("Q3EngineWaterType") ~= state.waterType then
+		player:SetAttribute("Q3EngineWaterType", state.waterType)
 	end
-	if player:GetAttribute("ArenaWaterJump") ~= state.timeWaterJump then
-		player:SetAttribute("ArenaWaterJump", state.timeWaterJump)
+	if player:GetAttribute("Q3EngineWaterJump") ~= state.timeWaterJump then
+		player:SetAttribute("Q3EngineWaterJump", state.timeWaterJump)
 	end
 end
 
@@ -4512,7 +4512,7 @@ local function chooseSpawn(
 				-- block ordinary selection even though only live bodies are movement
 				-- solids. KillBox is the all-occupied fallback.
 				active = otherRecord.spawnReserved
-					or otherPlayer:GetAttribute("ArenaMatchParticipation") == "Active",
+					or otherPlayer:GetAttribute("Q3EngineMatchParticipation") == "Active",
 			})
 		end
 	end
@@ -4528,7 +4528,7 @@ local function chooseSpawn(
 		return nil
 	end
 
-	local modeId = sharedRoot:GetAttribute("ArenaMatchMode")
+	local modeId = sharedRoot:GetAttribute("Q3EngineMatchMode")
 	-- Q3 ClientSpawn uses team-class spawn filtering only for GT_CTF and above;
 	-- TDM, Duel, and ordinary deathmatch share the deathmatch pool. Our
 	-- team-round Arena adaptation also opts into its authored team markers.
@@ -4537,12 +4537,12 @@ local function chooseSpawn(
 	local rocketArenaPartition = modeId == "ArenaElimination" and rocketArenaSpawnPartition
 	local choice
 	if rocketArenaPartition then
-		local matchId = sharedRoot:GetAttribute("ArenaMatchId")
-		local matchRound = sharedRoot:GetAttribute("ArenaMatchRound")
+		local matchId = sharedRoot:GetAttribute("Q3EngineMatchId")
+		local matchRound = sharedRoot:GetAttribute("Q3EngineMatchRound")
 		local nearTeam = if type(matchId) == "string" and type(matchRound) == "number"
 			then RocketArenaSpawnRules.ResolveNearTeam(matchId, matchRound)
 			else nil
-		local playerTeam = player:GetAttribute("ArenaMatchTeam")
+		local playerTeam = player:GetAttribute("Q3EngineMatchTeam")
 		if nearTeam == nil or (playerTeam ~= "Red" and playerTeam ~= "Blue") then
 			return nil
 		end
@@ -4561,7 +4561,7 @@ local function chooseSpawn(
 			occupants,
 			Constants.StandingColliderSize,
 			Constants.StandingColliderCenterOffset,
-			if teamSpawnPolicy then player:GetAttribute("ArenaMatchTeam") else nil,
+			if teamSpawnPolicy then player:GetAttribute("Q3EngineMatchTeam") else nil,
 			if record.state
 				then record.state.position
 				else record.lastAuthoritativeOrigin or Vector3.zero,
@@ -4907,7 +4907,7 @@ end
 
 function MovementService.GetPlayerMoverBody(player: Player): MoverPushRules.Body?
 	local record = records[player]
-	if not record or player:GetAttribute("ArenaAlive") ~= true then
+	if not record or player:GetAttribute("Q3EngineAlive") ~= true then
 		return nil
 	end
 	local body = MovementMoverBodyRuntime.LivePlayerBody(record)
@@ -5064,7 +5064,7 @@ local function studioMoverFixtureEnabled(): boolean
 	local world = Workspace:FindFirstChild("Q3EngineWorld")
 	return RunService:IsStudio()
 		and world ~= nil
-		and world:GetAttribute("ArenaStudioMoverFixture") ~= nil
+		and world:GetAttribute("Q3EngineStudioMoverFixture") ~= nil
 end
 
 function MovementService.GetBinaryMoverState(moverId: string): BinaryMoverState?
@@ -5131,7 +5131,7 @@ function MovementService.PlaceStudioPlayerOnMover(
 	end
 	local record = records[player]
 	local state = record and record.state
-	if not record or not state or player:GetAttribute("ArenaAlive") ~= true then
+	if not record or not state or player:GetAttribute("Q3EngineAlive") ~= true then
 		return false
 	end
 	local selectedPose: MoverPushRules.Pose? = nil
@@ -5260,8 +5260,8 @@ function MovementService.PrepareStudioBinaryMoverBlock(player: Player, moverId: 
 	blocker.Transparency = 1
 	blocker.Size = blockerSize
 	blocker.Position = blockerCenter
-	blocker:SetAttribute("ArenaSystemFixture", true)
-	blocker:SetAttribute("ArenaBinaryMoverBlocker", true)
+	blocker:SetAttribute("Q3EngineSystemFixture", true)
+	blocker:SetAttribute("Q3EngineBinaryMoverBlocker", true)
 	blocker.Parent = world
 	return true
 end
@@ -5277,7 +5277,7 @@ function MovementService.PlaceStudioPlayerForMoverCrush(
 	end
 	local record = records[player]
 	local state = record and record.state
-	if not record or not state or player:GetAttribute("ArenaAlive") ~= true then
+	if not record or not state or player:GetAttribute("Q3EngineAlive") ~= true then
 		return false
 	end
 
@@ -5350,7 +5350,7 @@ function MovementService.PlaceStudioPlayerForMoverCrush(
 		blocker.Transparency = 1
 		blocker.Size = wallSize
 		blocker.CFrame = CFrame.new(wallCenter)
-		blocker:SetAttribute("ArenaSystemFixture", true)
+		blocker:SetAttribute("Q3EngineSystemFixture", true)
 		blocker.Parent = collisionRoot
 	end
 
@@ -6698,7 +6698,7 @@ function MovementService.PreparePersonalTeleport(player: Player): (
 	if
 		not fixedStepTransactionOpen
 		or not record
-		or player:GetAttribute("ArenaAlive") ~= true
+		or player:GetAttribute("Q3EngineAlive") ~= true
 		or not lifeBinding
 		or currentMovementLifeBinding(lifeBinding) == nil
 	then
@@ -6750,7 +6750,7 @@ function MovementService.ResetStudioGameplayFidelityPose(
 ): boolean
 	if
 		not RunService:IsStudio()
-		or game:GetAttribute("ArenaGameplayFidelityStatus") ~= "running"
+		or game:GetAttribute("Q3EngineGameplayFidelityStatus") ~= "running"
 	then
 		return false
 	end
@@ -6761,7 +6761,7 @@ function MovementService.ResetStudioGameplayFidelityPose(
 		or not record.character
 		or not record.character.Parent
 		or player.Character ~= record.character
-		or player:GetAttribute("ArenaAlive") ~= true
+		or player:GetAttribute("Q3EngineAlive") ~= true
 		or not lifeBinding
 		or currentMovementLifeBinding(lifeBinding) == nil
 	then
@@ -7299,7 +7299,7 @@ function MovementService.Start(
 		"mover presentation folder must belong to the authoritative world"
 	)
 	assert(
-		configuredMoverPresentationFolder:GetAttribute("ArenaMoverPresentationOnly") == true,
+		configuredMoverPresentationFolder:GetAttribute("Q3EngineMoverPresentationOnly") == true,
 		"mover presentation folder is missing its presentation-only boundary"
 	)
 	local moverDomains, moverDomainsError =
@@ -7434,7 +7434,7 @@ function MovementService.Start(
 	movementSnapshotRemote = snapshotRemote
 	remoteRuntime:SetRemote(remoteFrameRemote)
 	spawnPoints = collectSpawnPoints(worldFolder, spawnOrigin)
-	rocketArenaSpawnPartition = worldFolder:GetAttribute("ArenaRocketArenaSpawnPartition") == true
+	rocketArenaSpawnPartition = worldFolder:GetAttribute("Q3EngineRocketArenaSpawnPartition") == true
 	local exactSpawnOccupancyAvailable: boolean
 	spawnWorldOccupants, exactSpawnOccupancyAvailable =
 		WorldOccupancyQuery.CreatePlayerMovement(staticSolidDomain, playerClipDomain)
@@ -7449,10 +7449,10 @@ function MovementService.Start(
 		exactMoverBodyOccupancyAvailable,
 		"Exact arbitrary-body occupancy is unavailable; refusing to start authoritative movers"
 	)
-	if RunService:IsStudio() and worldFolder:GetAttribute("ArenaStudioMoverFixture") ~= nil then
+	if RunService:IsStudio() and worldFolder:GetAttribute("Q3EngineStudioMoverFixture") ~= nil then
 		local fixtureCollision = Instance.new("Folder")
 		fixtureCollision.Name = "__StudioMoverCrushCollision"
-		fixtureCollision:SetAttribute("ArenaSystemFixture", true)
+		fixtureCollision:SetAttribute("Q3EngineSystemFixture", true)
 		fixtureCollision.Parent = worldFolder
 		moverBodyWorldOccupants, exactMoverBodyOccupancyAvailable =
 			WorldOccupancyQuery.CreateBodyFixture(fixtureCollision)
@@ -7476,7 +7476,7 @@ function MovementService.Start(
 	for _, spawnPoint in spawnPoints do
 		assert(
 			#queryWorld(spawnPoint.origin, false) == 0,
-			string.format("Arena spawn %d intersects world collision", spawnPoint.index)
+			string.format("Q3Engine spawn %d intersects world collision", spawnPoint.index)
 		)
 		local hasAuthoredGroundSupport = false
 		-- g_client.c::SelectSpawnPoint and g_team.c::SelectCTFSpawnPoint preserve
@@ -7498,7 +7498,7 @@ function MovementService.Start(
 		-- requiring the initial standing hull to already be grounded.
 		assert(
 			hasAuthoredGroundSupport,
-			string.format("Arena spawn %d has no authored ground support", spawnPoint.index)
+			string.format("Q3Engine spawn %d has no authored ground support", spawnPoint.index)
 		)
 	end
 	local function addPlayer(player: Player)
@@ -7562,11 +7562,11 @@ function MovementService.Start(
 		}
 		records[player] = record
 		telemetryRuntime:AddPlayer(player.UserId)
-		player:SetAttribute("ArenaCrouched", false)
-		player:SetAttribute("ArenaWalking", false)
-		player:SetAttribute("ArenaWaterLevel", 0)
-		player:SetAttribute("ArenaWaterType", WorldPointContents.Empty)
-		player:SetAttribute("ArenaWaterJump", false)
+		player:SetAttribute("Q3EngineCrouched", false)
+		player:SetAttribute("Q3EngineWalking", false)
+		player:SetAttribute("Q3EngineWaterLevel", 0)
+		player:SetAttribute("Q3EngineWaterType", WorldPointContents.Empty)
+		player:SetAttribute("Q3EngineWaterJump", false)
 
 		local function onCharacter(character: Model)
 			prepareCharacter(character)
@@ -7612,11 +7612,11 @@ function MovementService.Start(
 				record.awaitingViewCommand = false
 				record.spawnReserved = false
 				record.spawnIndex = nil
-				player:SetAttribute("ArenaCrouched", false)
-				player:SetAttribute("ArenaWalking", false)
-				player:SetAttribute("ArenaWaterLevel", 0)
-				player:SetAttribute("ArenaWaterType", WorldPointContents.Empty)
-				player:SetAttribute("ArenaWaterJump", false)
+				player:SetAttribute("Q3EngineCrouched", false)
+				player:SetAttribute("Q3EngineWalking", false)
+				player:SetAttribute("Q3EngineWaterLevel", 0)
+				player:SetAttribute("Q3EngineWaterType", WorldPointContents.Empty)
+				player:SetAttribute("Q3EngineWaterJump", false)
 			end
 		end)
 		if player.Character then
@@ -7890,7 +7890,7 @@ function MovementService.Start(
 						moverQueries.trace,
 						moverQueries.canOccupy,
 						moverQueries.pointContents,
-						player:GetAttribute("ArenaPowerup6Active") == true
+						player:GetAttribute("Q3EnginePowerup6Active") == true
 					)
 					normalToDeadAuthorityRuntime.Invalidate(record)
 					record.state = steppedState
@@ -7984,7 +7984,7 @@ function MovementService.Start(
 					end
 					-- Drain the complete predictable-event batch even if falling damage kills
 					-- the owner, then prevent a dead traveler from touching world triggers.
-					if player:GetAttribute("ArenaAlive") ~= true then
+					if player:GetAttribute("Q3EngineAlive") ~= true then
 						continue
 					end
 					if handleWorldExit(player, record, record.state :: Movement.State) then
@@ -8001,14 +8001,14 @@ function MovementService.Start(
 						"client-trigger frame handler is not configured"
 					)
 					handleClientTriggerFrame(frameForAuthority, player)
-					if player:GetAttribute("ArenaAlive") ~= true then
+					if player:GetAttribute("Q3EngineAlive") ~= true then
 						continue
 					end
 					local triggerOutcome = applyWorldTriggers(player, record)
 					remoteSnapshotRequested = remoteSnapshotRequested
 						or triggerOutcome.snapshotRequested
 					snapshotRequestedByPlayer[player] = triggerOutcome.snapshotRequested
-					if player:GetAttribute("ArenaAlive") ~= true then
+					if player:GetAttribute("Q3EngineAlive") ~= true then
 						continue
 					end
 					-- Door triggers are dynamic G_Spawn entities allocated after the
@@ -8028,7 +8028,7 @@ function MovementService.Start(
 					-- ClientThink_real performs ClientTimerActions only for a surviving
 					-- client, after events/triggers/impacts and before later world entities.
 					-- Supply the exact integer G_RunFrame interval instead of Heartbeat dt.
-					if player:GetAttribute("ArenaAlive") == true then
+					if player:GetAttribute("Q3EngineAlive") == true then
 						local handleClientTimer = assert(
 							clientTimerHandler,
 							"authoritative client timer handler is not configured"
@@ -8125,7 +8125,7 @@ function MovementService.Start(
 					if not record or not state then
 						continue
 					end
-					local alive = player:GetAttribute("ArenaAlive") == true
+					local alive = player:GetAttribute("Q3EngineAlive") == true
 					if alive and handleWorldExit(player, record, state) then
 						continue
 					end

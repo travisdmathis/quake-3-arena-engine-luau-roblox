@@ -44,7 +44,7 @@ end
 
 local function restoreVisual(instance: Instance)
 	if instance:IsA("BasePart") then
-		local original = instance:GetAttribute("ArenaOriginalTransparency")
+		local original = instance:GetAttribute("Q3EngineOriginalTransparency")
 		if type(original) == "number" then
 			instance.Transparency = original
 		end
@@ -55,12 +55,12 @@ local function restoreVisual(instance: Instance)
 		instance.CanQuery = false
 		instance.LocalTransparencyModifier = 0
 	elseif instance:IsA("Decal") then
-		local original = instance:GetAttribute("ArenaOriginalTransparency")
+		local original = instance:GetAttribute("Q3EngineOriginalTransparency")
 		if type(original) == "number" then
 			instance.Transparency = original
 		end
 	elseif instance:IsA("ParticleEmitter") or instance:IsA("Trail") or instance:IsA("Beam") then
-		local original = instance:GetAttribute("ArenaOriginalEnabled")
+		local original = instance:GetAttribute("Q3EngineOriginalEnabled")
 		instance.Enabled = type(original) == "boolean" and original or instance.Enabled
 	end
 end
@@ -82,7 +82,7 @@ local function sanitizeClone(model: Model)
 		end
 	end
 	model.Archivable = false
-	model:SetAttribute("ArenaBodyQueuePresentation", true)
+	model:SetAttribute("Q3EngineBodyQueuePresentation", true)
 end
 
 local function cloneCharacter(character: Model): (Model?, string?)
@@ -117,7 +117,7 @@ function BodyQueuePresentationService.Start(parent: Instance): (boolean, string?
 	local presentationFolder = Instance.new("Folder")
 	presentationFolder.Name = "BodyQueuePresentation"
 	presentationFolder.Archivable = false
-	presentationFolder:SetAttribute("ArenaBodyQueuePresentation", true)
+	presentationFolder:SetAttribute("Q3EngineBodyQueuePresentation", true)
 	presentationFolder.Parent = parent
 	folder = presentationFolder
 	started = true
@@ -133,7 +133,10 @@ function BodyQueuePresentationService.StageCopy(
 	player: Player,
 	sink: BodyQueueService.SinkDiagnostic
 ): (boolean, string?)
-	assert(started and BodyQueueFramePublicationService.IsOpen(), "BodyQueue copy is outside a frame")
+	assert(
+		started and BodyQueueFramePublicationService.IsOpen(),
+		"BodyQueue copy is outside a frame"
+	)
 	if not sink.linked then
 		return false, "body-queue-copy-sink-is-unlinked"
 	end
@@ -165,9 +168,9 @@ function BodyQueuePresentationService.StageCopy(
 		published = false,
 	}
 	model.Name = string.format("BodyQueue_%d_G%d", queueIndex, sink.occupantGeneration)
-	model:SetAttribute("ArenaBodyQueueIndex", queueIndex)
-	model:SetAttribute("ArenaBodyQueueOccupantGeneration", sink.occupantGeneration)
-	model:SetAttribute("ArenaBodyQueueSourceUserId", player.UserId)
+	model:SetAttribute("Q3EngineBodyQueueIndex", queueIndex)
+	model:SetAttribute("Q3EngineBodyQueueOccupantGeneration", sink.occupantGeneration)
+	model:SetAttribute("Q3EngineBodyQueueSourceUserId", player.UserId)
 	model:PivotTo(targetPivot(record, sink.collisionPosition))
 	ownedModels[model] = true
 	records[queueIndex] = record
@@ -186,7 +189,10 @@ function BodyQueuePresentationService.StageCopy(
 end
 
 function BodyQueuePresentationService.StageSink(sink: BodyQueueService.SinkDiagnostic): boolean
-	assert(started and BodyQueueFramePublicationService.IsOpen(), "BodyQueue sink is outside a frame")
+	assert(
+		started and BodyQueueFramePublicationService.IsOpen(),
+		"BodyQueue sink is outside a frame"
+	)
 	local record = records[sink.queueIndex]
 	if not record or record.occupantGeneration ~= sink.occupantGeneration then
 		return false

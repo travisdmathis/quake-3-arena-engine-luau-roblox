@@ -73,7 +73,9 @@ function MovementRemoteRuntime.new(config: Config): Runtime
 		end
 		local orderedPlayers = Players:GetPlayers()
 		table.sort(orderedPlayers, function(left: Player, right: Player): boolean
-			return if left.UserId == right.UserId then left.Name < right.Name else left.UserId < right.UserId
+			return if left.UserId == right.UserId
+				then left.Name < right.Name
+				else left.UserId < right.UserId
 		end)
 		local rows: { { any } } = {}
 		for _, player in orderedPlayers do
@@ -83,7 +85,7 @@ function MovementRemoteRuntime.new(config: Config): Runtime
 			local record = config.records[player]
 			local state = record and record.state
 			local character = record and record.character
-			local lifeSequence = player:GetAttribute("ArenaLifeSequence")
+			local lifeSequence = player:GetAttribute("Q3EngineLifeSequence")
 			if
 				record
 				and state
@@ -104,7 +106,7 @@ function MovementRemoteRuntime.new(config: Config): Runtime
 					state.velocity,
 					horizontalLook(state),
 					state.crouched,
-					player:GetAttribute("ArenaAlive") == true,
+					player:GetAttribute("Q3EngineAlive") == true,
 					state.grounded,
 					aimPitchRadians(state),
 				})
@@ -115,7 +117,7 @@ function MovementRemoteRuntime.new(config: Config): Runtime
 		end
 		batchSequence = CommandSequence.Next(batchSequence)
 		local serverTime = Workspace:GetServerTimeNow()
-		local rawMatchId = sharedRoot:GetAttribute("ArenaMatchId")
+		local rawMatchId = sharedRoot:GetAttribute("Q3EngineMatchId")
 		local matchId = if type(rawMatchId) == "string" then rawMatchId else ""
 		local chunkSize = RemoteInterpolationRules.PacketChunkSize
 		local chunkCount = math.ceil(#rows / chunkSize)

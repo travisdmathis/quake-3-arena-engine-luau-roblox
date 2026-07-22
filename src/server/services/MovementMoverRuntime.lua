@@ -124,9 +124,16 @@ function MovementMoverRuntime.GetDeathSourceCapability(state: State, source: unk
 	return if type(source) == "table" then state.deathSourceCapabilities[source :: table] else nil
 end
 
-function MovementMoverRuntime.SetDeathSourceCapability(state: State, source: unknown, capability: unknown?)
+function MovementMoverRuntime.SetDeathSourceCapability(
+	state: State,
+	source: unknown,
+	capability: unknown?
+)
 	assert(type(source) == "table", "mover death-source handle must be opaque")
-	assert(capability == nil or type(capability) == "table", "mover death-source capability must be table")
+	assert(
+		capability == nil or type(capability) == "table",
+		"mover death-source capability must be table"
+	)
 	state.deathSourceCapabilities[source :: table] = capability
 end
 
@@ -501,7 +508,11 @@ function MovementMoverRuntime.AssembleNormalToDeadBundle(
 	}
 end
 
-function MovementMoverRuntime.NextDeathSourceCallbackOrder(state: State, session: any, maximumOrder: number): number
+function MovementMoverRuntime.NextDeathSourceCallbackOrder(
+	state: State,
+	session: any,
+	maximumOrder: number
+): number
 	assert(
 		state.activeDeathSourceSession == session
 			and session.status == "Preparing"
@@ -512,9 +523,15 @@ function MovementMoverRuntime.NextDeathSourceCallbackOrder(state: State, session
 	return session.nextCallbackTraversalOrder
 end
 
-function MovementMoverRuntime.PrepareDeathSourceSession(state: State, session: any, prepared: unknown)
+function MovementMoverRuntime.PrepareDeathSourceSession(
+	state: State,
+	session: any,
+	prepared: unknown
+)
 	assert(
-		state.activeDeathSourceSession == session and session.status == "Preparing" and session.preparedHandle == nil,
+		state.activeDeathSourceSession == session
+			and session.status == "Preparing"
+			and session.preparedHandle == nil,
 		"stale mover death-source session at prepare"
 	)
 	table.freeze(session.sources)

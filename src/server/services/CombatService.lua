@@ -21,11 +21,9 @@ Modified for the Roblox Luau port on 2026-07-11.
 
 --!strict
 
-local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
@@ -34,13 +32,11 @@ local OneShotRules = require(sharedRoot.combat.OneShotRules)
 local RailImpressiveRules = require(sharedRoot.combat.RailImpressiveRules)
 local HoldableRules = require(sharedRoot.items.HoldableRules)
 local PowerupRules = require(sharedRoot.items.PowerupRules)
-local Catalog = require(sharedRoot.commerce.Catalog)
 local CombatEventPresentationRules = require(sharedRoot.combat.CombatEventPresentationRules)
 local Constants = require(sharedRoot.simulation.Constants)
 local CommandQuantization = require(sharedRoot.simulation.CommandQuantization)
 local CombatShotTraceRules = require(sharedRoot.simulation.CombatShotTraceRules)
 local EntityStateConversionRules = require(sharedRoot.simulation.EntityStateConversionRules)
-local EliminationPresentationRules = require(sharedRoot.presentation.EliminationPresentationRules)
 local EnvironmentDamageRules = require(sharedRoot.combat.EnvironmentDamageRules)
 local HitscanRewindRules = require(sharedRoot.combat.HitscanRewindRules)
 local Landing = require(sharedRoot.simulation.Landing)
@@ -50,6 +46,7 @@ local MatchEliminationShadowRules =
 local MatchFrameRules = require(sharedRoot:WaitForChild("match"):WaitForChild("MatchFrameRules"))
 local Movement = require(sharedRoot.simulation.Movement)
 local MoverConsequenceRules = require(sharedRoot.simulation.MoverConsequenceRules)
+local MoverItemFlagParticipantRules = require(sharedRoot.simulation.MoverItemFlagParticipantRules)
 local MoverPushRules = require(sharedRoot.simulation.MoverPushRules)
 local ProjectileEntityLifecycleRules = require(sharedRoot.combat.ProjectileEntityLifecycleRules)
 local ProjectileFrameTimeRules = require(sharedRoot.combat.ProjectileFrameTimeRules)
@@ -65,7 +62,8 @@ local AuthoritativeFrameService = require(script.Parent.AuthoritativeFrameServic
 local CorpseService = require(script.Parent.CorpseService)
 local CombatInventoryRuntime = require(script.Parent.CombatInventoryRuntime)
 local CombatHitscanRewindRuntime = require(script.Parent.CombatHitscanRewindRuntime)
-local CombatPersonalTeleporterCoordinator = require(script.Parent.CombatPersonalTeleporterCoordinator)
+local CombatPersonalTeleporterCoordinator =
+	require(script.Parent.CombatPersonalTeleporterCoordinator)
 local CombatRespawnCoordinator = require(script.Parent.CombatRespawnCoordinator)
 local CombatFramePublicationService = require(script.Parent.CombatFramePublicationService)
 local BodyQueuePresentationService = require(script.Parent.BodyQueuePresentationService)
@@ -99,7 +97,6 @@ export type EliminationEvent = {
 	targetLifeSequence: number,
 	matchId: string,
 	railCooldownReset: boolean,
-	effectId: string?,
 }
 
 export type InventorySnapshot = {
@@ -241,8 +238,13 @@ export type DeathDropInsertionAdapter = {
 	read ValidatePreparedDependency: (preparedValue: unknown, summaryValue: unknown) -> boolean,
 	read CanApplyPrepared: (preparedValue: unknown) -> (boolean, string?),
 	read ApplyPrepared: (preparedValue: unknown) -> unknown,
-	read ValidateAppliedDependency: (receiptValue: unknown, summaryValue: unknown) -> (boolean, string?),
-	read FlushPrepared: (receiptValue: unknown) -> (DeathDropInsertionPublicationReport?, string?),
+	read ValidateAppliedDependency: (
+		receiptValue: unknown,
+		summaryValue: unknown
+	) -> (boolean, string?),
+	read FlushPrepared: (
+		receiptValue: unknown
+	) -> (DeathDropInsertionPublicationReport?, string?),
 	read AbortPrepared: (preparedValue: unknown) -> (boolean, string?),
 	read PrepareBatch: (
 		requestsValue: unknown,
@@ -251,11 +253,19 @@ export type DeathDropInsertionAdapter = {
 		frameSummaryValue: unknown
 	) -> (unknown?, unknown?, string?),
 	read InspectPreparedBatch: (preparedValue: unknown) -> unknown?,
-	read ValidatePreparedBatchDependency: (preparedValue: unknown, summaryValue: unknown) -> boolean,
+	read ValidatePreparedBatchDependency: (
+		preparedValue: unknown,
+		summaryValue: unknown
+	) -> boolean,
 	read CanApplyPreparedBatch: (preparedValue: unknown) -> (boolean, string?),
 	read ApplyPreparedBatch: (preparedValue: unknown) -> unknown,
-	read ValidateAppliedBatchDependency: (receiptValue: unknown, summaryValue: unknown) -> (boolean, string?),
-	read FlushPreparedBatch: (receiptValue: unknown) -> (DeathDropBatchPublicationReport?, string?),
+	read ValidateAppliedBatchDependency: (
+		receiptValue: unknown,
+		summaryValue: unknown
+	) -> (boolean, string?),
+	read FlushPreparedBatch: (
+		receiptValue: unknown
+	) -> (DeathDropBatchPublicationReport?, string?),
 	read AbortPreparedBatch: (preparedValue: unknown) -> (boolean, string?),
 }
 
@@ -342,6 +352,19 @@ export type PreparedDirectDeathSummary = {
 	read deathDropBatchInsertionSummary: unknown?,
 }
 
+type DirectDeathProjectileSplashVisibilityWitness = {
+	read projectileSource: ProjectileEntityService.ProjectileSource,
+	read projectileSourceSummary: ProjectileEntityService.SourceSummary,
+	read target: Player,
+	read targetBody: MoverPushRules.Body,
+	read authoritativeFrame: AuthoritativeFrameService.Frame,
+	read authoritativeFrameSummary: AuthoritativeFrameService.Summary,
+	read explosionPosition: Vector3,
+	read targetCenter: Vector3,
+	read rawDamage: number,
+	read direction: Vector3,
+}
+
 type DirectDeathCauseCaptureRequest = {
 	kind: DirectDeathCauseKind,
 	target: Player,
@@ -351,6 +374,7 @@ type DirectDeathCauseCaptureRequest = {
 	shot: ShotContext,
 	targetBody: MoverPushRules.Body?,
 	projectileSource: ProjectileEntityService.ProjectileSource?,
+	projectileSplashVisibilityWitness: DirectDeathProjectileSplashVisibilityWitness?,
 	worldMeans: string?,
 }
 
@@ -400,6 +424,7 @@ type DirectDeathCauseCapability = {
 	projectileSource: ProjectileEntityService.ProjectileSource?,
 	projectileSourceSummary: ProjectileEntityService.SourceSummary?,
 	projectile: DirectDeathProjectileWitness?,
+	projectileSplashVisibilityWitness: DirectDeathProjectileSplashVisibilityWitness?,
 	authoritativeFrame: AuthoritativeFrameService.Frame,
 	authoritativeFrameSummary: AuthoritativeFrameService.Summary,
 	matchId: string,
@@ -534,7 +559,6 @@ type DirectDeathPreparedCapability = {
 	handoffCapability: DirectDeathHandoffCapability,
 	damagePayload: { [string]: any }?,
 	elimination: EliminationEvent,
-	eliminationPresentationPlans: { EliminationPresentationRules.OrbPlan },
 	corpseAbortComplete: boolean,
 	movementAbortComplete: boolean,
 	bodyQueueAbortComplete: boolean,
@@ -570,10 +594,14 @@ export type MoverDamageApplyReceipt = CombatMoverDamageCoordinator.MoverDamageAp
 export type MoverDamageStageReceipt = CombatMoverDamageCoordinator.MoverDamageStageReceipt
 export type MoverDamagePublicationReport = CombatMoverDamageCoordinator.MoverDamagePublicationReport
 export type MoverDamageContext = CombatMoverDamageCoordinator.MoverDamageContext
-export type MoverDamageMatchDependencySummary = CombatMoverDamageCoordinator.MoverDamageMatchDependencySummary
-export type MoverDamageMovementDependencySummary = CombatMoverDamageCoordinator.MoverDamageMovementDependencySummary
-export type MoverDamageLethalSourceDependency = CombatMoverDamageCoordinator.MoverDamageLethalSourceDependency
-export type MoverDamageMovementLifeDependency = CombatMoverDamageCoordinator.MoverDamageMovementLifeDependency
+export type MoverDamageMatchDependencySummary =
+	CombatMoverDamageCoordinator.MoverDamageMatchDependencySummary
+export type MoverDamageMovementDependencySummary =
+	CombatMoverDamageCoordinator.MoverDamageMovementDependencySummary
+export type MoverDamageLethalSourceDependency =
+	CombatMoverDamageCoordinator.MoverDamageLethalSourceDependency
+export type MoverDamageMovementLifeDependency =
+	CombatMoverDamageCoordinator.MoverDamageMovementLifeDependency
 export type MoverDamageAdapter = CombatMoverDamageCoordinator.MoverDamageAdapter
 
 type Projectile = {
@@ -629,7 +657,10 @@ type ProjectileRuntime = {
 		launchServerTime: number,
 		launchLevelTimeMilliseconds: number
 	) -> (),
-	queueCleanup: (owner: Player?, reason: ProjectileEntityLifecycleRules.AdministrativeReleaseReason) -> (),
+	queueCleanup: (
+		owner: Player?,
+		reason: ProjectileEntityLifecycleRules.AdministrativeReleaseReason
+	) -> (),
 	quarantine: () -> (),
 	destroyPresentation: (projectile: Projectile) -> (),
 	installRecord: (projectile: Projectile) -> (),
@@ -641,7 +672,9 @@ type ProjectileRuntime = {
 	commitRelease: (
 		projectile: Projectile,
 		frame: AuthoritativeFrameService.Frame,
-		reason: "NoImpact" | "EventExpired" | ProjectileEntityLifecycleRules.AdministrativeReleaseReason
+		reason: "NoImpact"
+			| "EventExpired"
+			| ProjectileEntityLifecycleRules.AdministrativeReleaseReason
 	) -> (),
 	transitionToEvent: (
 		projectile: Projectile,
@@ -669,6 +702,10 @@ local projectilesBySource: { [ProjectileEntityService.ProjectileSource]: Project
 local projectileRuntime = ({} :: any) :: ProjectileRuntime
 local projectilePhaseFaulted = false
 local projectileDynamicBindingActivated = false
+local projectileDiagnosticStage = "Idle"
+local projectileDiagnosticWeaponId = 0
+local projectileDiagnosticSourceOrder = 0
+local projectileDiagnosticGeneration = 0
 local started = false
 local simulationFaultExtension: (() -> ())? = nil
 local combatQueryEnabledByCharacter = setmetatable({}, { __mode = "k" }) :: {
@@ -710,12 +747,44 @@ local eliminationSignal = Instance.new("BindableEvent")
 local damageSignal = Instance.new("BindableEvent")
 local requestCharacterRespawn: (Player, CombatRecord, number) -> boolean
 local deathWeaponDropHandler: ((request: DeathWeaponDropRequest) -> boolean)? = nil
-local synchronousMoverFlagDropHandler: ((Player, Vector3, number) -> ({ MoverPushRules.Body }?, string?))? = nil
+local synchronousMoverFlagDropHandler: ((Player, Vector3, number) -> ({ MoverPushRules.Body }?, string?))? =
+	nil
 local corpseDepartureCleanupOwner: CorpseService.DepartureCleanupOwner? = nil
 local corpseMatchTransitionCleanupOwner: CorpseService.MatchTransitionCleanupOwner? = nil
 local movementMatchTransitionCleanupOwner: MovementService.MatchTransitionCleanupOwner? = nil
 local pendingPostBeginMatchCleanupId: string? = nil
 local canDamageFrom: ((origin: Vector3, targetPosition: Vector3) -> boolean)? = nil
+local directDeathDiagnosticStage = "Idle"
+
+local function setDirectDeathDiagnosticStage(stage: string)
+	directDeathDiagnosticStage = stage
+end
+
+local function boundedDirectDeathDiagnosticCode(value: unknown): string
+	if
+		type(value) == "string"
+		and #value <= 120
+		and string.match(value, "^[a-z0-9%-]+$") ~= nil
+	then
+		return value
+	end
+	return "unavailable"
+end
+
+local function warnDirectDeathFault(kind: DirectDeathCauseKind, errorCode: unknown?)
+	-- The caught value and stack remain discarded. Production receives only this
+	-- fixed stage plus a tightly bounded internal code, which is enough to separate
+	-- capture/prepare/apply/publication failures without exposing runtime data.
+	warn(
+		string.format(
+			"[Q3EngineDirectDeathFault] kind=%s stage=%s code=%s",
+			kind,
+			directDeathDiagnosticStage,
+			boundedDirectDeathDiagnosticCode(errorCode)
+		)
+	)
+end
+
 local directDeathOwner = {
 	bodyQueueService = require(script.Parent.BodyQueueService),
 	causeRules = require(sharedRoot.combat.DirectDeathCauseRules),
@@ -781,7 +850,8 @@ local function presentationTimeForLevel(levelTimeMilliseconds: number?): number?
 	if levelTimeMilliseconds == nil then
 		return nil
 	end
-	local frame = AuthoritativeFrameService.GetOpenFrame() or AuthoritativeFrameService.GetCurrentFrame()
+	local frame = AuthoritativeFrameService.GetOpenFrame()
+		or AuthoritativeFrameService.GetCurrentFrame()
 	if not frame then
 		return nil
 	end
@@ -887,17 +957,17 @@ end
 local function setPresentationInstance(instance: Instance, visible: boolean)
 	if instance:IsA("BasePart") or instance:IsA("Decal") then
 		local visual: any = instance
-		local original = visual:GetAttribute("ArenaOriginalTransparency")
+		local original = visual:GetAttribute("Q3EngineOriginalTransparency")
 		if type(original) ~= "number" then
 			original = visual.Transparency
-			visual:SetAttribute("ArenaOriginalTransparency", original)
+			visual:SetAttribute("Q3EngineOriginalTransparency", original)
 		end
 		visual.Transparency = if visible then original else 1
 	elseif instance:IsA("ParticleEmitter") or instance:IsA("Trail") or instance:IsA("Beam") then
-		local original = instance:GetAttribute("ArenaOriginalEnabled")
+		local original = instance:GetAttribute("Q3EngineOriginalEnabled")
 		if type(original) ~= "boolean" then
 			original = instance.Enabled
-			instance:SetAttribute("ArenaOriginalEnabled", original)
+			instance:SetAttribute("Q3EngineOriginalEnabled", original)
 		end
 		instance.Enabled = visible and original
 	end
@@ -913,7 +983,7 @@ local function setCharacterCombatQuery(character: Model?, enabled: boolean)
 		if not character.Parent then
 			return true
 		end
-		local hitbox = character:FindFirstChild("ArenaHitbox")
+		local hitbox = character:FindFirstChild("Q3EngineHitbox")
 		if hitbox and hitbox:IsA("BasePart") then
 			hitbox.CanQuery = combatQueryEnabledByCharacter[character] == true
 			return true
@@ -929,22 +999,23 @@ local function setCharacterCombatQuery(character: Model?, enabled: boolean)
 	-- this frame see the death/spawn. Visibility is replication-only and remains
 	-- behind the successful frame-close barrier.
 	CombatFramePublicationService.Queue(function()
-		character:SetAttribute("ArenaCombatQueryEnabled", enabled)
-		character:SetAttribute("ArenaPresentationVisible", enabled)
+		character:SetAttribute("Q3EngineCombatQueryEnabled", enabled)
+		character:SetAttribute("Q3EnginePresentationVisible", enabled)
 		for _, descendant in character:GetDescendants() do
 			setPresentationInstance(descendant, enabled)
 		end
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
-			local originalNameDistance = humanoid:GetAttribute("ArenaOriginalNameDisplayDistance")
+			local originalNameDistance = humanoid:GetAttribute("Q3EngineOriginalNameDisplayDistance")
 			if type(originalNameDistance) ~= "number" then
 				originalNameDistance = humanoid.NameDisplayDistance
-				humanoid:SetAttribute("ArenaOriginalNameDisplayDistance", originalNameDistance)
+				humanoid:SetAttribute("Q3EngineOriginalNameDisplayDistance", originalNameDistance)
 			end
-			local originalHealthDistance = humanoid:GetAttribute("ArenaOriginalHealthDisplayDistance")
+			local originalHealthDistance =
+				humanoid:GetAttribute("Q3EngineOriginalHealthDisplayDistance")
 			if type(originalHealthDistance) ~= "number" then
 				originalHealthDistance = humanoid.HealthDisplayDistance
-				humanoid:SetAttribute("ArenaOriginalHealthDisplayDistance", originalHealthDistance)
+				humanoid:SetAttribute("Q3EngineOriginalHealthDisplayDistance", originalHealthDistance)
 			end
 			humanoid.NameDisplayDistance = if enabled then originalNameDistance else 0
 			humanoid.HealthDisplayDistance = if enabled then originalHealthDistance else 0
@@ -983,13 +1054,19 @@ end
 
 local function publishPlayerRecord(player: Player, record: CombatRecord)
 	local serverNow = Workspace:GetServerTimeNow()
-	local transitionRemaining = if record.weaponState == "Dropping" or record.weaponState == "Raising"
+	local transitionRemaining = if record.weaponState == "Dropping"
+			or record.weaponState == "Raising"
 		then weaponPhaseRemainingSeconds(record)
 		else 0
-	local transitionEndsAt = if transitionRemaining > 0 then serverNow + transitionRemaining else nil
-	local weaponReadyAt = if record.weaponState ~= "Ready" then serverNow + weaponReadyRemainingSeconds(record) else nil
+	local transitionEndsAt = if transitionRemaining > 0
+		then serverNow + transitionRemaining
+		else nil
+	local weaponReadyAt = if record.weaponState ~= "Ready"
+		then serverNow + weaponReadyRemainingSeconds(record)
+		else nil
 	local selectedAmmo = CombatInventoryRuntime.GetSelectedAmmo(record)
-	local impressiveRewardEndsAt = presentationTimeForLevel(record.impressiveRewardUntilMilliseconds)
+	local impressiveRewardEndsAt =
+		presentationTimeForLevel(record.impressiveRewardUntilMilliseconds)
 	local respawnEligibleAt = presentationTimeForLevel(record.respawnEligibleAtMilliseconds)
 	local inventory = CombatInventoryRuntime.BuildSnapshot(record)
 	table.freeze(inventory.ownedWeaponIds)
@@ -1044,38 +1121,38 @@ local function publishPlayerRecord(player: Player, record: CombatRecord)
 		respawnEligibleAt = respawnEligibleAt,
 	})
 	CombatFramePublicationService.Queue(function()
-		player:SetAttribute("ArenaHealth", wire.health)
-		player:SetAttribute("ArenaArmor", wire.armor)
-		player:SetAttribute("ArenaAlive", wire.alive)
-		player:SetAttribute("ArenaWeaponId", wire.weaponId)
-		player:SetAttribute("ArenaActiveWeaponId", wire.activeWeaponId)
-		player:SetAttribute("ArenaWeaponState", wire.weaponState)
-		player:SetAttribute("ArenaRailJumpReadyAtMilliseconds", wire.railJumpReadyAtMilliseconds)
-		player:SetAttribute("ArenaWeaponTransitionEndsAt", wire.weaponTransitionAt)
-		player:SetAttribute("ArenaWeaponReadyAt", wire.weaponReadyAt)
-		player:SetAttribute("ArenaAmmo", wire.ammo)
-		player:SetAttribute("ArenaInfiniteAmmo", wire.infiniteAmmo)
-		player:SetAttribute("ArenaHoldableId", wire.holdableId)
-		player:SetAttribute("ArenaHoldableUseHeld", wire.holdableUseHeld)
+		player:SetAttribute("Q3EngineHealth", wire.health)
+		player:SetAttribute("Q3EngineArmor", wire.armor)
+		player:SetAttribute("Q3EngineAlive", wire.alive)
+		player:SetAttribute("Q3EngineWeaponId", wire.weaponId)
+		player:SetAttribute("Q3EngineActiveWeaponId", wire.activeWeaponId)
+		player:SetAttribute("Q3EngineWeaponState", wire.weaponState)
+		player:SetAttribute("Q3EngineRailJumpReadyAtMilliseconds", wire.railJumpReadyAtMilliseconds)
+		player:SetAttribute("Q3EngineWeaponTransitionEndsAt", wire.weaponTransitionAt)
+		player:SetAttribute("Q3EngineWeaponReadyAt", wire.weaponReadyAt)
+		player:SetAttribute("Q3EngineAmmo", wire.ammo)
+		player:SetAttribute("Q3EngineInfiniteAmmo", wire.infiniteAmmo)
+		player:SetAttribute("Q3EngineHoldableId", wire.holdableId)
+		player:SetAttribute("Q3EngineHoldableUseHeld", wire.holdableUseHeld)
 		for _, powerup in wire.powerupAttributes do
-			player:SetAttribute(string.format("ArenaPowerup%dActive", powerup.id), powerup.active)
-			player:SetAttribute(string.format("ArenaPowerup%dEndsAt", powerup.id), powerup.endsAt)
+			player:SetAttribute(string.format("Q3EnginePowerup%dActive", powerup.id), powerup.active)
+			player:SetAttribute(string.format("Q3EnginePowerup%dEndsAt", powerup.id), powerup.endsAt)
 		end
-		player:SetAttribute("ArenaScore", wire.score)
-		player:SetAttribute("ArenaDeaths", wire.deaths)
-		player:SetAttribute("ArenaShotsFired", wire.shotsFired)
-		player:SetAttribute("ArenaAccuracyShots", wire.accuracyShots)
-		player:SetAttribute("ArenaAccuracyHits", wire.accuracyHits)
-		player:SetAttribute("ArenaAccuracyMatchId", wire.accuracyMatchId)
-		player:SetAttribute("ArenaRailAccurateCount", wire.railAccurateCount)
-		player:SetAttribute("ArenaImpressiveCount", wire.impressiveCount)
-		player:SetAttribute("ArenaImpressiveActive", wire.impressiveRewardEndsAt ~= nil)
-		player:SetAttribute("ArenaImpressiveRewardEndsAt", wire.impressiveRewardEndsAt)
-		player:SetAttribute("ArenaNoAmmoEvents", wire.noAmmoEvents)
-		player:SetAttribute("ArenaLastWeaponCommandSequence", wire.lastWeaponCommandSequence)
-		player:SetAttribute("ArenaLifeSequence", wire.lifeSequence)
-		player:SetAttribute("ArenaLastShotId", wire.lastShotId)
-		player:SetAttribute("ArenaRespawnEligibleAt", wire.respawnEligibleAt)
+		player:SetAttribute("Q3EngineScore", wire.score)
+		player:SetAttribute("Q3EngineDeaths", wire.deaths)
+		player:SetAttribute("Q3EngineShotsFired", wire.shotsFired)
+		player:SetAttribute("Q3EngineAccuracyShots", wire.accuracyShots)
+		player:SetAttribute("Q3EngineAccuracyHits", wire.accuracyHits)
+		player:SetAttribute("Q3EngineAccuracyMatchId", wire.accuracyMatchId)
+		player:SetAttribute("Q3EngineRailAccurateCount", wire.railAccurateCount)
+		player:SetAttribute("Q3EngineImpressiveCount", wire.impressiveCount)
+		player:SetAttribute("Q3EngineImpressiveActive", wire.impressiveRewardEndsAt ~= nil)
+		player:SetAttribute("Q3EngineImpressiveRewardEndsAt", wire.impressiveRewardEndsAt)
+		player:SetAttribute("Q3EngineNoAmmoEvents", wire.noAmmoEvents)
+		player:SetAttribute("Q3EngineLastWeaponCommandSequence", wire.lastWeaponCommandSequence)
+		player:SetAttribute("Q3EngineLifeSequence", wire.lifeSequence)
+		player:SetAttribute("Q3EngineLastShotId", wire.lastShotId)
+		player:SetAttribute("Q3EngineRespawnEligibleAt", wire.respawnEligibleAt)
 		local scoreValue, deathsValue = ensureLeaderstats(player)
 		scoreValue.Value = wire.score
 		deathsValue.Value = wire.deaths
@@ -1152,7 +1229,10 @@ local function resolveAccuracyShot(
 	directContacts: { AccuracyContact },
 	radiusContacts: { AccuracyContact }
 ): AccuracyShotResult
-	local family = assert(ACCURACY_FAMILY_BY_WEAPON_ID[shot.weaponId], "accepted weapon has no accuracy family")
+	local family = assert(
+		ACCURACY_FAMILY_BY_WEAPON_ID[shot.weaponId],
+		"accepted weapon has no accuracy family"
+	)
 	local result, resolveError = AccuracyRules.ResolveShot({
 		family = family,
 		directContacts = directContacts,
@@ -1167,7 +1247,10 @@ local function resolveAccuracyShot(
 end
 
 local function recordAcceptedAccuracyShot(record: CombatRecord, shot: ShotContext)
-	local family = assert(ACCURACY_FAMILY_BY_WEAPON_ID[shot.weaponId], "accepted weapon has no accuracy family")
+	local family = assert(
+		ACCURACY_FAMILY_BY_WEAPON_ID[shot.weaponId],
+		"accepted weapon has no accuracy family"
+	)
 	local result, resolveError = AccuracyRules.ResolveShot({
 		family = family,
 		directContacts = {},
@@ -1224,7 +1307,9 @@ local function collectCombatShotTargets(): ({ MoverPushRules.Body }, { [string]:
 	local targetsByBodyId: { [string]: CombatTarget } = {}
 	for _, player in orderedPlayers do
 		local record = records[player]
-		local body = if record and record.alive then MovementService.GetPlayerMoverBody(player) else nil
+		local body = if record and record.alive
+			then MovementService.GetPlayerMoverBody(player)
+			else nil
 		if body then
 			assert(targetsByBodyId[body.id] == nil, "duplicate live shot body identity")
 			table.insert(bodies, body)
@@ -1329,8 +1414,13 @@ local function traceCombatShot(
 		then Workspace:Raycast(origin, displacement, excludeParameters(exclusions))
 		else nil
 	local bodies, targetsByBodyId = collectCombatShotTargets()
-	local dynamicResult, dynamicError =
-		CombatShotTraceRules.Trace(bodies, origin, displacement, MoverPushRules.Masks.Shot, ignoredBodyIds)
+	local dynamicResult, dynamicError = CombatShotTraceRules.Trace(
+		bodies,
+		origin,
+		displacement,
+		MoverPushRules.Masks.Shot,
+		ignoredBodyIds
+	)
 	assert(dynamicResult, dynamicError or "combat dynamic shot trace failed")
 	dynamicResult = mergeCombatEntityTraces(dynamicResult, traceMoverSolids(origin, displacement))
 	if dynamicResult.hit and (not worldResult or dynamicResult.distance < worldResult.Distance) then
@@ -1370,12 +1460,16 @@ local function traceCombatShot(
 end
 
 traceMoverSolids = function(origin: Vector3, displacement: Vector3): CombatShotTraceRules.Result
-	local moverResult = MovementService.TraceMoverPoint(origin, displacement, MoverPushRules.Masks.Solid)
+	local moverResult =
+		MovementService.TraceMoverPoint(origin, displacement, MoverPushRules.Masks.Solid)
 	local distance = displacement.Magnitude * moverResult.fraction
 	local contact = if moverResult.moverId
 		then table.freeze({
 			bodyId = moverResult.moverId,
-			sourceOrder = assert(moverResult.sourceOrder, "mover point contact lost its source order"),
+			sourceOrder = assert(
+				moverResult.sourceOrder,
+				"mover point contact lost its source order"
+			),
 			contents = moverResult.contents,
 		})
 		else nil
@@ -1394,8 +1488,10 @@ traceMoverSolids = function(origin: Vector3, displacement: Vector3): CombatShotT
 end
 
 local function traceRailJumpSurface(origin: Vector3, direction: Vector3): Vector3?
-	local range =
-		assert(OneShotRules.RailJumpRangeStuds(Constants.UnitsToStuds), "One-Shot rail-jump range must be valid")
+	local range = assert(
+		OneShotRules.RailJumpRangeStuds(Constants.UnitsToStuds),
+		"One-Shot rail-jump range must be valid"
+	)
 	local displacement = direction.Unit * range
 	local exclusions: { Instance } = {}
 	appendLiveFilter(exclusions, projectileFolder)
@@ -1418,7 +1514,12 @@ local function traceRailJumpSurface(origin: Vector3, direction: Vector3): Vector
 	return nil
 end
 
-local function recordAuthoritativeHistorySample(player: Player, state: any, revision: number, serverTime: number)
+local function recordAuthoritativeHistorySample(
+	player: Player,
+	state: any,
+	revision: number,
+	serverTime: number
+)
 	local record = records[player]
 	local character = record and record.character
 	local matchId = MatchService.GetMatchId()
@@ -1454,7 +1555,10 @@ local function recordAuthoritativeHistorySample(player: Player, state: any, revi
 	end
 end
 
-local function rewindIdentityForPlayer(player: Player, matchId: string): HitscanRewindRules.Identity?
+local function rewindIdentityForPlayer(
+	player: Player,
+	matchId: string
+): HitscanRewindRules.Identity?
 	local record = records[player]
 	local character = record and record.character
 	local revision = MovementService.GetRevision(player)
@@ -1531,7 +1635,11 @@ local function historicalTargetsForTrace(
 			continue
 		end
 		local targetRecord = records[target]
-		if not targetRecord or not targetRecord.alive or not MatchService.CanPlayerFight(target) then
+		if
+			not targetRecord
+			or not targetRecord.alive
+			or not MatchService.CanPlayerFight(target)
+		then
 			CombatHitscanRewindRuntime.Increment("ineligibleTargetSkipCount")
 			continue
 		end
@@ -1559,7 +1667,8 @@ local function historicalTargetsForTrace(
 			continue
 		end
 
-		local distance = HitscanRewindRules.RayAabbDistance(origin, direction, range, sample.center, sample.size)
+		local distance =
+			HitscanRewindRules.RayAabbDistance(origin, direction, range, sample.center, sample.size)
 		if distance == nil then
 			continue
 		end
@@ -1608,7 +1717,10 @@ local function sameUserIdSet(left: { number }, right: { number }): boolean
 	return true
 end
 
-local function classifyShadowTrace(currentUserIds: { number }, historicalUserIds: { number }): string
+local function classifyShadowTrace(
+	currentUserIds: { number },
+	historicalUserIds: { number }
+): string
 	if #currentUserIds == 0 and #historicalUserIds == 0 then
 		return "AgreeMiss"
 	end
@@ -1659,8 +1771,11 @@ local function recordHitscanRewindShadow(
 	then
 		return
 	end
-	local targetTime =
-		HitscanRewindRules.ComputeTargetTime(inputReceivedServerTime, serverNow, safeRoundTripSeconds(player))
+	local targetTime = HitscanRewindRules.ComputeTargetTime(
+		inputReceivedServerTime,
+		serverNow,
+		safeRoundTripSeconds(player)
+	)
 	local historicalUserIds: { number } = {}
 	local occludedUserIds: { number } = {}
 	local classification = "HistoryUnavailable"
@@ -1715,7 +1830,8 @@ local function reserveShotContext(
 ): ShotContext
 	record.serverShotSequence += 1
 	local lifeSequence = record.lifeSequence
-	record.lastShotId = WeaponDefinitions.MakeShotId(player.UserId, lifeSequence, record.serverShotSequence)
+	record.lastShotId =
+		WeaponDefinitions.MakeShotId(player.UserId, lifeSequence, record.serverShotSequence)
 	return {
 		id = record.lastShotId,
 		matchId = MatchService.GetSnapshot().matchId,
@@ -1728,7 +1844,11 @@ local function reserveShotContext(
 		levelTimeMilliseconds = levelTimeMilliseconds,
 		firedAtServerTime = firedAtServerTime,
 		eventSequence = 0,
-		seed = WeaponDefinitions.MakeShotSeed(player.UserId, lifeSequence, record.serverShotSequence),
+		seed = WeaponDefinitions.MakeShotSeed(
+			player.UserId,
+			lifeSequence,
+			record.serverShotSequence
+		),
 		inputReceivedServerTime = inputReceivedServerTime,
 	}
 end
@@ -1747,7 +1867,12 @@ local function emitNoAmmo(
 	end
 	local payload = table.freeze({
 		kind = "NoAmmo",
-		eventId = string.format("noammo:%d:%d:%d", player.UserId, record.lifeSequence, record.noAmmoEvents),
+		eventId = string.format(
+			"noammo:%d:%d:%d",
+			player.UserId,
+			record.lifeSequence,
+			record.noAmmoEvents
+		),
 		ownerUserId = player.UserId,
 		weaponId = weaponId,
 		clientSequence = clientSequence,
@@ -1759,7 +1884,11 @@ local function emitNoAmmo(
 	end)
 end
 
-local function makeEnvironmentContext(target: Player, record: CombatRecord, levelTimeMilliseconds: number?): ShotContext
+local function makeEnvironmentContext(
+	target: Player,
+	record: CombatRecord,
+	levelTimeMilliseconds: number?
+): ShotContext
 	local resolvedLevelTimeMilliseconds = levelTimeMilliseconds
 	if resolvedLevelTimeMilliseconds == nil then
 		local frame = AuthoritativeFrameService.GetOpenFrame()
@@ -1792,7 +1921,11 @@ local function applyKnockback(target: Player, direction: Vector3, damage: number
 	local knockbackDamage = math.min(damage, 200)
 	local q3Velocity = WeaponDefinitions.Knockback * knockbackDamage / WeaponDefinitions.PlayerMass
 	local velocityDelta = direction.Unit * q3Velocity * Constants.UnitsToStuds
-	MovementService.ApplyVelocity(target, velocityDelta, WeaponDefinitions.KnockbackDurationSeconds(knockbackDamage))
+	MovementService.ApplyVelocity(
+		target,
+		velocityDelta,
+		WeaponDefinitions.KnockbackDurationSeconds(knockbackDamage)
+	)
 end
 
 local function buildDeathWeaponDrop(
@@ -1839,11 +1972,14 @@ local function buildDeathWeaponDrop(
 		return nil, "IneligibleWeapon"
 	end
 
-	local movementState = if preparedEntityTrajectoryBase == nil or preparedEntityAngularLook == nil
+	local movementState = if preparedEntityTrajectoryBase == nil
+			or preparedEntityAngularLook == nil
 		then MovementService.GetState(target)
 		else nil
-	local dropPosition = preparedEntityTrajectoryBase or (if movementState then movementState.position else nil)
-	local dropLook = preparedEntityAngularLook or (if movementState then movementState.look else nil)
+	local dropPosition = preparedEntityTrajectoryBase
+		or (if movementState then movementState.position else nil)
+	local dropLook = preparedEntityAngularLook
+		or (if movementState then movementState.look else nil)
 	local snapshot = MatchService.GetSnapshot()
 	local matchId = snapshot.matchId
 	if not dropPosition or not dropLook or type(matchId) ~= "string" or matchId == "" then
@@ -1868,7 +2004,10 @@ local function publishPreparedDeathWeaponDrop(request: DeathWeaponDropRequest?)
 		return
 	end
 	local snapshot = MatchService.GetSnapshot()
-	if (snapshot.state ~= "Warmup" and snapshot.state ~= "Live") or snapshot.matchId ~= request.matchId then
+	if
+		(snapshot.state ~= "Warmup" and snapshot.state ~= "Live")
+		or snapshot.matchId ~= request.matchId
+	then
 		return
 	end
 	local ok, accepted = pcall(handler, request)
@@ -1910,7 +2049,7 @@ local function stageSynchronousMoverPowerupDrops(
 	if RunService:IsStudio() then
 		local stage = string.format("Resolved:%d", #drops)
 		CombatFramePublicationService.Queue(function()
-			player:SetAttribute("ArenaStudioMoverPowerupStage", stage)
+			player:SetAttribute("Q3EngineStudioMoverPowerupStage", stage)
 		end)
 	end
 	local movementState = MovementService.GetState(player)
@@ -1924,8 +2063,10 @@ local function stageSynchronousMoverPowerupDrops(
 	local matchId = MatchService.GetSnapshot().matchId
 	local bodies: { MoverPushRules.Body } = {}
 	for _, drop in drops do
-		local itemId =
-			assert(PowerupRules.ItemIdByPowerupId[drop.powerupId], "powerup death drop lost its item definition")
+		local itemId = assert(
+			PowerupRules.ItemIdByPowerupId[drop.powerupId],
+			"powerup death drop lost its item definition"
+		)
 		local yaw = math.rad(drop.yawOffsetDegrees)
 		local look = Vector3.new(
 			horizontal.X * math.cos(yaw) - horizontal.Z * math.sin(yaw),
@@ -1939,7 +2080,13 @@ local function stageSynchronousMoverPowerupDrops(
 		)
 		local velocity = DroppedWeaponRules.LaunchVelocity(look, seed)
 		local body, stageError = adapter.StageSynchronousMover({
-			dropId = string.format("powerup:%s:%d:%d:%d", matchId, player.UserId, record.lifeSequence, drop.powerupId),
+			dropId = string.format(
+				"powerup:%s:%d:%d:%d",
+				matchId,
+				player.UserId,
+				record.lifeSequence,
+				drop.powerupId
+			),
 			matchId = matchId,
 			itemId = itemId,
 			quantity = drop.remainingSeconds,
@@ -1950,7 +2097,7 @@ local function stageSynchronousMoverPowerupDrops(
 			if RunService:IsStudio() then
 				local stage = stageError or "StageFailed"
 				CombatFramePublicationService.Queue(function()
-					player:SetAttribute("ArenaStudioMoverPowerupStage", stage)
+					player:SetAttribute("Q3EngineStudioMoverPowerupStage", stage)
 				end)
 			end
 			return nil, stageError or "synchronous-mover-powerup-drop-stage-failed"
@@ -1961,7 +2108,7 @@ local function stageSynchronousMoverPowerupDrops(
 	if RunService:IsStudio() then
 		local stage = string.format("Staged:%d", #bodies)
 		CombatFramePublicationService.Queue(function()
-			player:SetAttribute("ArenaStudioMoverPowerupStage", stage)
+			player:SetAttribute("Q3EngineStudioMoverPowerupStage", stage)
 		end)
 	end
 	return bodies, nil
@@ -1979,50 +2126,11 @@ local function stageSynchronousMoverFlagDrops(
 	return handler(player, position, operationOrder)
 end
 
-local function createEliminationOrbNow(position: Vector3, plan: EliminationPresentationRules.OrbPlan)
-	local folder = projectileFolder
-	if not folder or not folder.Parent then
-		return
-	end
-
-	local orb = Instance.new("Part")
-	orb.Name = "EnergyElimination"
-	orb.Shape = plan.shape
-	orb.Anchored = plan.anchored
-	orb.CanCollide = plan.canCollide
-	orb.CanTouch = plan.canTouch
-	orb.CanQuery = plan.canQuery
-	orb.CastShadow = plan.castShadow
-	orb.Material = plan.material
-	orb.Color = plan.color
-	orb.Transparency = plan.startTransparency
-	orb.Size = Vector3.new(plan.startDiameterStuds, plan.startDiameterStuds, plan.startDiameterStuds)
-	orb.Position = position
-	orb.Parent = folder
-	TweenService:Create(orb, TweenInfo.new(plan.durationSeconds, plan.easingStyle, plan.easingDirection), {
-		Size = Vector3.new(plan.endDiameterStuds, plan.endDiameterStuds, plan.endDiameterStuds),
-		Transparency = plan.endTransparency,
-	}):Play()
-	Debris:AddItem(orb, plan.durationSeconds + plan.debrisPaddingSeconds)
-end
-
-local function createEliminationOrb(position: Vector3, plan: EliminationPresentationRules.OrbPlan)
-	CombatFramePublicationService.Queue(function()
-		createEliminationOrbNow(position, plan)
-	end)
-end
-
 local function emitElimination(elimination: EliminationEvent)
 	CombatFramePublicationService.Queue(function()
 		eliminationSignal:Fire(elimination)
 	end)
 	broadcast(elimination :: any)
-
-	local effect = if elimination.effectId then Catalog.ById[elimination.effectId] else nil
-	local palette = if effect and effect.Slot == "EliminationEffect" then effect.Palette else nil
-	for _, plan in EliminationPresentationRules.BuildPlan(palette) do
-		createEliminationOrb(elimination.position, plan)
-	end
 end
 
 local function applyDamage(
@@ -2036,10 +2144,16 @@ local function applyDamage(
 	allowCapturedAttackAuthorization: boolean?,
 	projectileWitness: Projectile?,
 	targetBody: MoverPushRules.Body?,
-	bypassArmor: boolean?
+	bypassArmor: boolean?,
+	projectileSplashVisibilityWitness: DirectDeathProjectileSplashVisibilityWitness?
 ): boolean
 	local record = records[target]
-	if not record or not record.alive or rawDamage <= 0 or not MatchService.CanPlayerFight(target) then
+	if
+		not record
+		or not record.alive
+		or rawDamage <= 0
+		or not MatchService.CanPlayerFight(target)
+	then
 		return false
 	end
 	local damageAuthorized = MatchService.CanDamage(attacker, target)
@@ -2125,6 +2239,7 @@ local function applyDamage(
 			shot = shot,
 			targetBody = targetBody,
 			projectileSource = projectileSource,
+			projectileSplashVisibilityWitness = projectileSplashVisibilityWitness,
 			worldMeans = worldMeans,
 		})
 		assert(applied, applyError or "lethal direct-damage transaction failed")
@@ -2159,6 +2274,12 @@ local function applyDamage(
 		revision = shot.revision,
 		targetUserId = target.UserId,
 		attackerUserId = if attacker then attacker.UserId else 0,
+		-- Presentation-only owner confirmation. This rides the already buffered,
+		-- post-close Damage event so an audio cue can never mutate or fault the
+		-- authoritative fixed-step projectile handler.
+		hitConfirmed = attacker ~= nil
+			and attacker ~= target
+			and MatchService.AreOpponents(attacker, target),
 		rawDamage = rawDamage,
 		adjustedDamage = adjustedDamage,
 		damage = healthDamage,
@@ -2188,15 +2309,22 @@ function directDeathOwner.abortChildren(
 			deathDropInsertionAdapter ~= nil
 			and select(
 				1,
-				(deathDropInsertionAdapter :: DeathDropInsertionAdapter).AbortPreparedBatch(deathDropInsertionPrepared)
+				(deathDropInsertionAdapter :: DeathDropInsertionAdapter).AbortPreparedBatch(
+					deathDropInsertionPrepared
+				)
 			)
 		)
 	local corpseAborted = corpseToken == nil or CorpseService.Abort(corpseToken)
-	local movementAborted = movementPrepared == nil or MovementService.AbortPreparedNormalToDead(movementPrepared)
+	local movementAborted = movementPrepared == nil
+		or MovementService.AbortPreparedNormalToDead(movementPrepared)
 	local bodyQueueAborted = bodyQueuePrepared == nil
 		or bodyQueueService.AbortPreparedDeathRecordBatch(bodyQueuePrepared)
 	local matchAborted = matchToken == nil or MatchService.AbortEliminationBatch(matchToken)
-	return deathDropInsertionAborted and corpseAborted and movementAborted and bodyQueueAborted and matchAborted
+	return deathDropInsertionAborted
+		and corpseAborted
+		and movementAborted
+		and bodyQueueAborted
+		and matchAborted
 end
 
 function directDeathOwner.deathDropBatchSummaryError(
@@ -2237,6 +2365,7 @@ function directDeathOwner.deathDropBatchSummaryError(
 		local insertion = if type(itemSummary) == "table" then itemSummary.insertion else nil
 		local participant = if type(itemSummary) == "table" then itemSummary.participant else nil
 		local body = if type(participant) == "table" then participant.body else nil
+		local participantBinding = if type(participant) == "table" then participant.binding else nil
 		local binding = if type(insertion) == "table" then insertion.binding else nil
 		local order = if type(insertion) == "table" then insertion.order else nil
 		local expectedOrdinal = MoverConsequenceRules.PowerupItemOrdinal[request.itemId]
@@ -2263,9 +2392,19 @@ function directDeathOwner.deathDropBatchSummaryError(
 			or order.ordinal ~= (expectedOrdinal or 0)
 			or type(binding) ~= "table"
 			or binding.kind ~= MoverConsequenceRules.BindingKinds.Item
+			or binding.bodyId ~= itemSummary.bodyId
 			or binding.itemId ~= request.itemId
 			or type(body) ~= "table"
-			or body ~= insertion.body
+			or type(participantBinding) ~= "table"
+			or participantBinding.kind ~= MoverItemFlagParticipantRules.BindingKinds.Item
+			or participantBinding.bodyId ~= itemSummary.bodyId
+			or participantBinding.itemId ~= request.itemId
+			or participant.lifecycle ~= MoverItemFlagParticipantRules.Lifecycle.ActiveLinked
+			or participant.dropped ~= true
+			or not MoverItemFlagParticipantRules.InsertionBodyMatchesParticipant(
+				insertion.body,
+				body
+			)
 			or body.id ~= itemSummary.bodyId
 			or body.sourceOrder ~= itemSummary.sourceOrder
 			or body.position ~= request.position
@@ -2294,7 +2433,8 @@ function directDeathOwner.validPointContents(value: unknown): boolean
 		and (value :: number) % 1 == 0
 		and (value :: number) >= 0
 		and (value :: number) <= 4_294_967_295
-		and bit32.band(value :: number, bit32.bnot(directDeathOwner.knownPointContentsMask)) == 0
+		and bit32.band(value :: number, bit32.bnot(directDeathOwner.knownPointContentsMask))
+			== 0
 end
 
 function directDeathOwner.shotError(
@@ -2353,7 +2493,11 @@ function directDeathOwner.shotError(
 	return nil
 end
 
-function directDeathOwner.shotMatchesSnapshot(shot: ShotContext, snapshot: ShotContext, eventSequence: number): boolean
+function directDeathOwner.shotMatchesSnapshot(
+	shot: ShotContext,
+	snapshot: ShotContext,
+	eventSequence: number
+): boolean
 	return table.isfrozen(snapshot)
 		and shot.id == snapshot.id
 		and shot.matchId == snapshot.matchId
@@ -2376,7 +2520,10 @@ function directDeathOwner.playerDirectDamage(weaponId: number): number?
 	if not definition then
 		return nil
 	end
-	if weaponId == WeaponDefinitions.WeaponId.Machinegun and MatchService.GetRules().ModeKind == "TeamDeathmatch" then
+	if
+		weaponId == WeaponDefinitions.WeaponId.Machinegun
+		and MatchService.GetRules().ModeKind == "TeamDeathmatch"
+	then
 		return definition.TeamDamage
 	end
 	return definition.Damage
@@ -2396,8 +2543,10 @@ local function powerupAdjustedDamage(
 				levelTimeMilliseconds
 			)
 			== true
-	local poweredDamage =
-		assert(PowerupRules.QuadDamage(rawDamage, quadActive), "direct-death Quad damage input must be valid")
+	local poweredDamage = assert(
+		PowerupRules.QuadDamage(rawDamage, quadActive),
+		"direct-death Quad damage input must be valid"
+	)
 	local battleSuitActive = PowerupRules.IsActive(
 		targetRecord.powerupExpiries[PowerupRules.PowerupId.BattleSuit] or 0,
 		levelTimeMilliseconds
@@ -2412,10 +2561,17 @@ function directDeathOwner.projectileDamageAndDirection(
 	kind: DirectDeathCauseKind,
 	projectile: DirectDeathProjectileWitness?,
 	sourceSummary: ProjectileEntityService.SourceSummary?,
+	target: Player,
 	targetBody: MoverPushRules.Body,
-	frameSummary: AuthoritativeFrameService.Summary
+	frame: AuthoritativeFrameService.Frame,
+	frameSummary: AuthoritativeFrameService.Summary,
+	splashVisibilityWitness: DirectDeathProjectileSplashVisibilityWitness?
 ): (number?, Vector3?, string?)
-	if not projectile or not sourceSummary or projectile.authorityTrajectoryState ~= sourceSummary.trajectoryState then
+	if
+		not projectile
+		or not sourceSummary
+		or projectile.authorityTrajectoryState ~= sourceSummary.trajectoryState
+	then
 		return nil, nil, "crossed-projectile-damage-source"
 	end
 	local definition = WeaponDefinitions.ById[projectile.shot.weaponId]
@@ -2423,7 +2579,11 @@ function directDeathOwner.projectileDamageAndDirection(
 		return nil, nil, "projectile-damage-definition-unavailable"
 	end
 	if kind == "MissileImpact" then
-		if sourceSummary.phase ~= "Missile" or not definition.Damage then
+		if
+			splashVisibilityWitness ~= nil
+			or sourceSummary.phase ~= "Missile"
+			or not definition.Damage
+		then
 			return nil, nil, "invalid-missile-impact-damage-source"
 		end
 		local direction = ProjectileTrajectory.EvaluateDelta(
@@ -2447,18 +2607,37 @@ function directDeathOwner.projectileDamageAndDirection(
 		end
 		local explosionPosition = sourceSummary.trajectoryBase
 		local targetCenter = targetBody.position + targetBody.centerOffset
-		local edgeDistance =
-			WeaponDefinitions.DistanceToAxisAlignedBox(explosionPosition, targetCenter, targetBody.size)
-		local damage = WeaponDefinitions.SplashDamage(definition.SplashDamage, edgeDistance, definition.SplashRadius)
-		local visibilityQuery = canDamageFrom
-		local visibilitySucceeded, visible =
-			if visibilityQuery then pcall(visibilityQuery, explosionPosition, targetCenter) else false, false
-		if damage <= 0 or not visibilitySucceeded or visible ~= true then
-			return nil, nil, "projectile-splash-target-not-reachable"
+		local witness = splashVisibilityWitness
+		if
+			not witness
+			or not table.isfrozen(witness)
+			or witness.projectileSource ~= projectile.source
+			or witness.projectileSourceSummary ~= sourceSummary
+			or witness.target ~= target
+			or witness.targetBody ~= targetBody
+			or witness.authoritativeFrame ~= frame
+			or witness.authoritativeFrameSummary ~= frameSummary
+			or witness.explosionPosition ~= explosionPosition
+			or witness.targetCenter ~= targetCenter
+		then
+			return nil, nil, "invalid-projectile-splash-visibility-witness"
 		end
+		local edgeDistance = WeaponDefinitions.DistanceToAxisAlignedBox(
+			explosionPosition,
+			targetCenter,
+			targetBody.size
+		)
+		local damage = WeaponDefinitions.SplashDamage(
+			definition.SplashDamage,
+			edgeDistance,
+			definition.SplashRadius
+		)
 		local direction = targetBody.position
 			- explosionPosition
 			+ Vector3.yAxis * WeaponDefinitions.RadiusDirectionLift
+		if damage <= 0 or witness.rawDamage ~= damage or witness.direction ~= direction then
+			return nil, nil, "crossed-projectile-splash-visibility-witness"
+		end
 		return damage, direction, nil
 	end
 	return nil, nil, "invalid-projectile-damage-cause"
@@ -2469,7 +2648,8 @@ function directDeathOwner.causeCurrentError(
 	capability: DirectDeathCauseCapability,
 	expectedStatus: "Current" | "Bound"
 ): string?
-	local classification = select(1, (directDeathOwner.causeRules :: any).Validate(capability.classification))
+	local classification =
+		select(1, (directDeathOwner.causeRules :: any).Validate(capability.classification))
 	local target = capability.target
 	local record = records[target]
 	local currentBody = MovementService.GetPlayerMoverBody(target)
@@ -2482,20 +2662,27 @@ function directDeathOwner.causeCurrentError(
 			fixedDamageError = "player-direct-damage-definition-unavailable"
 		end
 	elseif directDeathOwner.projectileCauseKinds[capability.kind] == true then
-		expectedRawDamage, expectedDirection, fixedDamageError = directDeathOwner.projectileDamageAndDirection(
-			capability.kind,
-			capability.projectile,
-			capability.projectileSourceSummary,
-			capability.hitBody,
-			capability.authoritativeFrameSummary
-		)
+		expectedRawDamage, expectedDirection, fixedDamageError =
+			directDeathOwner.projectileDamageAndDirection(
+				capability.kind,
+				capability.projectile,
+				capability.projectileSourceSummary,
+				capability.target,
+				capability.hitBody,
+				capability.authoritativeFrame,
+				capability.authoritativeFrameSummary,
+				capability.projectileSplashVisibilityWitness
+			)
 	end
 	if expectedRawDamage ~= nil then
 		expectedRawDamage = powerupAdjustedDamage(
 			expectedRawDamage,
 			capability.attackerRecord,
 			capability.targetRecord,
-			assert(capability.shot.levelTimeMilliseconds, "direct-death currentness requires shot level time"),
+			assert(
+				capability.shot.levelTimeMilliseconds,
+				"direct-death currentness requires shot level time"
+			),
 			capability.isSplash,
 			capability.means
 		)
@@ -2600,7 +2787,8 @@ function directDeathOwner.causeCurrentError(
 			or capability.attackerSourceSummary.lifeSummary == nil
 			or capability.attackerSourceSummary.lifeSummary.player ~= attacker
 			or capability.attackerSourceSummary.lifeSummary.playerUserId ~= attacker.UserId
-			or capability.attackerSourceSummary.lifeSummary.lifeSequence ~= attackerRecord.lifeSequence
+			or capability.attackerSourceSummary.lifeSummary.lifeSequence
+				~= attackerRecord.lifeSequence
 		then
 			return "stale-direct-death-cause-attacker"
 		end
@@ -2683,7 +2871,9 @@ end
 -- Private-only mint. Future live damage callsites must create this capability
 -- inline from their exact trace/projectile/environment authority and pass only
 -- the opaque handle to PrepareDirectDeath. No service or test mint is exported.
-function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest): (DirectDeathCause?, string?)
+function directDeathOwner.captureCause(
+	request: DirectDeathCauseCaptureRequest
+): (DirectDeathCause?, string?)
 	local frame = AuthoritativeFrameService.GetOpenFrame()
 	local frameSummary = if frame then AuthoritativeFrameService.InspectFrame(frame) else nil
 	local matchId = MatchService.GetMatchId()
@@ -2721,7 +2911,10 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 		or not targetLifeBinding
 		or not targetLifeSummary
 		or not targetBody
-		or not MovementService.ValidateMovementLifeBindingDependency(targetLifeBinding, targetLifeSummary)
+		or not MovementService.ValidateMovementLifeBindingDependency(
+			targetLifeBinding,
+			targetLifeSummary
+		)
 		or targetLifeSummary.player ~= target
 		or targetLifeSummary.playerUserId ~= target.UserId
 		or targetLifeSummary.lifeSequence ~= targetRecord.lifeSequence
@@ -2770,11 +2963,15 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 			means = nonWeaponMeans,
 		}
 	end
-	local classification, classificationError = (directDeathOwner.causeRules :: any).Resolve(classificationRequest)
+	local classification, classificationError = (directDeathOwner.causeRules :: any).Resolve(
+		classificationRequest
+	)
 	if not classification then
 		return nil, classificationError or "invalid-direct-death-cause-classification"
 	end
-	if classification.bypassCombatEligibility ~= true and not MatchService.CanPlayerFight(target) then
+	if
+		classification.bypassCombatEligibility ~= true and not MatchService.CanPlayerFight(target)
+	then
 		return nil, "direct-death-target-cannot-fight"
 	end
 	if
@@ -2789,7 +2986,10 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 	if request.kind == "SuicidePlayerDie" and attacker ~= target then
 		return nil, "invalid-suicide-direct-death-attacker"
 	end
-	if (request.kind == "WorldDamage" or request.kind == "ForcedWorldPlayerDie") and attacker ~= nil then
+	if
+		(request.kind == "WorldDamage" or request.kind == "ForcedWorldPlayerDie")
+		and attacker ~= nil
+	then
 		return nil, "invalid-world-direct-death-attacker"
 	end
 	if
@@ -2887,17 +3087,21 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 		then
 			return nil, "crossed-projectile-direct-death-cause"
 		end
-	elseif projectileSource ~= nil then
+	elseif projectileSource ~= nil or request.projectileSplashVisibilityWitness ~= nil then
 		return nil, "unexpected-projectile-direct-death-source"
 	end
 	if directDeathOwner.projectileCauseKinds[request.kind] == true then
-		local derivedDamage, derivedDirection, derivedError = directDeathOwner.projectileDamageAndDirection(
-			request.kind,
-			projectile,
-			projectileSourceSummary,
-			hitBody,
-			frameSummary
-		)
+		local derivedDamage, derivedDirection, derivedError =
+			directDeathOwner.projectileDamageAndDirection(
+				request.kind,
+				projectile,
+				projectileSourceSummary,
+				target,
+				hitBody,
+				frame,
+				frameSummary,
+				request.projectileSplashVisibilityWitness
+			)
 		if derivedDamage == nil or derivedDirection == nil then
 			return nil, derivedError or "projectile-direct-death-damage-unavailable"
 		end
@@ -2909,7 +3113,10 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 			assert(rawDamage, "GDamage cause requires raw damage"),
 			attackerRecord,
 			targetRecord,
-			assert(request.shot.levelTimeMilliseconds, "direct-death preparation requires shot level time"),
+			assert(
+				request.shot.levelTimeMilliseconds,
+				"direct-death preparation requires shot level time"
+			),
 			classification.isSplash,
 			classification.means
 		)
@@ -2934,11 +3141,17 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 			return nil, "projectile-direct-death-not-authorized"
 		end
 	elseif request.kind == "WorldDamage" or request.kind == "ForcedWorldPlayerDie" then
-		if request.shot.lifeSequence ~= targetRecord.lifeSequence or not MatchService.CanDamage(nil, target) then
+		if
+			request.shot.lifeSequence ~= targetRecord.lifeSequence
+			or not MatchService.CanDamage(nil, target)
+		then
 			return nil, "world-direct-death-not-authorized"
 		end
 	elseif request.kind == "SuicidePlayerDie" then
-		if request.shot.lifeSequence ~= targetRecord.lifeSequence or not MatchService.CanDamage(target, target) then
+		if
+			request.shot.lifeSequence ~= targetRecord.lifeSequence
+			or not MatchService.CanDamage(target, target)
+		then
 			return nil, "suicide-direct-death-not-authorized"
 		end
 	elseif request.kind == "Telefrag" then
@@ -2952,8 +3165,11 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 		end
 	end
 
-	local pointContentsSucceeded, pointContentsValue = pcall(MovementService.GetPointContents, targetBody.position)
-	if not pointContentsSucceeded or not directDeathOwner.validPointContents(pointContentsValue) then
+	local pointContentsSucceeded, pointContentsValue =
+		pcall(MovementService.GetPointContents, targetBody.position)
+	if
+		not pointContentsSucceeded or not directDeathOwner.validPointContents(pointContentsValue)
+	then
 		return nil, "direct-death-point-contents-unavailable"
 	end
 	local currentTargetBody = MovementService.GetPlayerMoverBody(target)
@@ -2967,7 +3183,10 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 		or targetRecord.movementLifeBinding ~= targetLifeBinding
 		or not currentTargetBody
 		or not directDeathOwner.sameBody(currentTargetBody, targetBody)
-		or not MovementService.ValidateMovementLifeBindingDependency(targetLifeBinding, targetLifeSummary)
+		or not MovementService.ValidateMovementLifeBindingDependency(
+			targetLifeBinding,
+			targetLifeSummary
+		)
 		or targetLifeSummary.player ~= target
 		or targetLifeSummary.playerUserId ~= target.UserId
 		or targetLifeSummary.lifeSequence ~= targetRecord.lifeSequence
@@ -2980,7 +3199,8 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 				or projectileSourceSummary == nil
 				or projectilesBySource[projectileSource] ~= projectile
 				or ProjectileEntityService.InspectSource(projectileSource) ~= projectileSourceSummary
-				or projectile.authorityTrajectoryState ~= projectileSourceSummary.trajectoryState
+				or projectile.authorityTrajectoryState
+					~= projectileSourceSummary.trajectoryState
 			)
 		)
 	then
@@ -3006,7 +3226,8 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 		return nil, "direct-death-attacker-source-unavailable"
 	end
 	if attacker then
-		local currentAttackerRecord = assert(attackerRecord, "direct-death attacker source has no Combat record")
+		local currentAttackerRecord =
+			assert(attackerRecord, "direct-death attacker source has no Combat record")
 		local attackerLifeSummary = attackerSourceSummary.lifeSummary
 		if
 			attackerSourceSummary.kind ~= "Player"
@@ -3080,6 +3301,7 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 		projectileSource = projectileSource,
 		projectileSourceSummary = projectileSourceSummary,
 		projectile = projectile,
+		projectileSplashVisibilityWitness = request.projectileSplashVisibilityWitness,
 		authoritativeFrame = frame,
 		authoritativeFrameSummary = frameSummary,
 		matchId = matchId,
@@ -3095,28 +3317,49 @@ function directDeathOwner.captureCause(request: DirectDeathCauseCaptureRequest):
 end
 
 executeDirectDeath = function(request: DirectDeathCauseCaptureRequest): (boolean, string?)
-	local cause, captureError = directDeathOwner.captureCause(request)
-	if not cause then
-		return false, captureError or "direct-death-cause-capture-failed"
-	end
-	local prepared, _summary, prepareError = CombatService.PrepareDirectDeath(cause)
-	if not prepared then
-		return false, prepareError or "direct-death-prepare-failed"
-	end
-	local canApply, preflightError = CombatService.CanApplyPreparedDirectDeath(prepared)
-	if not canApply then
-		local aborted, abortError = CombatService.AbortPreparedDirectDeath(prepared)
-		if not aborted then
-			return false, abortError or preflightError or "direct-death-abort-failed"
+	setDirectDeathDiagnosticStage("Capture")
+	local completed, applied, executionError = xpcall(function(): (boolean, string?)
+		local cause, captureError = directDeathOwner.captureCause(request)
+		if not cause then
+			return false, captureError or "direct-death-cause-capture-failed"
 		end
-		return false, preflightError or "direct-death-preflight-failed"
+		setDirectDeathDiagnosticStage("Prepare")
+		local prepared, _summary, prepareError = CombatService.PrepareDirectDeath(cause)
+		if not prepared then
+			return false, prepareError or "direct-death-prepare-failed"
+		end
+		setDirectDeathDiagnosticStage("Preflight")
+		local canApply, preflightError = CombatService.CanApplyPreparedDirectDeath(prepared)
+		if not canApply then
+			setDirectDeathDiagnosticStage("Abort")
+			local aborted, abortError = CombatService.AbortPreparedDirectDeath(prepared)
+			if not aborted then
+				return false, abortError or preflightError or "direct-death-abort-failed"
+			end
+			return false, preflightError or "direct-death-preflight-failed"
+		end
+		setDirectDeathDiagnosticStage("Apply")
+		local receipt = CombatService.ApplyPreparedDirectDeath(prepared)
+		setDirectDeathDiagnosticStage("Flush")
+		local report = CombatService.FlushPreparedDirectDeath(receipt)
+		if not report.authorityApplied then
+			return false, "direct-death-authority-not-applied"
+		end
+		return true, nil
+	end, function(_errorValue: unknown): nil
+		-- The Dispatcher intentionally discards handler error values. Preserve that
+		-- boundary here too; diagnostics expose only the fixed stage enum.
+		return nil
+	end)
+	if not completed then
+		warnDirectDeathFault(request.kind, nil)
+		error("direct-death-execution-faulted", 0)
 	end
-	local receipt = CombatService.ApplyPreparedDirectDeath(prepared)
-	local report = CombatService.FlushPreparedDirectDeath(receipt)
-	if not report.authorityApplied then
-		return false, "direct-death-authority-not-applied"
+	if not applied then
+		warnDirectDeathFault(request.kind, executionError)
 	end
-	return true, nil
+	setDirectDeathDiagnosticStage("Idle")
+	return applied, executionError
 end
 
 function directDeathOwner.retireHandoffCapability(capability: DirectDeathHandoffCapability)
@@ -3141,7 +3384,10 @@ function directDeathOwner.rebindHandoffRespawnDeadlines(
 	local handoff = directDeathOwner.handoffByPlayer[player]
 	local capability = handoff and directDeathOwner.handoffCapabilities[handoff]
 	if capability then
-		assert(capability.status == "Current", "respawn deadline rebind found a non-current handoff")
+		assert(
+			capability.status == "Current",
+			"respawn deadline rebind found a non-current handoff"
+		)
 		assert(capability.target == player, "respawn deadline rebind changed handoff target")
 		assert(capability.record == record, "respawn deadline rebind changed Combat record")
 		assert(
@@ -3156,7 +3402,10 @@ function directDeathOwner.rebindHandoffRespawnDeadlines(
 	record.forcedRespawnAtMilliseconds = forcedRespawnAtMilliseconds
 end
 
-function directDeathOwner.handoffCurrentError(handoffValue: unknown, capability: DirectDeathHandoffCapability): string?
+function directDeathOwner.handoffCurrentError(
+	handoffValue: unknown,
+	capability: DirectDeathHandoffCapability
+): string?
 	local summary = capability.summary
 	local target = capability.target
 	local bodyQueueService = directDeathOwner.bodyQueueService :: any
@@ -3205,14 +3454,17 @@ function directDeathOwner.handoffCurrentError(handoffValue: unknown, capability:
 		or corpseSource.lifeSequence ~= summary.lifeSequence
 		or corpseSource.playerBodyId ~= (capability.bodyQueueDeathSummary :: any).playerBodyId
 		or corpseSource.playerSourceOrder ~= (capability.bodyQueueDeathSummary :: any).playerSourceOrder
-		or corpseSource.playerLeaseGeneration ~= (capability.bodyQueueDeathSummary :: any).playerLeaseGeneration
+		or corpseSource.playerLeaseGeneration
+			~= (capability.bodyQueueDeathSummary :: any).playerLeaseGeneration
 	then
 		return "stale-direct-death-handoff"
 	end
 	return nil
 end
 
-function directDeathOwner.powerupDropRequestsCurrentError(capability: DirectDeathPreparedCapability): string?
+function directDeathOwner.powerupDropRequestsCurrentError(
+	capability: DirectDeathPreparedCapability
+): string?
 	local summary = capability.summary
 	local mutation = capability.mutation
 	local requests = capability.deathPowerupDropRequests
@@ -3249,11 +3501,17 @@ function directDeathOwner.powerupDropRequestsCurrentError(capability: DirectDeat
 			local request = requests[requestIndex]
 			local batchRequest = batchRequests[firstPowerupBatchIndex + requestIndex - 1]
 			local itemId = PowerupRules.ItemIdByPowerupId[powerupId]
-			if not request or batchRequest ~= request or not itemId or not table.isfrozen(request) then
+			if
+				not request
+				or batchRequest ~= request
+				or not itemId
+				or not table.isfrozen(request)
+			then
 				return "stale-direct-death-powerup-drop-request"
 			end
 			local yaw = math.rad(
-				PowerupRules.FirstDeathDropAngleDegrees + (requestIndex - 1) * PowerupRules.DeathDropAngleStepDegrees
+				PowerupRules.FirstDeathDropAngleDegrees
+					+ (requestIndex - 1) * PowerupRules.DeathDropAngleStepDegrees
 			)
 			local look = Vector3.new(
 				horizontal.X * math.cos(yaw) - horizontal.Z * math.sin(yaw),
@@ -3276,7 +3534,10 @@ function directDeathOwner.powerupDropRequestsCurrentError(capability: DirectDeat
 					)
 				or request.matchId ~= summary.matchId
 				or request.itemId ~= itemId
-				or request.quantity ~= math.max(1, math.floor((expiry - summary.levelTimeMilliseconds) / 1_000))
+				or request.quantity ~= math.max(
+					1,
+					math.floor((expiry - summary.levelTimeMilliseconds) / 1_000)
+				)
 				or request.position ~= capability.movementSummary.callbackEntityTrajectoryBase
 				or request.velocity ~= DroppedWeaponRules.LaunchVelocity(look, seed)
 			then
@@ -3322,7 +3583,9 @@ function directDeathOwner.preparedCurrentError(
 		or summary.means ~= causeCapability.means
 		or summary.meansOfDeath ~= causeCapability.meansOfDeath
 		or summary.bloodEnabled ~= causeCapability.bloodEnabled
-		or summary.noDrop ~= (directDeathOwner.worldPointContents :: any).IsNoDrop(causeCapability.pointContents)
+		or summary.noDrop ~= (directDeathOwner.worldPointContents :: any).IsNoDrop(
+			causeCapability.pointContents
+		)
 		or handoffCapability.status ~= "Pending"
 		or handoffCapability.handoff ~= capability.handoff
 		or handoffCapability.summary ~= capability.handoffSummary
@@ -3378,7 +3641,6 @@ function directDeathOwner.preparedCurrentError(
 		or (capability.damagePayload ~= nil and not table.isfrozen(capability.damagePayload))
 		or (summary.publishesDamage ~= (capability.damagePayload ~= nil))
 		or not table.isfrozen(capability.elimination)
-		or not table.isfrozen(capability.eliminationPresentationPlans)
 		or mutation.target.Parent ~= Players
 		or record ~= mutation.record
 		or table.isfrozen(record)
@@ -3434,7 +3696,8 @@ function directDeathOwner.preparedCurrentError(
 			or attackerRecord.score ~= mutation.beforeAttackerScore
 			or attackerRecord.deaths ~= mutation.beforeAttackerDeaths
 			or attackerRecord.weaponState ~= mutation.beforeAttackerWeaponState
-			or attackerRecord.weaponTimeMilliseconds ~= mutation.beforeAttackerWeaponTimeMilliseconds
+			or attackerRecord.weaponTimeMilliseconds
+				~= mutation.beforeAttackerWeaponTimeMilliseconds
 		then
 			return "stale-direct-death-attacker-root"
 		end
@@ -3445,7 +3708,11 @@ function directDeathOwner.preparedCurrentError(
 	if deathWeaponDrop then
 		if
 			deathWeaponDrop.dropId
-			~= DroppedWeaponRules.MakeDropId(summary.matchId, summary.targetUserId, summary.lifeSequence)
+			~= DroppedWeaponRules.MakeDropId(
+				summary.matchId,
+				summary.targetUserId,
+				summary.lifeSequence
+			)
 		then
 			return "crossed-direct-death-drop-id"
 		end
@@ -3495,7 +3762,8 @@ function directDeathOwner.preparedCurrentError(
 
 	local bodyQueueService = directDeathOwner.bodyQueueService :: any
 	local bodyQueueSummary = capability.bodyQueueSummary :: any
-	local bodyQueueHandles = bodyQueueService.InspectPreparedDeathRecordBatchHandles(capability.bodyQueuePrepared)
+	local bodyQueueHandles =
+		bodyQueueService.InspectPreparedDeathRecordBatchHandles(capability.bodyQueuePrepared)
 	local deathSummary = bodyQueueSummary.records and bodyQueueSummary.records[1]
 	if
 		bodyQueueService.InspectPreparedDeathRecordBatchSummary(capability.bodyQueuePrepared)
@@ -3516,13 +3784,15 @@ function directDeathOwner.preparedCurrentError(
 		or deathSummary.lifeSequence ~= summary.lifeSequence
 		or (
 			capability.matchResult.shouldRespawn
-			and mutation.afterRespawnEligibleAtMilliseconds ~= deathSummary.respawnTimeMilliseconds
+			and mutation.afterRespawnEligibleAtMilliseconds
+				~= deathSummary.respawnTimeMilliseconds
 		)
 	then
 		return "stale-direct-death-body-queue-dependency"
 	end
 	if
-		MovementService.InspectPreparedNormalToDead(capability.movementPrepared) ~= capability.movementSummary
+		MovementService.InspectPreparedNormalToDead(capability.movementPrepared)
+			~= capability.movementSummary
 		or MovementService.InspectPreparedNormalToDeadReceipt(capability.movementPrepared) ~= capability.movementReceipt
 		or not MovementService.ValidatePreparedNormalToDeadDependency(
 			capability.movementPrepared,
@@ -3539,7 +3809,8 @@ function directDeathOwner.preparedCurrentError(
 		return "stale-direct-death-movement-dependency"
 	end
 	if
-		MatchService.InspectPreparedEliminationBatch(capability.matchPrepared) ~= capability.matchSummary
+		MatchService.InspectPreparedEliminationBatch(capability.matchPrepared)
+			~= capability.matchSummary
 		or MatchService.InspectPreparedEliminationBatchReceipt(capability.matchPrepared) ~= capability.matchReceipt
 		or not MatchService.ValidatePreparedEliminationBatchDependency(
 			capability.matchPrepared,
@@ -3556,8 +3827,10 @@ function directDeathOwner.preparedCurrentError(
 	then
 		return "stale-direct-death-match-dependency"
 	end
-	local tombstoneSummary =
-		CorpseService.InspectPreparedRespawnCopyTombstoneSummary(capability.corpsePrepared, capability.corpseTombstone)
+	local tombstoneSummary = CorpseService.InspectPreparedRespawnCopyTombstoneSummary(
+		capability.corpsePrepared,
+		capability.corpseTombstone
+	)
 	local tombstoneSource = capability.corpseTombstoneSummary.source
 	if
 		tombstoneSummary ~= capability.corpseTombstoneSummary
@@ -3606,7 +3879,8 @@ function directDeathOwner.runTwoPassPreflight(
 			capability.preflightPassCount = 0
 			return false, movementError or "direct-death-movement-preflight-failed"
 		end
-		local matchCanApply, matchError = MatchService.CanApplyPreparedEliminationBatch(capability.matchPrepared)
+		local matchCanApply, matchError =
+			MatchService.CanApplyPreparedEliminationBatch(capability.matchPrepared)
 		if not matchCanApply then
 			capability.preflightPassCount = 0
 			return false, matchError or "direct-death-match-preflight-failed"
@@ -3616,7 +3890,8 @@ function directDeathOwner.runTwoPassPreflight(
 			capability.preflightPassCount = 0
 			return false, combatError
 		end
-		local corpseCanApply, corpseError = CorpseService.CanApplyPrepared(capability.corpsePrepared)
+		local corpseCanApply, corpseError =
+			CorpseService.CanApplyPrepared(capability.corpsePrepared)
 		if not corpseCanApply then
 			capability.preflightPassCount = 0
 			return false, corpseError or "direct-death-corpse-preflight-failed"
@@ -3647,9 +3922,11 @@ end
 -- private opaque cause minted from an exact Combat trace/projectile/world root;
 -- raw Players, vectors, means, source handles, collision flags, and no-drop
 -- booleans are not part of this public boundary.
-function CombatService.PrepareDirectDeath(
-	causeValue: unknown
-): (PreparedDirectDeath?, PreparedDirectDeathSummary?, string?)
+function CombatService.PrepareDirectDeath(causeValue: unknown): (
+	PreparedDirectDeath?,
+	PreparedDirectDeathSummary?,
+	string?
+)
 	if directDeathOwner.activePrepared ~= nil then
 		return nil, nil, "direct-death-already-prepared"
 	end
@@ -3658,7 +3935,10 @@ function CombatService.PrepareDirectDeath(
 	end
 	local cause = causeValue :: DirectDeathCause
 	local causeCapability = directDeathOwner.causeCapabilities[cause]
-	if not causeCapability or directDeathOwner.causeCurrentError(cause, causeCapability, "Current") ~= nil then
+	if
+		not causeCapability
+		or directDeathOwner.causeCurrentError(cause, causeCapability, "Current") ~= nil
+	then
 		return nil, nil, "stale-or-forged-direct-death-cause"
 	end
 	local target = causeCapability.target
@@ -3677,7 +3957,10 @@ function CombatService.PrepareDirectDeath(
 	local lifeBinding = causeCapability.targetLifeBinding
 	local lifeSummary = causeCapability.targetLifeSummary
 	local currentBody = causeCapability.targetBody
-	if record.score ~= MatchService.GetPlayerScore(target) or record.deaths ~= MatchService.GetPlayerDeaths(target) then
+	if
+		record.score ~= MatchService.GetPlayerScore(target)
+		or record.deaths ~= MatchService.GetPlayerDeaths(target)
+	then
 		return nil, nil, "stale-direct-death-target-match-mirror"
 	end
 	if directDeathOwner.handoffByPlayer[target] ~= nil then
@@ -3687,9 +3970,13 @@ function CombatService.PrepareDirectDeath(
 	if attackerRecord then
 		if
 			attackerRecord.score
-				~= MatchService.GetPlayerScore(assert(attacker, "direct-death attacker record has no attacker"))
+				~= MatchService.GetPlayerScore(
+					assert(attacker, "direct-death attacker record has no attacker")
+				)
 			or attackerRecord.deaths
-				~= MatchService.GetPlayerDeaths(assert(attacker, "direct-death attacker record has no attacker"))
+				~= MatchService.GetPlayerDeaths(
+					assert(attacker, "direct-death attacker record has no attacker")
+				)
 		then
 			return nil, nil, "stale-direct-death-attacker-life"
 		end
@@ -3716,19 +4003,24 @@ function CombatService.PrepareDirectDeath(
 			),
 			"One-Shot prepared direct-death damage input must be valid"
 		)
-		rawPostDamageHealth = math.max(record.health - healthDamage, MoverConsequenceRules.MinimumClampedQ3Health)
+		rawPostDamageHealth =
+			math.max(record.health - healthDamage, MoverConsequenceRules.MinimumClampedQ3Health)
 		if adjustedDamage <= 0 or healthDamage <= 0 or rawPostDamageHealth > 0 then
 			return nil, nil, "direct-death-damage-is-not-exact-lethal"
 		end
 	else
-		rawPostDamageHealth =
-			assert(causeCapability.fixedPostDamageHealth, "player_die cause omitted its fixed post-damage health")
+		rawPostDamageHealth = assert(
+			causeCapability.fixedPostDamageHealth,
+			"player_die cause omitted its fixed post-damage health"
+		)
 	end
 	local lethalVelocityDelta = Vector3.zero
 	local lethalKnockbackSeconds: number? = nil
 	if causeCapability.damageMode == "GDamage" and direction.Magnitude > 1e-6 then
 		local knockbackDamage = math.min(rawDamage, 200)
-		local q3Velocity = WeaponDefinitions.Knockback * knockbackDamage / WeaponDefinitions.PlayerMass
+		local q3Velocity = WeaponDefinitions.Knockback
+			* knockbackDamage
+			/ WeaponDefinitions.PlayerMass
 		lethalVelocityDelta = direction.Unit * q3Velocity * Constants.UnitsToStuds
 		lethalKnockbackSeconds = WeaponDefinitions.KnockbackDurationSeconds(knockbackDamage)
 	end
@@ -3736,21 +4028,25 @@ function CombatService.PrepareDirectDeath(
 		postDamageHealth = rawPostDamageHealth,
 		meansOfDeath = causeCapability.meansOfDeath,
 		bloodEnabled = causeCapability.bloodEnabled,
-		noDrop = (directDeathOwner.worldPointContents :: any).IsNoDrop(causeCapability.pointContents),
+		noDrop = (directDeathOwner.worldPointContents :: any).IsNoDrop(
+			causeCapability.pointContents
+		),
 	})
 	local bodyQueueService = directDeathOwner.bodyQueueService :: any
-	local bodyQueuePrepared, bodyQueueSummary, bodyQueueError = bodyQueueService.PrepareDeathRecordBatch({
-		{
-			player = target,
-			matchLineage = matchLineage,
-			deathTimeMilliseconds = frameSummary.currentTimeMilliseconds,
-			lifeSequence = record.lifeSequence,
-		},
-	})
+	local bodyQueuePrepared, bodyQueueSummary, bodyQueueError =
+		bodyQueueService.PrepareDeathRecordBatch({
+			{
+				player = target,
+				matchLineage = matchLineage,
+				deathTimeMilliseconds = frameSummary.currentTimeMilliseconds,
+				lifeSequence = record.lifeSequence,
+			},
+		})
 	if not bodyQueuePrepared or not bodyQueueSummary then
 		return nil, nil, bodyQueueError or "direct-death-body-queue-prepare-failed"
 	end
-	local bodyQueueHandles = bodyQueueService.InspectPreparedDeathRecordBatchHandles(bodyQueuePrepared)
+	local bodyQueueHandles =
+		bodyQueueService.InspectPreparedDeathRecordBatchHandles(bodyQueuePrepared)
 	if not bodyQueueHandles or #bodyQueueHandles ~= 1 then
 		directDeathOwner.abortChildren(bodyQueuePrepared, nil, nil, nil)
 		return nil, nil, "direct-death-body-queue-handle-unavailable"
@@ -3773,7 +4069,10 @@ function CombatService.PrepareDirectDeath(
 	local movementReceipt = MovementService.InspectPreparedNormalToDeadReceipt(movementPrepared)
 	if not movementReceipt then
 		local _validMovement, movementDependencyError =
-			MovementService.ValidatePreparedNormalToDeadDependency(movementPrepared, movementSummary)
+			MovementService.ValidatePreparedNormalToDeadDependency(
+				movementPrepared,
+				movementSummary
+			)
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, nil, nil)
 		return nil, nil, movementDependencyError or "direct-death-movement-receipt-unavailable"
 	end
@@ -3803,7 +4102,8 @@ function CombatService.PrepareDirectDeath(
 		table.freeze(deathWeaponDrop)
 		if
 			deathWeaponDrop.matchId ~= matchId
-			or deathWeaponDrop.dropId ~= DroppedWeaponRules.MakeDropId(matchId, target.UserId, record.lifeSequence)
+			or deathWeaponDrop.dropId
+				~= DroppedWeaponRules.MakeDropId(matchId, target.UserId, record.lifeSequence)
 		then
 			directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, nil, nil)
 			return nil, nil, "direct-death-drop-match-diverged"
@@ -3812,22 +4112,24 @@ function CombatService.PrepareDirectDeath(
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, nil, nil)
 		return nil, nil, "direct-death-drop-decision-incomplete"
 	end
-	local deathPowerupDropRequests, powerupDropBuildError = directDeathOwner.powerupDropRuntime.BuildRequests({
-		targetUserId = target.UserId,
-		lifeSequence = record.lifeSequence,
-		matchId = matchId,
-		position = movementSummary.callbackEntityTrajectoryBase,
-		look = movementSummary.callbackEntityAngularTrajectoryBase.look,
-		powerupExpiries = record.powerupExpiries,
-		levelTimeMilliseconds = frameSummary.currentTimeMilliseconds,
-		suppressForTeamDeathmatch = MatchService.GetRules().ModeKind == "TeamDeathmatch",
-		suppressForNoDrop = collisionContext.noDrop,
-	})
+	local deathPowerupDropRequests, powerupDropBuildError =
+		directDeathOwner.powerupDropRuntime.BuildRequests({
+			targetUserId = target.UserId,
+			lifeSequence = record.lifeSequence,
+			matchId = matchId,
+			position = movementSummary.callbackEntityTrajectoryBase,
+			look = movementSummary.callbackEntityAngularTrajectoryBase.look,
+			powerupExpiries = record.powerupExpiries,
+			levelTimeMilliseconds = frameSummary.currentTimeMilliseconds,
+			suppressForTeamDeathmatch = MatchService.GetRules().ModeKind == "TeamDeathmatch",
+			suppressForNoDrop = collisionContext.noDrop,
+		})
 	if not deathPowerupDropRequests then
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, nil, nil)
 		return nil, nil, powerupDropBuildError or "direct-death-powerup-drop-request-build-failed"
 	end
-	local matchToken, matchBeginError = MatchService.BeginEliminationBatch(frameSummary.currentTimeMilliseconds)
+	local matchToken, matchBeginError =
+		MatchService.BeginEliminationBatch(frameSummary.currentTimeMilliseconds)
 	if not matchToken then
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, nil, nil)
 		return nil, nil, matchBeginError or "direct-death-match-begin-failed"
@@ -3890,16 +4192,17 @@ function CombatService.PrepareDirectDeath(
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, matchToken, nil)
 		return nil, nil, corpseBeginError or "direct-death-corpse-begin-failed"
 	end
-	local corpseTombstone, tombstoneError = CorpseService.StageRespawnCopyTombstone(corpseToken, target, {
-		matchId = matchId,
-		matchLineage = matchLineage,
-		playerBodyId = lifeSummary.playerBodyId,
-		playerSourceOrder = lifeSummary.playerSourceOrder,
-		playerLeaseGeneration = lifeSummary.playerLeaseGeneration,
-		playerUserId = target.UserId,
-		lifeSequence = record.lifeSequence,
-		body = deathBody,
-	})
+	local corpseTombstone, tombstoneError =
+		CorpseService.StageRespawnCopyTombstone(corpseToken, target, {
+			matchId = matchId,
+			matchLineage = matchLineage,
+			playerBodyId = lifeSummary.playerBodyId,
+			playerSourceOrder = lifeSummary.playerSourceOrder,
+			playerLeaseGeneration = lifeSummary.playerLeaseGeneration,
+			playerUserId = target.UserId,
+			lifeSequence = record.lifeSequence,
+			body = deathBody,
+		})
 	if not corpseTombstone then
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, matchToken, corpseToken)
 		return nil, nil, tombstoneError or "direct-death-corpse-tombstone-failed"
@@ -3931,7 +4234,9 @@ function CombatService.PrepareDirectDeath(
 	end
 	local corpseCollection, corpseCollectionError = CorpseService.Collect(corpseToken)
 	local corpseBodiesApplied, corpseBodiesError =
-		if corpseCollection then CorpseService.ApplyMoverBodies(corpseToken, corpseCollection.bodies) else false,
+		if corpseCollection
+			then CorpseService.ApplyMoverBodies(corpseToken, corpseCollection.bodies)
+			else false,
 		corpseCollectionError
 	if not corpseBodiesApplied then
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, matchToken, corpseToken)
@@ -3955,7 +4260,10 @@ function CombatService.PrepareDirectDeath(
 	local outcome = stagedMatch.outcome
 	local matchResult = stagedMatch.result
 	local afterRespawnEligibleAt = if matchResult.shouldRespawn
-		then MatchFrameRules.DeadlineMilliseconds(frameSummary.currentTimeMilliseconds, matchResult.respawnDelaySeconds)
+		then MatchFrameRules.DeadlineMilliseconds(
+			frameSummary.currentTimeMilliseconds,
+			matchResult.respawnDelaySeconds
+		)
 		else nil
 	local forcedRespawnSeconds = MatchService.GetRules().ForcedRespawnSeconds
 	local afterForcedRespawnAt = if afterRespawnEligibleAt and forcedRespawnSeconds > 0
@@ -3966,11 +4274,16 @@ function CombatService.PrepareDirectDeath(
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, matchToken, corpseToken)
 		return nil, nil, "direct-death-body-queue-summary-unavailable"
 	end
-	if matchResult.shouldRespawn and (afterRespawnEligibleAt ~= bodyQueueDeathSummary.respawnTimeMilliseconds) then
+	if
+		matchResult.shouldRespawn
+		and (afterRespawnEligibleAt ~= bodyQueueDeathSummary.respawnTimeMilliseconds)
+	then
 		directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, matchToken, corpseToken)
 		return nil, nil, "direct-death-respawn-deadline-diverged"
 	end
-	local deathWeaponDropDecision: DirectDeathWeaponDropDecision = if deathWeaponDrop then "Insert" else "Omit"
+	local deathWeaponDropDecision: DirectDeathWeaponDropDecision = if deathWeaponDrop
+		then "Insert"
+		else "Omit"
 	local deathDropBatchRequests: { DeathWeaponDropRequest } = {}
 	if deathWeaponDrop then
 		table.insert(deathDropBatchRequests, deathWeaponDrop)
@@ -3985,7 +4298,12 @@ function CombatService.PrepareDirectDeath(
 	if #deathDropBatchRequests > 0 then
 		deathDropInsertionAdapter = directDeathOwner.deathDropInsertionAdapter
 		if not deathDropInsertionAdapter then
-			directDeathOwner.abortChildren(bodyQueuePrepared, movementPrepared, matchToken, corpseToken)
+			directDeathOwner.abortChildren(
+				bodyQueuePrepared,
+				movementPrepared,
+				matchToken,
+				corpseToken
+			)
 			return nil, nil, "direct-death-drop-insertion-adapter-unavailable"
 		end
 		local insertionPrepareError: string?
@@ -4070,9 +4388,15 @@ function CombatService.PrepareDirectDeath(
 		beforeInfiniteAmmo = record.infiniteAmmo,
 		beforeMovementLifeBinding = lifeBinding,
 		beforeCharacter = record.character,
-		beforeAttackerScore = if attackerRecord and attacker ~= target then attackerRecord.score else nil,
-		beforeAttackerDeaths = if attackerRecord and attacker ~= target then attackerRecord.deaths else nil,
-		beforeAttackerWeaponState = if attackerRecord and attacker ~= target then attackerRecord.weaponState else nil,
+		beforeAttackerScore = if attackerRecord and attacker ~= target
+			then attackerRecord.score
+			else nil,
+		beforeAttackerDeaths = if attackerRecord and attacker ~= target
+			then attackerRecord.deaths
+			else nil,
+		beforeAttackerWeaponState = if attackerRecord and attacker ~= target
+			then attackerRecord.weaponState
+			else nil,
 		beforeAttackerWeaponTimeMilliseconds = if attackerRecord and attacker ~= target
 			then attackerRecord.weaponTimeMilliseconds
 			else nil,
@@ -4090,7 +4414,9 @@ function CombatService.PrepareDirectDeath(
 		afterForcedRespawnAtMilliseconds = afterForcedRespawnAt,
 		afterManualRespawnQueued = false,
 		afterRespawnRequested = false,
-		afterLastDroppedLifeSequence = if deathWeaponDrop then record.lifeSequence else record.lastDroppedLifeSequence,
+		afterLastDroppedLifeSequence = if deathWeaponDrop
+			then record.lifeSequence
+			else record.lastDroppedLifeSequence,
 		afterAttackerScore = afterAttackerScore,
 		afterAttackerDeaths = afterAttackerDeaths,
 		afterAttackerWeaponState = if railCooldownReset
@@ -4103,16 +4429,6 @@ function CombatService.PrepareDirectDeath(
 			else nil,
 	}
 	table.freeze(mutation)
-	local effectId: string? = nil
-	if attacker and attacker ~= target then
-		local candidate = attacker:GetAttribute("ArenaEliminationEffectId")
-		if type(candidate) == "string" then
-			local definition = Catalog.ById[candidate]
-			if definition and definition.Slot == "EliminationEffect" then
-				effectId = candidate
-			end
-		end
-	end
 	local elimination: EliminationEvent = table.freeze({
 		kind = "Elimination",
 		eventId = WeaponDefinitions.MakeEventId(shot.id, shot.eventSequence + deathEventIncrement),
@@ -4129,14 +4445,15 @@ function CombatService.PrepareDirectDeath(
 		isWorldKill = attacker == nil,
 		scoreDelta = outcome.scoreDelta,
 		attackerScore = if attackerRecord
-			then if attacker == target then outcome.victimScore else outcome.attackerScore or attackerRecord.score
+			then if attacker == target
+				then outcome.victimScore
+				else outcome.attackerScore or attackerRecord.score
 			else 0,
 		targetScore = outcome.victimScore,
 		targetDeaths = outcome.victimDeaths,
 		targetLifeSequence = record.lifeSequence,
 		matchId = matchId,
 		railCooldownReset = railCooldownReset,
-		effectId = effectId,
 	})
 	local damagePayload: { [string]: any }? = if causeCapability.publishesDamage
 		then {
@@ -4148,6 +4465,9 @@ function CombatService.PrepareDirectDeath(
 			revision = shot.revision,
 			targetUserId = target.UserId,
 			attackerUserId = if attacker then attacker.UserId else 0,
+			hitConfirmed = attacker ~= nil
+				and attacker ~= target
+				and MatchService.AreOpponents(attacker, target),
 			rawDamage = rawDamage,
 			adjustedDamage = adjustedDamage,
 			damage = healthDamage,
@@ -4163,11 +4483,6 @@ function CombatService.PrepareDirectDeath(
 	if damagePayload then
 		table.freeze(damagePayload)
 	end
-	local eliminationEffect = if effectId then Catalog.ById[effectId] else nil
-	local eliminationPalette = if eliminationEffect and eliminationEffect.Slot == "EliminationEffect"
-		then eliminationEffect.Palette
-		else nil
-	local eliminationPresentationPlans = EliminationPresentationRules.BuildPlan(eliminationPalette)
 	local summary: PreparedDirectDeathSummary = {
 		authoritativeFrame = frame,
 		authoritativeFrameSummary = frameSummary,
@@ -4198,7 +4513,9 @@ function CombatService.PrepareDirectDeath(
 		inflictorSourceSummary = causeCapability.inflictorSourceSummary,
 		deathWeaponDropDecision = deathWeaponDropDecision,
 		deathWeaponDropOmissionReason = deathWeaponDropOmissionReason,
-		deathWeaponDropInsertionSummary = if deathWeaponDrop then deathDropInsertionSummary else nil,
+		deathWeaponDropInsertionSummary = if deathWeaponDrop
+			then deathDropInsertionSummary
+			else nil,
 		deathPowerupDropCount = #deathPowerupDropRequests,
 		deathDropBatchInsertionSummary = deathDropInsertionSummary,
 	}
@@ -4281,7 +4598,6 @@ function CombatService.PrepareDirectDeath(
 		handoffCapability = handoffCapability,
 		damagePayload = damagePayload,
 		elimination = elimination,
-		eliminationPresentationPlans = eliminationPresentationPlans,
 		corpseAbortComplete = false,
 		movementAbortComplete = false,
 		bodyQueueAbortComplete = false,
@@ -4310,7 +4626,9 @@ function CombatService.PrepareDirectDeath(
 	return prepared, summary, nil
 end
 
-function CombatService.InspectPreparedDirectDeath(preparedValue: unknown): PreparedDirectDeathSummary?
+function CombatService.InspectPreparedDirectDeath(
+	preparedValue: unknown
+): PreparedDirectDeathSummary?
 	if type(preparedValue) ~= "table" then
 		return nil
 	end
@@ -4337,7 +4655,11 @@ function CombatService.ValidatePreparedDirectDeathDependency(
 	local prepared = preparedValue :: PreparedDirectDeath
 	local summary = summaryValue :: PreparedDirectDeathSummary
 	local capability = directDeathOwner.preparedCapabilities[prepared]
-	if not capability or capability.summary ~= summary or directDeathOwner.preparedBySummary[summary] ~= prepared then
+	if
+		not capability
+		or capability.summary ~= summary
+		or directDeathOwner.preparedBySummary[summary] ~= prepared
+	then
 		return false, "forged-prepared-direct-death-dependency"
 	end
 	local currentError = directDeathOwner.preparedCurrentError(prepared, capability, true)
@@ -4362,30 +4684,43 @@ function CombatService.CanApplyPreparedDirectDeath(preparedValue: unknown): (boo
 end
 
 function CombatService.ApplyPreparedDirectDeath(preparedValue: unknown): DirectDeathApplyReceipt
+	setDirectDeathDiagnosticStage("Apply.Preflight")
 	assert(type(preparedValue) == "table", "invalid-prepared-direct-death")
 	local prepared = preparedValue :: PreparedDirectDeath
-	local capability = assert(directDeathOwner.preparedCapabilities[prepared], "invalid-prepared-direct-death")
+	local capability =
+		assert(directDeathOwner.preparedCapabilities[prepared], "invalid-prepared-direct-death")
 	assert(capability.status == "Prepared", "invalid-prepared-direct-death-state")
 	local applyReady, applyError = directDeathOwner.runTwoPassPreflight(prepared, capability)
 	assert(applyReady, applyError or "prepared-direct-death-not-validated")
 	assert(capability.preflightPassCount == 2, "prepared-direct-death-two-pass-proof-missing")
 
 	local bodyQueueService = directDeathOwner.bodyQueueService :: any
+	setDirectDeathDiagnosticStage("Apply.BodyQueue")
 	assert(
-		bodyQueueService.ApplyPreparedDeathRecordBatch(capability.bodyQueuePrepared) == capability.bodyQueueHandles,
+		bodyQueueService.ApplyPreparedDeathRecordBatch(capability.bodyQueuePrepared)
+			== capability.bodyQueueHandles,
 		"direct-death-body-queue-apply-returned-another-handle-array"
 	)
+	setDirectDeathDiagnosticStage("Apply.Movement")
 	assert(
-		MovementService.ApplyPreparedNormalToDead(capability.movementPrepared) == capability.movementReceipt,
+		MovementService.ApplyPreparedNormalToDead(capability.movementPrepared)
+			== capability.movementReceipt,
 		"direct-death-movement-apply-returned-another-receipt"
 	)
+	setDirectDeathDiagnosticStage("Apply.Match")
 	assert(
-		MatchService.ApplyPreparedEliminationBatch(capability.matchPrepared) == capability.matchReceipt,
+		MatchService.ApplyPreparedEliminationBatch(capability.matchPrepared)
+			== capability.matchReceipt,
 		"direct-death-match-apply-returned-another-receipt"
 	)
+	setDirectDeathDiagnosticStage("Apply.CombatPreMutation")
 	local applyGapCombatError = directDeathOwner.preparedCurrentError(prepared, capability, false)
-	assert(applyGapCombatError == nil, applyGapCombatError or "stale-direct-death-combat-root-in-apply-gap")
+	assert(
+		applyGapCombatError == nil,
+		applyGapCombatError or "stale-direct-death-combat-root-in-apply-gap"
+	)
 
+	setDirectDeathDiagnosticStage("Apply.CombatMutation")
 	local mutation = capability.mutation
 	local record = mutation.record
 	record.health = mutation.afterHealth
@@ -4405,12 +4740,18 @@ function CombatService.ApplyPreparedDirectDeath(preparedValue: unknown): DirectD
 	record.lastDroppedLifeSequence = mutation.afterLastDroppedLifeSequence
 	local attackerRecord = mutation.attackerRecord
 	if attackerRecord and mutation.attacker ~= mutation.target then
-		attackerRecord.score = assert(mutation.afterAttackerScore, "direct-death attacker score plan disappeared")
-		attackerRecord.deaths = assert(mutation.afterAttackerDeaths, "direct-death attacker deaths plan disappeared")
-		attackerRecord.weaponState =
-			assert(mutation.afterAttackerWeaponState, "direct-death attacker weapon-state plan disappeared")
-		attackerRecord.weaponTimeMilliseconds =
-			assert(mutation.afterAttackerWeaponTimeMilliseconds, "direct-death attacker weapon-time plan disappeared")
+		attackerRecord.score =
+			assert(mutation.afterAttackerScore, "direct-death attacker score plan disappeared")
+		attackerRecord.deaths =
+			assert(mutation.afterAttackerDeaths, "direct-death attacker deaths plan disappeared")
+		attackerRecord.weaponState = assert(
+			mutation.afterAttackerWeaponState,
+			"direct-death attacker weapon-state plan disappeared"
+		)
+		attackerRecord.weaponTimeMilliseconds = assert(
+			mutation.afterAttackerWeaponTimeMilliseconds,
+			"direct-death attacker weapon-time plan disappeared"
+		)
 	end
 	mutation.shot.eventSequence = mutation.shotEventSequenceAfter
 	local handoffCapability = capability.handoffCapability
@@ -4422,16 +4763,21 @@ function CombatService.ApplyPreparedDirectDeath(preparedValue: unknown): DirectD
 	handoffCapability.status = "Current"
 	directDeathOwner.handoffByPlayer[mutation.target] = capability.handoff
 
+	setDirectDeathDiagnosticStage("Apply.Corpse")
 	assert(
 		CorpseService.ApplyPrepared(capability.corpsePrepared) == capability.corpseReceipt,
 		"direct-death-corpse-apply-returned-another-receipt"
 	)
 	local deathDropInsertionPrepared = capability.deathDropInsertionPrepared
 	if deathDropInsertionPrepared ~= nil then
-		capability.deathDropInsertionReceipt = (capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter).ApplyPreparedBatch(
-			deathDropInsertionPrepared
+		setDirectDeathDiagnosticStage("Apply.DeathDrop")
+		capability.deathDropInsertionReceipt = (
+			capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter
+		).ApplyPreparedBatch(deathDropInsertionPrepared)
+		assert(
+			capability.deathDropInsertionReceipt ~= nil,
+			"direct-death-drop-insertion-apply-omitted-receipt"
 		)
-		assert(capability.deathDropInsertionReceipt ~= nil, "direct-death-drop-insertion-apply-omitted-receipt")
 	end
 	capability.status = "Applied"
 	capability.applyValidated = false
@@ -4460,7 +4806,8 @@ function CombatService.ValidateAppliedDirectDeathDependency(
 	then
 		return false, "forged-applied-direct-death-dependency"
 	end
-	local handoffError = directDeathOwner.handoffCurrentError(capability.handoff, capability.handoffCapability)
+	local handoffError =
+		directDeathOwner.handoffCurrentError(capability.handoff, capability.handoffCapability)
 	if handoffError then
 		return false, handoffError
 	end
@@ -4524,7 +4871,10 @@ function CombatService.ValidateAppliedDirectDeathDependency(
 	if
 		not deathSummary
 		or #capability.bodyQueueHandles ~= 1
-		or not bodyQueueService.ValidateDeathHandleDependency(capability.bodyQueueHandles[1], deathSummary)
+		or not bodyQueueService.ValidateDeathHandleDependency(
+			capability.bodyQueueHandles[1],
+			deathSummary
+		)
 	then
 		return false, "stale-applied-direct-death-body-queue-root"
 	end
@@ -4556,7 +4906,9 @@ function CombatService.ValidateAppliedDirectDeathDependency(
 		if deathDropInsertionReceipt == nil or capability.deathDropInsertionFlushed then
 			return false, "stale-applied-direct-death-drop-insertion-receipt"
 		end
-		local itemApplied, itemAppliedError = (capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter).ValidateAppliedBatchDependency(
+		local itemApplied, itemAppliedError = (
+			capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter
+		).ValidateAppliedBatchDependency(
 			deathDropInsertionReceipt,
 			capability.deathDropInsertionSummary
 		)
@@ -4594,7 +4946,10 @@ function directDeathOwner.appliedDepartureError(
 		or directDeathOwner.handoffCapabilities[capability.handoff] ~= capability.handoffCapability
 		or directDeathOwner.handoffByPlayer[target] ~= capability.handoff
 		or directDeathOwner.handoffBySummary[capability.handoffSummary] ~= capability.handoff
-		or not MatchService.ValidateMatchLineage(capability.summary.matchLineage, capability.summary.matchId)
+		or not MatchService.ValidateMatchLineage(
+			capability.summary.matchLineage,
+			capability.summary.matchId
+		)
 	then
 		return "stale-applied-direct-death-departure-owner"
 	end
@@ -4661,7 +5016,10 @@ function directDeathOwner.appliedDepartureError(
 	if
 		not deathSummary
 		or #capability.bodyQueueHandles ~= 1
-		or not bodyQueueService.ValidateDeathHandleDependency(capability.bodyQueueHandles[1], deathSummary)
+		or not bodyQueueService.ValidateDeathHandleDependency(
+			capability.bodyQueueHandles[1],
+			deathSummary
+		)
 		or (
 			departingPlayer ~= target
 			and not MovementService.ValidateAppliedNormalToDeadRootDependency(
@@ -4691,7 +5049,9 @@ function directDeathOwner.appliedDepartureError(
 		if deathDropInsertionReceipt == nil or capability.deathDropInsertionFlushed then
 			return "stale-applied-direct-death-departure-drop-receipt"
 		end
-		local itemApplied, itemAppliedError = (capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter).ValidateAppliedBatchDependency(
+		local itemApplied, itemAppliedError = (
+			capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter
+		).ValidateAppliedBatchDependency(
 			deathDropInsertionReceipt,
 			capability.deathDropInsertionSummary
 		)
@@ -4714,7 +5074,11 @@ function CombatService.GetDirectDeathHandoff(playerValue: unknown): DirectDeathH
 	local player = playerValue :: Player
 	local handoff = directDeathOwner.handoffByPlayer[player]
 	local capability = handoff and directDeathOwner.handoffCapabilities[handoff]
-	if not handoff or not capability or directDeathOwner.handoffCurrentError(handoff, capability) then
+	if
+		not handoff
+		or not capability
+		or directDeathOwner.handoffCurrentError(handoff, capability)
+	then
 		return nil
 	end
 	return handoff
@@ -4742,7 +5106,11 @@ function CombatService.ValidateDirectDeathHandoffDependency(
 	local handoff = handoffValue :: DirectDeathHandoff
 	local summary = summaryValue :: DirectDeathHandoffSummary
 	local capability = directDeathOwner.handoffCapabilities[handoff]
-	if not capability or capability.summary ~= summary or directDeathOwner.handoffBySummary[summary] ~= handoff then
+	if
+		not capability
+		or capability.summary ~= summary
+		or directDeathOwner.handoffBySummary[summary] ~= handoff
+	then
 		return false, "forged-direct-death-handoff-dependency"
 	end
 	local currentError = directDeathOwner.handoffCurrentError(handoff, capability)
@@ -4775,7 +5143,8 @@ function CombatService.AbortPreparedDirectDeath(preparedValue: unknown): (boolea
 		capability.corpseAbortComplete = CorpseService.Abort(capability.corpseToken)
 	end
 	if not capability.movementAbortComplete then
-		capability.movementAbortComplete = MovementService.AbortPreparedNormalToDead(capability.movementPrepared)
+		capability.movementAbortComplete =
+			MovementService.AbortPreparedNormalToDead(capability.movementPrepared)
 		if not capability.movementAbortComplete then
 			capability.movementAbortComplete = select(
 				1,
@@ -4788,7 +5157,8 @@ function CombatService.AbortPreparedDirectDeath(preparedValue: unknown): (boolea
 	end
 	if not capability.bodyQueueAbortComplete then
 		local bodyQueueService = directDeathOwner.bodyQueueService :: any
-		capability.bodyQueueAbortComplete = bodyQueueService.AbortPreparedDeathRecordBatch(capability.bodyQueuePrepared)
+		capability.bodyQueueAbortComplete =
+			bodyQueueService.AbortPreparedDeathRecordBatch(capability.bodyQueuePrepared)
 	end
 	if not capability.matchAbortComplete then
 		capability.matchAbortComplete = MatchService.AbortEliminationBatch(capability.matchToken)
@@ -4817,6 +5187,7 @@ function directDeathOwner.flushAppliedPublication(
 ): DirectDeathPublicationReport
 	local receipt = capability.receipt
 	if requireCurrentDependency then
+		setDirectDeathDiagnosticStage("Flush.ValidateApplied")
 		assert(
 			CombatService.ValidateAppliedDirectDeathDependency(receipt, capability.summary),
 			"stale-applied-direct-death-before-flush"
@@ -4829,28 +5200,37 @@ function directDeathOwner.flushAppliedPublication(
 	local powerupDropFaultCount = 0
 	local batchRequestedCount = #capability.deathDropBatchRequests
 	if capability.deathDropInsertionPrepared ~= nil then
-		local deathDropInsertionReceipt =
-			assert(capability.deathDropInsertionReceipt, "direct-death drop insertion receipt disappeared before flush")
-		assert(not capability.deathDropInsertionFlushed, "direct-death drop insertion flushed twice")
-		local itemReport, itemFlushError = (capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter).FlushPreparedBatch(
-			deathDropInsertionReceipt
+		setDirectDeathDiagnosticStage("Flush.DeathDrop")
+		local deathDropInsertionReceipt = assert(
+			capability.deathDropInsertionReceipt,
+			"direct-death drop insertion receipt disappeared before flush"
 		)
+		assert(
+			not capability.deathDropInsertionFlushed,
+			"direct-death drop insertion flushed twice"
+		)
+		local itemReport, itemFlushError = (
+			capability.deathDropInsertionAdapter :: DeathDropInsertionAdapter
+		).FlushPreparedBatch(deathDropInsertionReceipt)
 		assert(itemReport, itemFlushError or "direct-death drop batch flush failed")
 		assert(itemReport.authorityApplied, "direct-death drop batch denied applied authority")
 		assert(
-			itemReport.requestedCount == batchRequestedCount and itemReport.insertedCount == itemReport.requestedCount,
+			itemReport.requestedCount == batchRequestedCount
+				and itemReport.insertedCount == itemReport.requestedCount,
 			"direct-death drop batch committed fewer records than requested"
 		)
 		capability.deathDropInsertionFlushed = true
 		publicationCount += itemReport.attemptedPublicationCount
 		publicationFaultCount += itemReport.faultCount
-		powerupDropInsertedCount = itemReport.insertedCount - (if capability.deathWeaponDrop then 1 else 0)
+		powerupDropInsertedCount = itemReport.insertedCount
+			- (if capability.deathWeaponDrop then 1 else 0)
 		powerupDropFaultCount = if powerupDropRequestedCount > 0 then itemReport.faultCount else 0
 	end
 	assert(
 		powerupDropInsertedCount == powerupDropRequestedCount,
 		"direct-death timed-powerup batch omitted a requested drop"
 	)
+	setDirectDeathDiagnosticStage("Flush.Publication")
 	local function publish(label: string, callback: () -> ())
 		publicationCount += 1
 		local succeeded, failure = xpcall(callback, debug.traceback)
@@ -4876,7 +5256,10 @@ function directDeathOwner.flushAppliedPublication(
 		publish("CombatAttackerState", function()
 			publishPlayerRecord(
 				assert(mutation.attacker, "direct-death attacker disappeared"),
-				assert(mutation.attackerRecord, "direct-death attacker publication record disappeared")
+				assert(
+					mutation.attackerRecord,
+					"direct-death attacker publication record disappeared"
+				)
 			)
 		end)
 	end
@@ -4896,11 +5279,6 @@ function directDeathOwner.flushAppliedPublication(
 	publish("EliminationRemote", function()
 		broadcast(capability.elimination :: any)
 	end)
-	for planIndex, plan in capability.eliminationPresentationPlans do
-		publish(string.format("EliminationPresentation:%d", planIndex), function()
-			createEliminationOrb(capability.elimination.position, plan)
-		end)
-	end
 	publish("HumanoidProjection", function()
 		local character = MovementService.GetCharacter(capability.mutation.target)
 		CombatFramePublicationService.Queue(function()
@@ -4939,7 +5317,8 @@ end
 function CombatService.FlushPreparedDirectDeath(receiptValue: unknown): DirectDeathPublicationReport
 	assert(type(receiptValue) == "table", "invalid-direct-death-receipt")
 	local receipt = receiptValue :: DirectDeathApplyReceipt
-	local capability = assert(directDeathOwner.receiptCapabilities[receipt], "invalid-direct-death-receipt")
+	local capability =
+		assert(directDeathOwner.receiptCapabilities[receipt], "invalid-direct-death-receipt")
 	assert(capability.status == "Applied", "invalid-direct-death-receipt-state")
 	return directDeathOwner.flushAppliedPublication(capability, true)
 end
@@ -5023,8 +5402,10 @@ local function applyClientCorpseDamage(
 		return abortWith("client-corpse-damage-empty")
 	end
 	local afterArmor = beforeArmor - armorSave
-	local postDamageHealth =
-		math.max(beforeCorpseHealth - healthDamage, MoverConsequenceRules.MinimumRawPostDamageHealth)
+	local postDamageHealth = math.max(
+		beforeCorpseHealth - healthDamage,
+		MoverConsequenceRules.MinimumRawPostDamageHealth
+	)
 	local effect, resolvedHealth, stageError = CorpseService.StageCollision(
 		token,
 		target,
@@ -5042,7 +5423,8 @@ local function applyClientCorpseDamage(
 	if not finalCollection then
 		return abortWith(finalCollectionError or "client-corpse-final-collection-failed")
 	end
-	local appliedBodies, applyBodiesError = CorpseService.ApplyMoverBodies(token, finalCollection.bodies)
+	local appliedBodies, applyBodiesError =
+		CorpseService.ApplyMoverBodies(token, finalCollection.bodies)
 	if not appliedBodies then
 		return abortWith(applyBodiesError or "client-corpse-final-bodies-failed")
 	end
@@ -5130,7 +5512,8 @@ local function applyClientCorpseDamage(
 	-- Publication is not authority. Attempt each channel independently so one
 	-- failure cannot suppress the other or make the caller retry committed
 	-- damage. Diagnostics deliberately do not roll either owner back.
-	local playerStatePublished, playerStatePublicationError = xpcall(publishClientCorpsePlayerState, debug.traceback)
+	local playerStatePublished, playerStatePublicationError =
+		xpcall(publishClientCorpsePlayerState, debug.traceback)
 	if not playerStatePublished then
 		warn(
 			"Client corpse player-state publication failed after authority applied",
@@ -5138,7 +5521,8 @@ local function applyClientCorpseDamage(
 			playerStatePublicationError
 		)
 	end
-	local damageEventPublished, damageEventPublicationError = xpcall(publishClientCorpseDamageEvent, debug.traceback)
+	local damageEventPublished, damageEventPublicationError =
+		xpcall(publishClientCorpseDamageEvent, debug.traceback)
 	if not damageEventPublished then
 		warn(
 			"Client corpse damage-event publication failed after authority applied",
@@ -5164,7 +5548,8 @@ local function applyCombatTargetDamage(
 	means: string,
 	isSplash: boolean,
 	shot: ShotContext,
-	projectileWitness: Projectile?
+	projectileWitness: Projectile?,
+	projectileSplashVisibilityWitness: DirectDeathProjectileSplashVisibilityWitness?
 ): CombatTargetDamageResult
 	local targetRecord = if target.kind ~= "BodyQueueCorpse" then records[target.player] else nil
 	local attackerRecord = records[attacker]
@@ -5174,8 +5559,10 @@ local function applyCombatTargetDamage(
 				assert(shot.levelTimeMilliseconds, "weapon damage requires exact Q3 level time")
 			)
 			== true
-	local poweredDamage =
-		assert(PowerupRules.QuadDamage(rawDamage, quadActive), "Quad weapon damage input must be valid")
+	local poweredDamage = assert(
+		PowerupRules.QuadDamage(rawDamage, quadActive),
+		"Quad weapon damage input must be valid"
+	)
 	local targetTakesDamage = (target.kind == "ClientCorpse")
 		or (target.kind == "BodyQueueCorpse" and target.takedamage)
 		or (targetRecord ~= nil and targetRecord.alive)
@@ -5185,9 +5572,14 @@ local function applyCombatTargetDamage(
 		else 0
 	local afterHealth = beforeHealth
 	local rules = MatchService.GetRules()
-	local targetTeam = if target.kind ~= "BodyQueueCorpse" then MatchService.GetPlayerTeam(target.player) else nil
+	local targetTeam = if target.kind ~= "BodyQueueCorpse"
+		then MatchService.GetPlayerTeam(target.player)
+		else nil
 	local attackerTeam = MatchService.GetPlayerTeam(attacker)
-	local sameTeam = rules.TeamMode and targetTeam ~= nil and attackerTeam ~= nil and targetTeam == attackerTeam
+	local sameTeam = rules.TeamMode
+		and targetTeam ~= nil
+		and attackerTeam ~= nil
+		and targetTeam == attackerTeam
 	local applied = false
 	local corpseRemoved = false
 	local presentationEligible = target.kind == "LivePlayer"
@@ -5204,7 +5596,9 @@ local function applyCombatTargetDamage(
 			shot,
 			true,
 			projectileWitness,
-			target.body
+			target.body,
+			nil,
+			projectileSplashVisibilityWitness
 		)
 		if records[target.player] == targetRecord and targetRecord then
 			afterHealth = targetRecord.health
@@ -5344,7 +5738,9 @@ function CombatService.HasWorldVisibility(origin: Vector3, targetPosition: Vecto
 	return query ~= nil and query(origin, targetPosition)
 end
 
-function CombatService.OnPlayerDamaged(callback: (Player, Player, number, number) -> ()): RBXScriptConnection
+function CombatService.OnPlayerDamaged(
+	callback: (Player, Player, number, number) -> ()
+): RBXScriptConnection
 	return damageSignal.Event:Connect(callback)
 end
 
@@ -5352,7 +5748,10 @@ local function radiusDamage(
 	origin: Vector3,
 	attacker: Player,
 	ignoreBodyId: string?,
-	projectile: Projectile
+	projectile: Projectile,
+	frame: AuthoritativeFrameService.Frame,
+	frameSummary: AuthoritativeFrameService.Summary,
+	projectileSourceSummary: ProjectileEntityService.SourceSummary
 ): { AccuracyContact }
 	local contacts: { AccuracyContact } = {}
 	local shot = projectile.shot
@@ -5360,6 +5759,16 @@ local function radiusDamage(
 	if not definition or not definition.SplashRadius or not definition.SplashDamage then
 		return contacts
 	end
+	assert(
+		AuthoritativeFrameService.GetOpenFrame() == frame
+			and AuthoritativeFrameService.InspectFrame(frame) == frameSummary
+			and AuthoritativeFrameService.ValidateFrameDependency(frame, frameSummary)
+			and ProjectileEntityService.InspectSource(projectile.source) == projectileSourceSummary
+			and projectileSourceSummary.phase == "Event"
+			and projectileSourceSummary.trajectoryBase == origin
+			and projectile.authorityTrajectoryState == projectileSourceSummary.trajectoryState,
+		"projectile splash radius root is stale"
+	)
 
 	local bodies, targetsByBodyId = collectCombatShotTargets()
 	for _, body in bodies do
@@ -5370,17 +5779,57 @@ local function radiusDamage(
 		if not target then
 			continue
 		end
+		-- ValidateAndOrderBodies returns a frozen value clone. Keep that clone for
+		-- deterministic ordering only; direct-death capture receives target.body,
+		-- so the accepted visibility witness must bind that exact canonical body.
+		local damageBody = target.body
+		assert(
+			directDeathOwner.sameBody(body, damageBody),
+			"ordered splash target body diverged from its combat binding"
+		)
 
-		local targetCenter = body.position + body.centerOffset
-		local edgeDistance = WeaponDefinitions.DistanceToAxisAlignedBox(origin, targetCenter, body.size)
-		local points = WeaponDefinitions.SplashDamage(definition.SplashDamage, edgeDistance, definition.SplashRadius)
+		local targetCenter = damageBody.position + damageBody.centerOffset
+		local edgeDistance =
+			WeaponDefinitions.DistanceToAxisAlignedBox(origin, targetCenter, damageBody.size)
+		local points = WeaponDefinitions.SplashDamage(
+			definition.SplashDamage,
+			edgeDistance,
+			definition.SplashRadius
+		)
 		if points <= 0 or not canDamageFrom(origin, targetCenter) then
 			continue
 		end
 
-		local direction = body.position - origin + Vector3.yAxis * WeaponDefinitions.RadiusDirectionLift
-		local damageResult =
-			applyCombatTargetDamage(target, attacker, points, direction, definition.SplashMeans, true, shot, projectile)
+		local direction = damageBody.position
+			- origin
+			+ Vector3.yAxis * WeaponDefinitions.RadiusDirectionLift
+		local splashVisibilityWitness: DirectDeathProjectileSplashVisibilityWitness? = nil
+		if target.kind == "LivePlayer" then
+			splashVisibilityWitness = {
+				projectileSource = projectile.source,
+				projectileSourceSummary = projectileSourceSummary,
+				target = target.player,
+				targetBody = damageBody,
+				authoritativeFrame = frame,
+				authoritativeFrameSummary = frameSummary,
+				explosionPosition = origin,
+				targetCenter = targetCenter,
+				rawDamage = points,
+				direction = direction,
+			}
+			table.freeze(splashVisibilityWitness)
+		end
+		local damageResult = applyCombatTargetDamage(
+			target,
+			attacker,
+			points,
+			direction,
+			definition.SplashMeans,
+			true,
+			shot,
+			projectile,
+			splashVisibilityWitness
+		)
 		table.insert(contacts, damageResult.accuracyContact)
 	end
 	return contacts
@@ -5395,7 +5844,10 @@ function projectileRuntime.destroyPresentation(projectile: Projectile)
 end
 
 function projectileRuntime.installRecord(projectile: Projectile)
-	assert(projectilesByRegistration[projectile.registration] == nil, "projectile registration is already installed")
+	assert(
+		projectilesByRegistration[projectile.registration] == nil,
+		"projectile registration is already installed"
+	)
 	assert(projectilesBySource[projectile.source] == nil, "projectile source is already installed")
 	projectilesByRegistration[projectile.registration] = projectile
 	projectilesBySource[projectile.source] = projectile
@@ -5407,7 +5859,10 @@ function projectileRuntime.removeRecord(projectile: Projectile)
 		projectilesByRegistration[projectile.registration] == projectile,
 		"projectile registration registry diverged"
 	)
-	assert(projectilesBySource[projectile.source] == projectile, "projectile source registry diverged")
+	assert(
+		projectilesBySource[projectile.source] == projectile,
+		"projectile source registry diverged"
+	)
 	local index = table.find(projectiles, projectile)
 	assert(index ~= nil, "projectile ordered registry diverged")
 	projectilesByRegistration[projectile.registration] = nil
@@ -5419,8 +5874,10 @@ function projectileRuntime.inspectSource(
 	projectile: Projectile,
 	expectedPhase: "Missile" | "Event"
 ): ProjectileEntityService.SourceSummary
-	local sourceSummary =
-		assert(ProjectileEntityService.InspectSource(projectile.source), "projectile source is not current")
+	local sourceSummary = assert(
+		ProjectileEntityService.InspectSource(projectile.source),
+		"projectile source is not current"
+	)
 	assert(
 		sourceSummary.registration == projectile.registration
 			and sourceSummary.dynamicBinding == projectile.dynamicBinding
@@ -5477,8 +5934,10 @@ function projectileRuntime.transitionToEvent(
 	hitResult: CombatTraceResult?,
 	directImpactVelocity: Vector3?
 )
-	local definition =
-		assert(WeaponDefinitions.ById[projectile.shot.weaponId], "projectile weapon definition is unavailable")
+	local definition = assert(
+		WeaponDefinitions.ById[projectile.shot.weaponId],
+		"projectile weapon definition is unavailable"
+	)
 	local target = if hitResult then hitResult.target else nil
 	local explosionPosition = if hitResult
 		then assert(
@@ -5499,7 +5958,8 @@ function projectileRuntime.transitionToEvent(
 	-- back if a subsequent authority operation faults the frame. G_RunMissile's
 	-- trace passes ownerNum, so the firing client cannot become `other` here.
 	if target and (target.kind == "BodyQueueCorpse" or target.player ~= projectile.owner) then
-		local impactDirection = WeaponDefinitions.MissileImpactDirection(directImpactVelocity or projectile.velocity)
+		local impactDirection =
+			WeaponDefinitions.MissileImpactDirection(directImpactVelocity or projectile.velocity)
 		local damageResult = applyCombatTargetDamage(
 			target,
 			projectile.owner,
@@ -5550,7 +6010,8 @@ function projectileRuntime.transitionToEvent(
 	)
 	local eventSourceSummary = projectileRuntime.inspectSource(projectile, "Event")
 	assert(
-		eventSourceSummary == receipt.summary and eventSourceSummary.trajectoryState == eventTrajectoryState,
+		eventSourceSummary == receipt.summary
+			and eventSourceSummary.trajectoryState == eventTrajectoryState,
 		"projectile event source diverged after commit"
 	)
 
@@ -5565,9 +6026,17 @@ function projectileRuntime.transitionToEvent(
 	-- G_ExplodeMissile/G_MissileImpact convert and relink the event entity before
 	-- radius damage and presentation publication. Direct damage above is the sole
 	-- exception and exists only for the impact path.
-	local radiusContacts =
-		radiusDamage(explosionPosition, projectile.owner, if target then target.body.id else nil, projectile)
-	local accuracyResult = resolveAccuracyShot(projectile.owner, projectile.shot, directContacts, radiusContacts)
+	local radiusContacts = radiusDamage(
+		explosionPosition,
+		projectile.owner,
+		if target then target.body.id else nil,
+		projectile,
+		frame,
+		summary,
+		eventSourceSummary
+	)
+	local accuracyResult =
+		resolveAccuracyShot(projectile.owner, projectile.shot, directContacts, radiusContacts)
 	syncPlayer(projectile.owner)
 	broadcast({
 		kind = "Explosion",
@@ -5611,7 +6080,8 @@ function projectileRuntime.ensureFolder(): Folder
 end
 
 function projectileRuntime.applyTrajectoryState(part: Part, state: ProjectileTrajectory.State)
-	local wire = assert(ProjectileTrajectory.Serialize(state), "projectile trajectory wire is invalid")
+	local wire =
+		assert(ProjectileTrajectory.Serialize(state), "projectile trajectory wire is invalid")
 	local function apply()
 		local attributes = ProjectileTrajectory.Attributes
 		part:SetAttribute(attributes.Kind, state.kind)
@@ -5642,7 +6112,7 @@ function projectileRuntime.createPart(
 	local folder = projectileRuntime.ensureFolder()
 	local projectileName, color, size = projectileRuntime.getAppearance(shot.weaponId)
 	local part = Instance.new("Part")
-	part.Name = string.format("Arena%s_%d_%s", projectileName, player.UserId, shot.id)
+	part.Name = string.format("Q3Engine%s_%d_%s", projectileName, player.UserId, shot.id)
 	part.Shape = Enum.PartType.Ball
 	part.Anchored = true
 	part.CanCollide = false
@@ -5653,7 +6123,7 @@ function projectileRuntime.createPart(
 	part.Color = color
 	part.Size = Vector3.one * size
 	part.Position = position
-	part:SetAttribute("ArenaAuthoritativeProjectile", true)
+	part:SetAttribute("Q3EngineAuthoritativeProjectile", true)
 	part:SetAttribute("ShotId", shot.id)
 	part:SetAttribute("OwnerUserId", player.UserId)
 	part:SetAttribute("WeaponId", shot.weaponId)
@@ -5698,11 +6168,15 @@ function projectileRuntime.advance(
 ): "Missile" | "Event" | "Released"
 	local framePreviousLevelTimeMilliseconds = summary.previousTimeMilliseconds
 	local stepLevelTimeMilliseconds = summary.currentTimeMilliseconds
-	local frameWindow, frameWindowError =
-		ProjectileFrameTimeRules.ValidateFrameWindow(framePreviousLevelTimeMilliseconds, stepLevelTimeMilliseconds)
+	local frameWindow, frameWindowError = ProjectileFrameTimeRules.ValidateFrameWindow(
+		framePreviousLevelTimeMilliseconds,
+		stepLevelTimeMilliseconds
+	)
 	assert(frameWindow, frameWindowError or "projectile authority frame window is invalid")
-	local definition =
-		assert(WeaponDefinitions.ById[projectile.shot.weaponId], "projectile weapon definition is unavailable")
+	local definition = assert(
+		WeaponDefinitions.ById[projectile.shot.weaponId],
+		"projectile weapon definition is unavailable"
+	)
 	local part = assert(projectile.part, "missile presentation is unavailable")
 	local previousLevelTimeMilliseconds = projectile.simulatedThroughLevelTimeMilliseconds
 	if stepLevelTimeMilliseconds <= previousLevelTimeMilliseconds then
@@ -5710,7 +6184,9 @@ function projectileRuntime.advance(
 	end
 	local previousServerTime = projectile.simulatedThroughServerTime
 	assert(
-		isFinite(previousServerTime) and isFinite(stepServerTime) and stepServerTime > previousServerTime,
+		isFinite(previousServerTime)
+			and isFinite(stepServerTime)
+			and stepServerTime > previousServerTime,
 		"projectile presentation clock did not advance"
 	)
 	local presentationElapsedSeconds = stepServerTime - previousServerTime
@@ -5744,21 +6220,31 @@ function projectileRuntime.advance(
 	-- G_MissileImpact before the later fuse think; do not short-circuit zero
 	-- displacement here.
 	local result, startSolid = traceCombatShot(projectile.position, displacement, ignoredBodyIds)
-	if startSolid then
+	if startSolid or (result ~= nil and result.allSolid) then
 		-- G_RunMissile does not treat an exiting startsolid as a hitscan impact.
 		-- It repeats a zero-length trace at the old origin to identify the body it
-		-- is embedded in, then forces fraction zero before G_MissileImpact.
-		local retryResult, retryStartSolid = traceCombatShot(projectile.position, Vector3.zero, ignoredBodyIds)
-		assert(
-			retryResult and retryStartSolid and retryResult.allSolid,
-			"projectile startsolid retry lost its authoritative collision body"
-		)
-		result = retryResult
+		-- is embedded in, then forces fraction zero before G_MissileImpact. The Q3
+		-- retry is allowed to report no body; its zeroed trace still impacts at the
+		-- old origin rather than terminating the whole authoritative frame.
+		local retryResult = traceCombatShot(projectile.position, Vector3.zero, ignoredBodyIds)
+		local forcedRetryResult: CombatTraceResult = {
+			position = projectile.position,
+			normal = if retryResult then retryResult.normal else Vector3.zero,
+			distance = 0,
+			startSolid = if retryResult then retryResult.startSolid else false,
+			allSolid = if retryResult then retryResult.allSolid else false,
+			worldInstance = if retryResult then retryResult.worldInstance else nil,
+			target = if retryResult then retryResult.target else nil,
+		}
+		table.freeze(forcedRetryResult)
+		result = forcedRetryResult
 	end
 
 	if result then
-		local noImpactDecision =
-			NoImpactRules.Resolve(NoImpactRules.Family.Projectile, SurfaceContact.IsNoImpact(result.worldInstance))
+		local noImpactDecision = NoImpactRules.Resolve(
+			NoImpactRules.Family.Projectile,
+			SurfaceContact.IsNoImpact(result.worldInstance)
+		)
 		if noImpactDecision and noImpactDecision.destroyProjectile then
 			-- G_RunMissile frees SURF_NOIMPACT missiles before G_MissileImpact.
 			-- This must precede target lookup, grenade bounce, direct/splash damage,
@@ -5782,9 +6268,15 @@ function projectileRuntime.advance(
 					frameWindow.currentLevelTimeMilliseconds,
 					impactFraction
 				)
-			assert(impactLevelTimeMilliseconds, impactLevelTimeError or "projectile bounce time is invalid")
+			assert(
+				impactLevelTimeMilliseconds,
+				impactLevelTimeError or "projectile bounce time is invalid"
+			)
 			local impactVelocity = assert(
-				ProjectileTrajectory.EvaluateDelta(authorityState, impactLevelTimeMilliseconds / 1000),
+				ProjectileTrajectory.EvaluateDelta(
+					authorityState,
+					impactLevelTimeMilliseconds / 1000
+				),
 				"projectile impact velocity could not be evaluated"
 			)
 			local bounceVelocity, stationary = WeaponDefinitions.BounceVelocity(
@@ -5800,7 +6292,9 @@ function projectileRuntime.advance(
 				else result.position + result.normal * Constants.PlaneNudge
 			local trajectoryKind = if stationary
 				then ProjectileTrajectory.Kind.Stationary
-				elseif (definition.ProjectileGravity or 0) > 0 then ProjectileTrajectory.Kind.Gravity
+				elseif
+					(definition.ProjectileGravity or 0) > 0
+				then ProjectileTrajectory.Kind.Gravity
 				else ProjectileTrajectory.Kind.Linear
 			local authorityTrajectoryState, authorityTrajectoryError = ProjectileTrajectory.Create(
 				trajectoryKind,
@@ -5871,7 +6365,14 @@ function projectileRuntime.advance(
 
 		-- G_MissileImpact evaluates direct-hit knockback at level.time, not at
 		-- the earlier trace fraction used only for bounce reflection.
-		projectileRuntime.transitionToEvent(projectile, frame, summary, stepServerTime, result, endVelocity)
+		projectileRuntime.transitionToEvent(
+			projectile,
+			frame,
+			summary,
+			stepServerTime,
+			result,
+			endVelocity
+		)
 		return "Event"
 	end
 
@@ -5922,9 +6423,17 @@ function projectileRuntime.fire(
 		"projectile launch velocity could not SnapVector"
 	)
 	local gravity = definition.ProjectileGravity or 0
-	local trajectoryKind = if gravity > 0 then ProjectileTrajectory.Kind.Gravity else ProjectileTrajectory.Kind.Linear
-	local trajectoryState, trajectoryError =
-		ProjectileTrajectory.Create(trajectoryKind, origin, velocity, trajectoryStartServerTime, gravity, 1)
+	local trajectoryKind = if gravity > 0
+		then ProjectileTrajectory.Kind.Gravity
+		else ProjectileTrajectory.Kind.Linear
+	local trajectoryState, trajectoryError = ProjectileTrajectory.Create(
+		trajectoryKind,
+		origin,
+		velocity,
+		trajectoryStartServerTime,
+		gravity,
+		1
+	)
 	assert(trajectoryState, trajectoryError or "projectile launch trajectory is invalid")
 	local authorityTrajectoryState, authorityTrajectoryError = ProjectileTrajectory.Create(
 		trajectoryKind,
@@ -5934,11 +6443,18 @@ function projectileRuntime.fire(
 		gravity,
 		1
 	)
-	assert(authorityTrajectoryState, authorityTrajectoryError or "projectile authority launch trajectory is invalid")
-	local frame =
-		assert(AuthoritativeFrameService.GetOpenFrame(), "projectile launch occurred outside the authoritative frame")
-	local frameSummary =
-		assert(AuthoritativeFrameService.InspectFrame(frame), "projectile launch lost its authoritative frame")
+	assert(
+		authorityTrajectoryState,
+		authorityTrajectoryError or "projectile authority launch trajectory is invalid"
+	)
+	local frame = assert(
+		AuthoritativeFrameService.GetOpenFrame(),
+		"projectile launch occurred outside the authoritative frame"
+	)
+	local frameSummary = assert(
+		AuthoritativeFrameService.InspectFrame(frame),
+		"projectile launch lost its authoritative frame"
+	)
 	assert(
 		frameSummary.currentTimeMilliseconds == launchLevelTimeMilliseconds,
 		"projectile launch level time diverged from the authoritative frame"
@@ -5956,9 +6472,12 @@ function projectileRuntime.fire(
 		receipt.kind == "Spawn" and receipt.source == source and receipt.summary ~= nil,
 		"projectile spawn receipt diverged"
 	)
-	local sourceSummary =
-		assert(ProjectileEntityService.InspectSource(source), "projectile source disappeared after spawn")
-	local dynamicBinding = assert(sourceSummary.dynamicBinding, "projectile spawn has no dynamic dispatcher binding")
+	local sourceSummary = assert(
+		ProjectileEntityService.InspectSource(source),
+		"projectile source disappeared after spawn"
+	)
+	local dynamicBinding =
+		assert(sourceSummary.dynamicBinding, "projectile spawn has no dynamic dispatcher binding")
 	assert(
 		sourceSummary == receipt.summary
 			and sourceSummary.phase == "Missile"
@@ -5989,11 +6508,19 @@ function projectileRuntime.fire(
 		cleanupIntent = nil,
 	}
 	projectileRuntime.installRecord(projectile)
-	projectile.part =
-		projectileRuntime.createPart(player, shot, origin, trajectoryStartServerTime, origin, trajectoryState)
+	projectile.part = projectileRuntime.createPart(
+		player,
+		shot,
+		origin,
+		trajectoryStartServerTime,
+		origin,
+		trajectoryState
+	)
 
 	broadcast({
-		kind = if shot.weaponId == WeaponDefinitions.WeaponId.RocketLauncher then "RocketFired" else "ProjectileFired",
+		kind = if shot.weaponId == WeaponDefinitions.WeaponId.RocketLauncher
+			then "RocketFired"
+			else "ProjectileFired",
 		eventId = nextEventId(shot),
 		shotId = shot.id,
 		weaponId = shot.weaponId,
@@ -6030,7 +6557,11 @@ local function traceHitscan(
 	return result, if result then result.position else origin + direction * range
 end
 
-local function traceGauntletContact(player: Player, origin: Vector3, direction: Vector3): CombatTraceResult?
+local function traceGauntletContact(
+	player: Player,
+	origin: Vector3,
+	direction: Vector3
+): CombatTraceResult?
 	local definition = WeaponDefinitions.ById[WeaponDefinitions.WeaponId.Gauntlet]
 	local result = traceHitscan(player, origin, direction, definition.Range)
 	local noImpactDecision = NoImpactRules.Resolve(
@@ -6046,8 +6577,10 @@ end
 
 local function broadcastPreparedGauntlet(player: Player, receipt: GauntletPrePmoveReceipt)
 	local shot = receipt.shot
-	local presentation =
-		CombatEventPresentationRules.ResolveWeaponPresentation(WeaponDefinitions.WeaponId.Gauntlet, false)
+	local presentation = CombatEventPresentationRules.ResolveWeaponPresentation(
+		WeaponDefinitions.WeaponId.Gauntlet,
+		false
+	)
 	assert(presentation, "gauntlet must have a legal CombatEvent presentation")
 	broadcast({
 		kind = "Melee",
@@ -6072,7 +6605,12 @@ local function broadcastPreparedGauntlet(player: Player, receipt: GauntletPrePmo
 	})
 end
 
-local function fireSingleHitscan(player: Player, origin: Vector3, direction: Vector3, shot: ShotContext)
+local function fireSingleHitscan(
+	player: Player,
+	origin: Vector3,
+	direction: Vector3,
+	shot: ShotContext
+)
 	assert(
 		shot.weaponId ~= WeaponDefinitions.WeaponId.Gauntlet,
 		"post-Pmove gauntlet path must consume its pretrace without retracing"
@@ -6080,8 +6618,12 @@ local function fireSingleHitscan(player: Player, origin: Vector3, direction: Vec
 	local definition = WeaponDefinitions.ById[shot.weaponId]
 	local traceDirection = direction
 	if definition.Spread then
-		traceDirection =
-			WeaponDefinitions.BulletSpreadDirection(direction, definition.Spread, definition.Range, shot.seed)
+		traceDirection = WeaponDefinitions.BulletSpreadDirection(
+			direction,
+			definition.Spread,
+			definition.Range,
+			shot.seed
+		)
 	end
 
 	local result, finalPosition = traceHitscan(player, origin, traceDirection, definition.Range)
@@ -6094,7 +6636,9 @@ local function fireSingleHitscan(player: Player, origin: Vector3, direction: Vec
 		and (shot.weaponId ~= WeaponDefinitions.WeaponId.LightningGun or target == nil)
 	local noImpactFamily = if shot.weaponId == WeaponDefinitions.WeaponId.Gauntlet
 		then NoImpactRules.Family.Gauntlet
-		elseif shot.weaponId == WeaponDefinitions.WeaponId.LightningGun then NoImpactRules.Family.Lightning
+		elseif
+			shot.weaponId == WeaponDefinitions.WeaponId.LightningGun
+		then NoImpactRules.Family.Lightning
 		else NoImpactRules.Family.Machinegun
 	local noImpactDecision = NoImpactRules.Resolve(noImpactFamily, surfaceNoImpact)
 	if noImpactDecision and noImpactDecision.action == NoImpactRules.Action.AbortAttack then
@@ -6107,20 +6651,39 @@ local function fireSingleHitscan(player: Player, origin: Vector3, direction: Vec
 	-- impact—identical presentation flags to a SURF_NOIMPACT world endpoint.
 	local suppressTerminalImpact = surfaceNoImpact
 		or (shot.weaponId == WeaponDefinitions.WeaponId.LightningGun and result == nil)
-	local presentation = CombatEventPresentationRules.ResolveWeaponPresentation(shot.weaponId, suppressTerminalImpact)
+	local presentation = CombatEventPresentationRules.ResolveWeaponPresentation(
+		shot.weaponId,
+		suppressTerminalImpact
+	)
 	assert(presentation, "traced weapon must have a legal CombatEvent presentation")
 	local directDamage = noImpactDecision == nil or noImpactDecision.directDamage
 	local currentUserIds: { number } = {}
 	if target and target.kind == "LivePlayer" and directDamage then
 		table.insert(currentUserIds, target.player.UserId)
 	end
-	recordHitscanRewindShadow(player, shot, origin, traceDirection, definition.Range, 1, currentUserIds)
+	recordHitscanRewindShadow(
+		player,
+		shot,
+		origin,
+		traceDirection,
+		definition.Range,
+		1,
+		currentUserIds
+	)
 	local damage = if shot.weaponId == WeaponDefinitions.WeaponId.Machinegun
 			and MatchService.GetRules().ModeKind == "TeamDeathmatch"
 		then definition.TeamDamage
 		else definition.Damage
 	local damageResult = if directDamage and target
-		then applyCombatTargetDamage(target, player, damage, traceDirection, definition.DirectMeans, false, shot)
+		then applyCombatTargetDamage(
+			target,
+			player,
+			damage,
+			traceDirection,
+			definition.DirectMeans,
+			false,
+			shot
+		)
 		else nil
 	local directContacts: { AccuracyContact } = {}
 	if damageResult then
@@ -6161,19 +6724,31 @@ local function fireShotgun(player: Player, origin: Vector3, direction: Vector3, 
 
 	for pelletIndex = 1, definition.Pellets do
 		local pelletDirection: Vector3
-		pelletDirection, seed = WeaponDefinitions.SpreadDirection(direction, definition.Spread, definition.Range, seed)
-		local result, finalPosition = traceHitscan(player, origin, pelletDirection, definition.Range)
+		pelletDirection, seed =
+			WeaponDefinitions.SpreadDirection(direction, definition.Spread, definition.Range, seed)
+		local result, finalPosition =
+			traceHitscan(player, origin, pelletDirection, definition.Range)
 		table.insert(pelletPositions, finalPosition)
 		local noImpactDecision = NoImpactRules.Resolve(
 			NoImpactRules.Family.ShotgunPellet,
 			SurfaceContact.IsNoImpact(if result then result.worldInstance else nil)
 		)
 		local tracePresentation = noImpactDecision == nil or noImpactDecision.pathPresentation
-		local terminalImpactPresentation = noImpactDecision == nil or noImpactDecision.terminalImpact
-		pelletTraceMask =
-			assert(CombatEventPresentationRules.PelletMask.Set(pelletTraceMask, pelletIndex, tracePresentation))
+		local terminalImpactPresentation = noImpactDecision == nil
+			or noImpactDecision.terminalImpact
+		pelletTraceMask = assert(
+			CombatEventPresentationRules.PelletMask.Set(
+				pelletTraceMask,
+				pelletIndex,
+				tracePresentation
+			)
+		)
 		pelletImpactMask = assert(
-			CombatEventPresentationRules.PelletMask.Set(pelletImpactMask, pelletIndex, terminalImpactPresentation)
+			CombatEventPresentationRules.PelletMask.Set(
+				pelletImpactMask,
+				pelletIndex,
+				terminalImpactPresentation
+			)
 		)
 
 		local target = if result then result.target else nil
@@ -6278,8 +6853,12 @@ local function fireRail(player: Player, origin: Vector3, direction: Vector3, sho
 
 	local hitPlayers = 0
 	local accuracyContacts: { AccuracyContact } = {}
-	local noImpactDecision = NoImpactRules.Resolve(NoImpactRules.Family.Rail, terminalSurfaceNoImpact)
-	local presentation = CombatEventPresentationRules.ResolveWeaponPresentation(shot.weaponId, terminalSurfaceNoImpact)
+	local noImpactDecision =
+		NoImpactRules.Resolve(NoImpactRules.Family.Rail, terminalSurfaceNoImpact)
+	local presentation = CombatEventPresentationRules.ResolveWeaponPresentation(
+		shot.weaponId,
+		terminalSurfaceNoImpact
+	)
 	assert(presentation, "rail must have a legal CombatEvent presentation")
 	for _, target in targets do
 		if noImpactDecision == nil or noImpactDecision.directDamage then
@@ -6300,8 +6879,10 @@ local function fireRail(player: Player, origin: Vector3, direction: Vector3, sho
 	end
 	local accuracyResult = resolveAccuracyShot(player, shot, accuracyContacts, {})
 	local record = assert(records[player], "rail shooter lost its Combat record")
-	local nextAccurateCount, impressiveDelta =
-		RailImpressiveRules.Advance(record.railAccurateCount, accuracyResult.impressiveQualifyingPenetrationCount)
+	local nextAccurateCount, impressiveDelta = RailImpressiveRules.Advance(
+		record.railAccurateCount,
+		accuracyResult.impressiveQualifyingPenetrationCount
+	)
 	record.railAccurateCount = assert(nextAccurateCount, "rail accurateCount transition failed")
 	if assert(impressiveDelta, "rail Impressive delta was unavailable") > 0 then
 		record.impressiveCount = saturatedAdd(record.impressiveCount, impressiveDelta)
@@ -6351,7 +6932,11 @@ local function consumeAmmo(record: CombatRecord, weaponId: number): boolean
 	return true
 end
 
-requestCharacterRespawn = function(player: Player, record: CombatRecord, currentLevelTimeMilliseconds: number): boolean
+requestCharacterRespawn = function(
+	player: Player,
+	record: CombatRecord,
+	currentLevelTimeMilliseconds: number
+): boolean
 	local eligibleAt = record.respawnEligibleAtMilliseconds
 	if
 		record.alive
@@ -6408,7 +6993,11 @@ local function prepareFireWeapon(
 	gauntletReceipt: GauntletPrePmoveReceipt?
 ): (() -> ())?
 	local record = records[player]
-	if gauntletReceipt ~= nil and record ~= nil and record.weaponId ~= WeaponDefinitions.WeaponId.Gauntlet then
+	if
+		gauntletReceipt ~= nil
+		and record ~= nil
+		and record.weaponId ~= WeaponDefinitions.WeaponId.Gauntlet
+	then
 		-- A command-side weapon transition may suppress PM_Weapon after the
 		-- source-faithful pretrace. Never let that receipt authorize another gun.
 		gauntletReceipt = nil
@@ -6545,7 +7134,10 @@ local function prepareFireWeapon(
 			return
 		end
 		if weaponId == WeaponDefinitions.WeaponId.Gauntlet then
-			broadcastPreparedGauntlet(player, assert(gauntletReceipt, "gauntlet fire lost its pre-Pmove trace receipt"))
+			broadcastPreparedGauntlet(
+				player,
+				assert(gauntletReceipt, "gauntlet fire lost its pre-Pmove trace receipt")
+			)
 		elseif weaponId == WeaponDefinitions.WeaponId.Railgun then
 			fireRail(player, origin, direction, shot)
 		elseif weaponId == WeaponDefinitions.WeaponId.Shotgun then
@@ -6561,7 +7153,14 @@ local function prepareFireWeapon(
 				-- normalizing, producing Q3's characteristic raised arc.
 				launchDirection = (direction + Vector3.yAxis * 0.2).Unit
 			end
-			projectileRuntime.fire(player, origin, launchDirection, shot, stepServerTime, stepLevelTimeMilliseconds)
+			projectileRuntime.fire(
+				player,
+				origin,
+				launchDirection,
+				shot,
+				stepServerTime,
+				stepLevelTimeMilliseconds
+			)
 		else
 			fireSingleHitscan(player, origin, direction, shot)
 		end
@@ -6710,7 +7309,10 @@ function CombatService.HandleMovementCommand(
 		"PM_Weapon requires exact integer level time"
 	)
 	if
-		not WeaponSelection.ShouldRunPmoveStep(record.lastWeaponPmoveLevelTimeMilliseconds, stepLevelTimeMilliseconds)
+		not WeaponSelection.ShouldRunPmoveStep(
+			record.lastWeaponPmoveLevelTimeMilliseconds,
+			stepLevelTimeMilliseconds
+		)
 	then
 		return nil
 	end
@@ -6746,7 +7348,8 @@ function CombatService.HandleMovementCommand(
 	local preparedRailJump: (() -> ())? = nil
 	if oneShot then
 		local previousUseHeld = record.holdableUseHeld
-		holdableStateChanged = previousUseHeld ~= useHoldable or record.holdableId ~= HoldableRules.HoldableId.None
+		holdableStateChanged = previousUseHeld ~= useHoldable
+			or record.holdableId ~= HoldableRules.HoldableId.None
 		record.holdableUseHeld = useHoldable
 		record.holdableId = HoldableRules.HoldableId.None
 
@@ -6770,7 +7373,11 @@ function CombatService.HandleMovementCommand(
 				+ direction * WeaponDefinitions.MuzzleForwardOffset
 			local surfacePosition = traceRailJumpSurface(origin, direction)
 			local jumpDirection = if surfacePosition
-				then OneShotRules.ResolveRailJumpDirection(state.position, surfacePosition, Constants.UnitsToStuds)
+				then OneShotRules.ResolveRailJumpDirection(
+					state.position,
+					surfacePosition,
+					Constants.UnitsToStuds
+				)
 				else nil
 			if jumpDirection then
 				record.railJumpReadyAtMilliseconds = assert(
@@ -6807,7 +7414,8 @@ function CombatService.HandleMovementCommand(
 		local preparedPersonalTeleport = nil
 		if holdableDecision.consumedHoldableId == HoldableRules.HoldableId.Teleporter then
 			local prepareError: string?
-			preparedPersonalTeleport, _, prepareError = CombatPersonalTeleporterCoordinator.Prepare(player)
+			preparedPersonalTeleport, _, prepareError =
+				CombatPersonalTeleporterCoordinator.Prepare(player)
 			assert(
 				preparedPersonalTeleport ~= nil,
 				prepareError or "Personal Teleporter composition could not be prepared"
@@ -6818,8 +7426,10 @@ function CombatService.HandleMovementCommand(
 		record.holdableUseHeld = holdableDecision.held
 		record.holdableId = holdableDecision.holdableId
 		if holdableDecision.consumedHoldableId == HoldableRules.HoldableId.Teleporter then
-			local prepared =
-				assert(preparedPersonalTeleport, "Personal Teleporter consumption requires its prepared composition")
+			local prepared = assert(
+				preparedPersonalTeleport,
+				"Personal Teleporter consumption requires its prepared composition"
+			)
 			preparedHoldable = function()
 				assert(
 					select(1, CombatPersonalTeleporterCoordinator.CanApply(prepared)) == true,
@@ -6834,11 +7444,19 @@ function CombatService.HandleMovementCommand(
 		elseif holdableDecision.consumedHoldableId == HoldableRules.HoldableId.Medkit then
 			local consumedLifeSequence = record.lifeSequence
 			preparedHoldable = function()
-				if records[player] ~= record or record.lifeSequence ~= consumedLifeSequence or not record.alive then
+				if
+					records[player] ~= record
+					or record.lifeSequence ~= consumedLifeSequence
+					or not record.alive
+				then
 					return
 				end
 				record.health = assert(
-					HoldableRules.ApplyMedkit(record.health, record.baseHealth, holdableDecision.consumedHoldableId),
+					HoldableRules.ApplyMedkit(
+						record.health,
+						record.baseHealth,
+						holdableDecision.consumedHoldableId
+					),
 					"consumed medkit effect was invalid"
 				)
 				syncHumanoidHealth(record)
@@ -6862,7 +7480,11 @@ function CombatService.HandleMovementCommand(
 	-- Dropping/Raising boundary. PM_FinishWeaponChange reads this command, not
 	-- the previous command's selection.
 	local weaponStateChanged, phaseConsumed, commandWeaponChanged, attackBranchReachable =
-		CombatInventoryRuntime.AdvanceWeaponCommandPhase(record, stepMsec, decision.acceptedWeaponId)
+		CombatInventoryRuntime.AdvanceWeaponCommandPhase(
+			record,
+			stepMsec,
+			decision.acceptedWeaponId
+		)
 	if freshCommand and (rawIntentChanged or commandWeaponChanged) then
 		record.lastWeaponCommandSequence = inputSequence
 	end
@@ -6930,7 +7552,9 @@ function CombatService.HandleDeadMovementCommand(
 )
 	local record = records[player]
 	local openFrame = AuthoritativeFrameService.GetOpenFrame()
-	local frameSummary = if openFrame then AuthoritativeFrameService.InspectFrame(openFrame) else nil
+	local frameSummary = if openFrame
+		then AuthoritativeFrameService.InspectFrame(openFrame)
+		else nil
 	if
 		not record
 		or record.alive
@@ -6955,7 +7579,10 @@ function CombatService.HandleDeadMovementCommand(
 	end
 	local corpseSource = handoffSummary.preparedCorpseTombstoneSummary.source
 	local pointContents = function(position: Vector3): number
-		return assert(MovementService.GetPointContents(position), "respawn point-contents authority unavailable")
+		return assert(
+			MovementService.GetPointContents(position),
+			"respawn point-contents authority unavailable"
+		)
 	end
 	local result, respawnError = CombatRespawnCoordinator.Execute({
 		deathHandle = handoffSummary.bodyQueueHandle,
@@ -6984,14 +7611,21 @@ function CombatService.HandleDeadMovementCommand(
 		end
 		error(respawnError or "prepared respawn transaction failed")
 	end
-	local handoffCapability =
-		assert(directDeathOwner.handoffCapabilities[handoff], "applied respawn lost its direct-death handoff")
+	local handoffCapability = assert(
+		directDeathOwner.handoffCapabilities[handoff],
+		"applied respawn lost its direct-death handoff"
+	)
 	directDeathOwner.retireHandoffCapability(handoffCapability)
 	if result.sink then
-		local presentationSucceeded, presentationError = BodyQueuePresentationService.StageCopy(player, result.sink)
+		local presentationSucceeded, presentationError =
+			BodyQueuePresentationService.StageCopy(player, result.sink)
 		if not presentationSucceeded then
 			warn(
-				string.format("Unable to stage body-queue avatar for %s: %s", player.Name, tostring(presentationError))
+				string.format(
+					"Unable to stage body-queue avatar for %s: %s",
+					player.Name,
+					tostring(presentationError)
+				)
 			)
 		end
 	end
@@ -7011,7 +7645,8 @@ function projectileRuntime.queueCleanup(
 			-- before this numeric entity receives its next canonical visit.
 			if
 				projectile.cleanupIntent == nil
-				or reason == ProjectileEntityLifecycleRules.AdministrativeReleaseReason.MatchCleanup
+				or reason
+					== ProjectileEntityLifecycleRules.AdministrativeReleaseReason.MatchCleanup
 			then
 				projectile.cleanupIntent = reason
 			end
@@ -7051,6 +7686,18 @@ function CombatService.HandleSimulationFault()
 	if projectilePhaseFaulted then
 		return
 	end
+	if projectileDiagnosticStage ~= "Idle" then
+		warn(
+			string.format(
+				"[Q3EngineProjectileFault] stage=%s directDeathStage=%s weaponId=%d sourceOrder=%d generation=%d",
+				projectileDiagnosticStage,
+				directDeathDiagnosticStage,
+				projectileDiagnosticWeaponId,
+				projectileDiagnosticSourceOrder,
+				projectileDiagnosticGeneration
+			)
+		)
+	end
 	projectilePhaseFaulted = true
 	CombatFramePublicationService.Quarantine()
 	EntityFrameDispatcherService.HandleSimulationFault()
@@ -7063,7 +7710,10 @@ function CombatService.HandleSimulationFault()
 end
 
 function CombatService.SetSimulationFaultExtension(callback: () -> ())
-	assert(simulationFaultExtension == nil, "Combat simulation-fault extension is already configured")
+	assert(
+		simulationFaultExtension == nil,
+		"Combat simulation-fault extension is already configured"
+	)
 	simulationFaultExtension = callback
 end
 
@@ -7099,7 +7749,12 @@ function CombatService.HandleAuthoritativeFrameBegin(frameValue: unknown)
 		end
 		local state = MovementService.GetState(player)
 		local shot: ShotContext = {
-			id = string.format("suicide:%d:%d:%d", player.UserId, record.lifeSequence, levelTimeMilliseconds),
+			id = string.format(
+				"suicide:%d:%d:%d",
+				player.UserId,
+				record.lifeSequence,
+				levelTimeMilliseconds
+			),
 			matchId = MatchService.GetMatchId(),
 			lifeSequence = record.lifeSequence,
 			weaponId = WeaponDefinitions.WeaponId.None,
@@ -7148,15 +7803,23 @@ function CombatService.HandleAuthoritativeFrameBegin(frameValue: unknown)
 			continue
 		end
 		local pendingCharacter = pending.character
-		local pendingHumanoid = if pendingCharacter then pendingCharacter:FindFirstChildOfClass("Humanoid") else nil
+		local pendingHumanoid = if pendingCharacter
+			then pendingCharacter:FindFirstChildOfClass("Humanoid")
+			else nil
 		if
 			pending.requireDeadHumanoid
-			and (record.character ~= pendingCharacter or not pendingHumanoid or pendingHumanoid.Health > 0)
+			and (
+				record.character ~= pendingCharacter
+				or not pendingHumanoid
+				or pendingHumanoid.Health > 0
+			)
 		then
 			continue
 		end
-		local forcedEnvironmentAllowed =
-			OneShotRules.AllowsForcedEnvironmentElimination(MatchService.GetRules().OneShot, pending.means)
+		local forcedEnvironmentAllowed = OneShotRules.AllowsForcedEnvironmentElimination(
+			MatchService.GetRules().OneShot,
+			pending.means
+		)
 		assert(forcedEnvironmentAllowed ~= nil, "One-Shot forced-environment rule must be valid")
 		if not forcedEnvironmentAllowed then
 			-- The One-Shot ruleset ignores arbitrary Roblox/Humanoid world
@@ -7208,14 +7871,19 @@ function CombatService.HandlePreMoverMatchTransitionCleanup(frameValue: unknown)
 	local retiredMatchId = pendingPostBeginMatchCleanupId
 	local frame = AuthoritativeFrameService.GetOpenFrame()
 	assert(
-		frame ~= nil and frameValue == frame and AuthoritativeFrameService.InspectFrame(frame) ~= nil,
+		frame ~= nil
+			and frameValue == frame
+			and AuthoritativeFrameService.InspectFrame(frame) ~= nil,
 		"pre-mover Match-transition cleanup received a stale frame"
 	)
-	local cleanupOwner =
-		assert(corpseMatchTransitionCleanupOwner, "pre-mover corpse Match-transition cleanup owner disappeared")
+	local cleanupOwner = assert(
+		corpseMatchTransitionCleanupOwner,
+		"pre-mover corpse Match-transition cleanup owner disappeared"
+	)
 	local currentMatchId = MatchService.GetMatchId()
 	if type(currentMatchId) == "string" and currentMatchId ~= "" then
-		local clearedPlayers, staleCleanupError = CorpseService.ClearStaleMatchAuthority(cleanupOwner, currentMatchId)
+		local clearedPlayers, staleCleanupError =
+			CorpseService.ClearStaleMatchAuthority(cleanupOwner, currentMatchId)
 		assert(clearedPlayers ~= nil, staleCleanupError or "stale Match corpse cleanup failed")
 		for _, player in clearedPlayers do
 			local record = records[player]
@@ -7246,7 +7914,9 @@ function CombatService.HandlePreMoverMatchTransitionCleanup(frameValue: unknown)
 			"pre-mover old-Match client corpse could not be cleared"
 		)
 		local handoff = directDeathOwner.handoffByPlayer[player]
-		local handoffCapability = if handoff then directDeathOwner.handoffCapabilities[handoff] else nil
+		local handoffCapability = if handoff
+			then directDeathOwner.handoffCapabilities[handoff]
+			else nil
 		if handoffCapability and handoffCapability.summary.matchId == retiredMatchId then
 			directDeathOwner.retireHandoffCapability(handoffCapability)
 		end
@@ -7266,6 +7936,10 @@ function CombatService.HandleDynamicProjectile(
 	binding: EntityFrameDispatcherService.DynamicBinding,
 	declaredKind: EntityFrameDispatcherService.DynamicKind
 )
+	projectileDiagnosticStage = "Identity"
+	projectileDiagnosticWeaponId = 0
+	projectileDiagnosticSourceOrder = registration.sourceOrder
+	projectileDiagnosticGeneration = registration.generation
 	assert(started, "CombatService must start before projectile dispatch")
 	assert(not projectilePhaseFaulted, "authoritative projectile phase is permanently faulted")
 	assert(
@@ -7276,8 +7950,11 @@ function CombatService.HandleDynamicProjectile(
 	)
 	local source, sourceSummary = ProjectileEntityService.InspectSourceForRegistration(registration)
 	assert(source and sourceSummary, "dynamic projectile registration has no current source")
-	local projectile =
-		assert(projectilesByRegistration[registration], "dynamic projectile registration has no Combat record")
+	local projectile = assert(
+		projectilesByRegistration[registration],
+		"dynamic projectile registration has no Combat record"
+	)
+	projectileDiagnosticWeaponId = projectile.shot.weaponId
 	assert(
 		projectile.source == source
 			and projectilesBySource[source] == projectile
@@ -7291,11 +7968,14 @@ function CombatService.HandleDynamicProjectile(
 
 	local cleanupIntent = projectile.cleanupIntent
 	if cleanupIntent then
+		projectileDiagnosticStage = "Cleanup"
 		projectileRuntime.commitRelease(projectile, frame, cleanupIntent)
+		projectileDiagnosticStage = "Idle"
 		return
 	end
 
 	if sourceSummary.phase == "Event" then
+		projectileDiagnosticStage = "Event"
 		local lifecycle = sourceSummary.lifecycle
 		assert(lifecycle.phase == "Event", "projectile event lifecycle diverged")
 		local eventAge = summary.currentTimeMilliseconds - lifecycle.eventTimeMilliseconds
@@ -7305,14 +7985,22 @@ function CombatService.HandleDynamicProjectile(
 		if eventAge > PROJECTILE_EVENT_VALID_MILLISECONDS then
 			projectileRuntime.commitRelease(projectile, frame, "EventExpired")
 		end
+		projectileDiagnosticStage = "Idle"
 		return
 	end
 	assert(sourceSummary.phase == "Missile", "projectile source has an invalid live phase")
 	projectileRuntime.inspectSource(projectile, "Missile")
 
+	projectileDiagnosticStage = "Presentation"
 	local folder = projectileRuntime.ensureFolder()
 	local part = projectile.part
-	if part == nil or (part.Parent ~= folder and not CombatFramePublicationService.IsProjectilePartPending(part)) then
+	if
+		part == nil
+		or (
+			part.Parent ~= folder
+			and not CombatFramePublicationService.IsProjectilePartPending(part)
+		)
+	then
 		if part then
 			CombatFramePublicationService.ForgetProjectilePart(part)
 			part:Destroy()
@@ -7334,16 +8022,20 @@ function CombatService.HandleDynamicProjectile(
 	-- A retained missile may already have consumed this boundary through a prior
 	-- trajectory epoch. A fresh source begins 50 ms behind and is therefore
 	-- eligible for its same-frame prestep when its higher numeric slot is reached.
+	projectileDiagnosticStage = "Advance"
 	local advanceOutcome = projectileRuntime.advance(projectile, frame, summary, stepServerTime)
 	if advanceOutcome ~= "Missile" then
+		projectileDiagnosticStage = "Idle"
 		return
 	end
 
 	-- G_RunMissile resolves trace/no-impact/bounce/direct impact before G_RunThink.
 	-- A collision on the exact fuse frame therefore wins over the timed event.
+	projectileDiagnosticStage = "Fuse"
 	if summary.currentTimeMilliseconds >= projectile.fuseExpiresLevelTimeMilliseconds then
 		projectileRuntime.transitionToEvent(projectile, frame, summary, stepServerTime, nil, nil)
 	end
+	projectileDiagnosticStage = "Idle"
 end
 
 export type ProjectilePhaseDebugSnapshot = {
@@ -7403,7 +8095,11 @@ function CombatService.GetProjectilePhaseDebugSnapshot(): ProjectilePhaseDebugSn
 	})
 end
 
-function CombatService.HandleClientTimer(player: Player, msec: number, levelTimeMilliseconds: number)
+function CombatService.HandleClientTimer(
+	player: Player,
+	msec: number,
+	levelTimeMilliseconds: number
+)
 	assert(
 		isFinite(msec)
 			and msec % 1 == 0
@@ -7419,7 +8115,10 @@ function CombatService.HandleClientTimer(player: Player, msec: number, levelTime
 	end
 	local rewardCleared = false
 	local rewardDeadline = record.impressiveRewardUntilMilliseconds
-	if rewardDeadline ~= nil and RailImpressiveRules.IsRewardExpired(rewardDeadline, levelTimeMilliseconds) == true then
+	if
+		rewardDeadline ~= nil
+		and RailImpressiveRules.IsRewardExpired(rewardDeadline, levelTimeMilliseconds) == true
+	then
 		record.impressiveRewardUntilMilliseconds = nil
 		rewardCleared = true
 	end
@@ -7539,7 +8238,10 @@ local function addPlayer(player: Player)
 			return
 		end
 		pendingExternalEliminations[player] = nil
-		assert(CorpseService.ClearPlayer(player), "client corpse could not be cleared before a new character spawn")
+		assert(
+			CorpseService.ClearPlayer(player),
+			"client corpse could not be cleared before a new character spawn"
+		)
 
 		record.character = character
 		record.characterMatchId = nil
@@ -7560,7 +8262,7 @@ local function addPlayer(player: Player)
 		record.lastLandingFrame = -1
 		record.lastLandingContactIndex = 0
 		character.DescendantAdded:Connect(function(descendant: Instance)
-			if character:GetAttribute("ArenaPresentationVisible") == false then
+			if character:GetAttribute("Q3EnginePresentationVisible") == false then
 				setPresentationInstance(descendant, false)
 			end
 		end)
@@ -7598,9 +8300,14 @@ local function addPlayer(player: Player)
 			syncPlayer(player)
 			return
 		end
-		local spawnReserved, spawnReservationError = MovementService.WaitForSpawnReservation(player, character, 10)
+		local spawnReserved, spawnReservationError =
+			MovementService.WaitForSpawnReservation(player, character, 10)
 		if not spawnReserved then
-			if records[player] ~= record or record.character ~= character or player.Character ~= character then
+			if
+				records[player] ~= record
+				or record.character ~= character
+				or player.Character ~= character
+			then
 				setCharacterCombatQuery(character, false)
 				return
 			end
@@ -7626,7 +8333,9 @@ local function addPlayer(player: Player)
 		record.armor = loadout.armor
 		record.alive = true
 		local spawnFrame = AuthoritativeFrameService.GetOpenFrame()
-		local spawnFrameSummary = if spawnFrame then AuthoritativeFrameService.InspectFrame(spawnFrame) else nil
+		local spawnFrameSummary = if spawnFrame
+			then AuthoritativeFrameService.InspectFrame(spawnFrame)
+			else nil
 		record.environmentDamageState = assert(
 			EnvironmentDamageRules.SpawnState(
 				if spawnFrameSummary then spawnFrameSummary.currentTimeMilliseconds else 0
@@ -7731,10 +8440,16 @@ local function addPlayer(player: Player)
 end
 
 local function isLiveWeaponId(weaponId: number): boolean
-	return isFinite(weaponId) and weaponId % 1 == 0 and WeaponDefinitions.LiveAllowed[weaponId] == true
+	return isFinite(weaponId)
+		and weaponId % 1 == 0
+		and WeaponDefinitions.LiveAllowed[weaponId] == true
 end
 
-local function resolveGrantAmount(weaponId: number, requestedAmount: number?, isWeaponPickup: boolean): number?
+local function resolveGrantAmount(
+	weaponId: number,
+	requestedAmount: number?,
+	isWeaponPickup: boolean
+): number?
 	if not isLiveWeaponId(weaponId) then
 		return nil
 	end
@@ -7753,13 +8468,22 @@ end
 
 local function canReceivePickup(player: Player, weaponId: number): CombatRecord?
 	local record = records[player]
-	if not record or not record.alive or not isLiveWeaponId(weaponId) or not MatchService.CanUsePickups(player) then
+	if
+		not record
+		or not record.alive
+		or not isLiveWeaponId(weaponId)
+		or not MatchService.CanUsePickups(player)
+	then
 		return nil
 	end
 	return record
 end
 
-local function resolveVitalCap(record: CombatRecord, amount: number, cap: number): (number?, number?)
+local function resolveVitalCap(
+	record: CombatRecord,
+	amount: number,
+	cap: number
+): (number?, number?)
 	if not isFinite(amount) or not isFinite(cap) then
 		return nil, nil
 	end
@@ -7792,14 +8516,21 @@ function CombatService.GetItemState(player: Player): ItemState?
 	}
 end
 
-function CombatService.TryGrantHoldable(player: Player, holdableId: number, _context: unknown?): boolean
+function CombatService.TryGrantHoldable(
+	player: Player,
+	holdableId: number,
+	_context: unknown?
+): boolean
 	local record = records[player]
 	if
 		not record
 		or not record.alive
 		or not MatchService.CanUsePickups(player)
 		or record.holdableId ~= HoldableRules.HoldableId.None
-		or (holdableId ~= HoldableRules.HoldableId.Teleporter and holdableId ~= HoldableRules.HoldableId.Medkit)
+		or (
+			holdableId ~= HoldableRules.HoldableId.Teleporter
+			and holdableId ~= HoldableRules.HoldableId.Medkit
+		)
 	then
 		return false
 	end
@@ -7834,7 +8565,12 @@ function CombatService.TryGrantPowerup(player: Player, powerupId: number, contex
 	return true
 end
 
-function CombatService.TryGrantHealth(player: Player, amount: number, cap: number, _context: unknown?): boolean
+function CombatService.TryGrantHealth(
+	player: Player,
+	amount: number,
+	cap: number,
+	_context: unknown?
+): boolean
 	local record = records[player]
 	if not record or not record.alive or not MatchService.CanUsePickups(player) then
 		return false
@@ -7855,7 +8591,12 @@ function CombatService.TryGrantHealth(player: Player, amount: number, cap: numbe
 	return true
 end
 
-function CombatService.TryGrantArmor(player: Player, amount: number, cap: number, _context: unknown?): boolean
+function CombatService.TryGrantArmor(
+	player: Player,
+	amount: number,
+	cap: number,
+	_context: unknown?
+): boolean
 	local record = records[player]
 	if
 		not record
@@ -7918,7 +8659,8 @@ function CombatService.GetWeaponState(player: Player): {
 		return nil
 	end
 	local now = os.clock()
-	local transitionAt = if record.weaponState == "Dropping" or record.weaponState == "Raising"
+	local transitionAt = if record.weaponState == "Dropping"
+			or record.weaponState == "Raising"
 		then now + weaponPhaseRemainingSeconds(record)
 		else 0
 	return {
@@ -7931,7 +8673,11 @@ function CombatService.GetWeaponState(player: Player): {
 	}
 end
 
-function CombatService.CanGrantWeapon(player: Player, weaponId: number, ammoAmount: number?): boolean
+function CombatService.CanGrantWeapon(
+	player: Player,
+	weaponId: number,
+	ammoAmount: number?
+): boolean
 	local record = canReceivePickup(player, weaponId)
 	local amount = resolveGrantAmount(weaponId, ammoAmount, true)
 	if not record or amount == nil then
@@ -7951,19 +8697,24 @@ function CombatService.GrantWeapon(player: Player, weaponId: number, ammoAmount:
 	local definition = WeaponDefinitions.ById[weaponId]
 	local amount = resolveGrantAmount(weaponId, ammoAmount, true) :: number
 	record.ownedWeapons[weaponId] = true
-	record.ammoByWeapon[weaponId] = math.min((record.ammoByWeapon[weaponId] or 0) + amount, definition.MaximumAmmo)
+	record.ammoByWeapon[weaponId] =
+		math.min((record.ammoByWeapon[weaponId] or 0) + amount, definition.MaximumAmmo)
 	syncPlayer(player)
 	return true
 end
 
-function CombatService.GrantStudioFixtureWeapon(player: Player, weaponId: number, ammoAmount: number): boolean
+function CombatService.GrantStudioFixtureWeapon(
+	player: Player,
+	weaponId: number,
+	ammoAmount: number
+): boolean
 	local world = Workspace:FindFirstChild("Q3EngineWorld")
 	local record = records[player]
 	local definition = WeaponDefinitions.ById[weaponId]
 	if
 		not RunService:IsStudio()
 		or not world
-		or world:GetAttribute("ArenaStudioMoverFixture") == nil
+		or world:GetAttribute("Q3EngineStudioMoverFixture") == nil
 		or not record
 		or not record.alive
 		or not definition
@@ -7984,13 +8735,17 @@ function CombatService.GrantStudioFixtureWeapon(player: Player, weaponId: number
 	return true
 end
 
-function CombatService.GrantStudioFixturePowerup(player: Player, powerupId: number, remainingSeconds: number): boolean
+function CombatService.GrantStudioFixturePowerup(
+	player: Player,
+	powerupId: number,
+	remainingSeconds: number
+): boolean
 	local world = Workspace:FindFirstChild("Q3EngineWorld")
 	local record = records[player]
 	if
 		not RunService:IsStudio()
 		or not world
-		or world:GetAttribute("ArenaStudioMoverFixture") == nil
+		or world:GetAttribute("Q3EngineStudioMoverFixture") == nil
 		or not record
 		or not record.alive
 		or not PowerupRules.IsId(powerupId)
@@ -8014,7 +8769,8 @@ function CombatService.CanGrantAmmo(player: Player, weaponId: number, ammoAmount
 	end
 
 	local definition = WeaponDefinitions.ById[weaponId]
-	return definition.MaximumAmmo > 0 and (record.ammoByWeapon[weaponId] or 0) < definition.MaximumAmmo
+	return definition.MaximumAmmo > 0
+		and (record.ammoByWeapon[weaponId] or 0) < definition.MaximumAmmo
 end
 
 function CombatService.GrantAmmo(player: Player, weaponId: number, ammoAmount: number?): boolean
@@ -8025,7 +8781,8 @@ function CombatService.GrantAmmo(player: Player, weaponId: number, ammoAmount: n
 	local record = records[player] :: CombatRecord
 	local definition = WeaponDefinitions.ById[weaponId]
 	local amount = resolveGrantAmount(weaponId, ammoAmount, false) :: number
-	record.ammoByWeapon[weaponId] = math.min((record.ammoByWeapon[weaponId] or 0) + amount, definition.MaximumAmmo)
+	record.ammoByWeapon[weaponId] =
+		math.min((record.ammoByWeapon[weaponId] or 0) + amount, definition.MaximumAmmo)
 	syncPlayer(player)
 	return true
 end
@@ -8035,7 +8792,10 @@ function CombatService.OnElimination(callback: (event: EliminationEvent) -> ()):
 end
 
 function CombatService.SetPreparedDeathDropInsertionAdapter(adapterValue: DeathDropInsertionAdapter)
-	assert(started, "CombatService must be started before installing the prepared death-drop adapter")
+	assert(
+		started,
+		"CombatService must be started before installing the prepared death-drop adapter"
+	)
 	assert(type(adapterValue) == "table", "prepared death-drop adapter must be a table")
 	assert(table.isfrozen(adapterValue), "prepared death-drop adapter must be frozen")
 	assert(
@@ -8043,19 +8803,34 @@ function CombatService.SetPreparedDeathDropInsertionAdapter(adapterValue: DeathD
 		"synchronous mover death-drop staging is unavailable"
 	)
 	assert(type(adapterValue.Prepare) == "function", "prepared death-drop Prepare is unavailable")
-	assert(type(adapterValue.InspectPrepared) == "function", "prepared death-drop inspection is unavailable")
+	assert(
+		type(adapterValue.InspectPrepared) == "function",
+		"prepared death-drop inspection is unavailable"
+	)
 	assert(
 		type(adapterValue.ValidatePreparedDependency) == "function",
 		"prepared death-drop dependency validation is unavailable"
 	)
-	assert(type(adapterValue.CanApplyPrepared) == "function", "prepared death-drop preflight is unavailable")
-	assert(type(adapterValue.ApplyPrepared) == "function", "prepared death-drop Apply is unavailable")
+	assert(
+		type(adapterValue.CanApplyPrepared) == "function",
+		"prepared death-drop preflight is unavailable"
+	)
+	assert(
+		type(adapterValue.ApplyPrepared) == "function",
+		"prepared death-drop Apply is unavailable"
+	)
 	assert(
 		type(adapterValue.ValidateAppliedDependency) == "function",
 		"applied death-drop dependency validation is unavailable"
 	)
-	assert(type(adapterValue.FlushPrepared) == "function", "prepared death-drop Flush is unavailable")
-	assert(type(adapterValue.AbortPrepared) == "function", "prepared death-drop Abort is unavailable")
+	assert(
+		type(adapterValue.FlushPrepared) == "function",
+		"prepared death-drop Flush is unavailable"
+	)
+	assert(
+		type(adapterValue.AbortPrepared) == "function",
+		"prepared death-drop Abort is unavailable"
+	)
 	for _, methodName in
 		{
 			"PrepareBatch",
@@ -8073,30 +8848,50 @@ function CombatService.SetPreparedDeathDropInsertionAdapter(adapterValue: DeathD
 			string.format("prepared death-drop batch %s is unavailable", methodName)
 		)
 	end
-	assert(directDeathOwner.deathDropInsertionAdapter == nil, "prepared death-drop adapter may only be installed once")
+	assert(
+		directDeathOwner.deathDropInsertionAdapter == nil,
+		"prepared death-drop adapter may only be installed once"
+	)
 	directDeathOwner.deathDropInsertionAdapter = adapterValue
 end
 
-function CombatService.SetDeathWeaponDropHandler(handler: (request: DeathWeaponDropRequest) -> boolean)
+function CombatService.SetDeathWeaponDropHandler(
+	handler: (request: DeathWeaponDropRequest) -> boolean
+)
 	assert(started, "CombatService must be started before installing the death-drop handler")
 	assert(type(handler) == "function", "death-drop handler must be a function")
 	assert(deathWeaponDropHandler == nil, "death-drop handler may only be installed once")
 	deathWeaponDropHandler = handler
 end
 
-function CombatService.SetSynchronousMoverFlagDropHandler(handler: (
-	Player,
-	Vector3,
-	number
-) -> ({ MoverPushRules.Body }?, string?))
+function CombatService.SetSynchronousMoverFlagDropHandler(
+	handler: (
+		Player,
+		Vector3,
+		number
+	) -> ({ MoverPushRules.Body }?, string?)
+)
 	assert(started, "CombatService must start before installing mover flag drops")
-	assert(synchronousMoverFlagDropHandler == nil, "synchronous mover flag-drop handler may only be installed once")
+	assert(
+		synchronousMoverFlagDropHandler == nil,
+		"synchronous mover flag-drop handler may only be installed once"
+	)
 	synchronousMoverFlagDropHandler = handler
 end
 
-function CombatService.HandleLanding(player: Player, landingResult: Landing.Result, contactIndex: number): boolean
+function CombatService.HandleLanding(
+	player: Player,
+	landingResult: Landing.Result,
+	contactIndex: number
+): boolean
 	local record = records[player]
-	if not record or landingResult.valid ~= true or contactIndex % 1 ~= 0 or contactIndex < 1 or contactIndex > 2 then
+	if
+		not record
+		or landingResult.valid ~= true
+		or contactIndex % 1 ~= 0
+		or contactIndex < 1
+		or contactIndex > 2
+	then
 		return false
 	end
 
@@ -8149,8 +8944,13 @@ function CombatService.HandleLanding(player: Player, landingResult: Landing.Resu
 	local authoritativeSummary = if authoritativeFrame
 		then AuthoritativeFrameService.InspectFrame(authoritativeFrame)
 		else nil
-	local levelTimeMilliseconds = if authoritativeSummary then authoritativeSummary.currentTimeMilliseconds else nil
-	if serverFrame == record.lastLandingFrame and contactIndex <= record.lastLandingContactIndex then
+	local levelTimeMilliseconds = if authoritativeSummary
+		then authoritativeSummary.currentTimeMilliseconds
+		else nil
+	if
+		serverFrame == record.lastLandingFrame
+		and contactIndex <= record.lastLandingContactIndex
+	then
 		return true
 	end
 	local drainsAfterSameCommandDeath = not record.alive
@@ -8166,7 +8966,13 @@ function CombatService.HandleLanding(player: Player, landingResult: Landing.Resu
 	-- resulting Elimination distinct event ids while making duplicate delivery
 	-- of the same simulation edge harmless.
 	local context: ShotContext = {
-		id = string.format("landing:%d:%d:%d:%d", player.UserId, record.lifeSequence, serverFrame, contactIndex),
+		id = string.format(
+			"landing:%d:%d:%d:%d",
+			player.UserId,
+			record.lifeSequence,
+			serverFrame,
+			contactIndex
+		),
 		matchId = MatchService.GetSnapshot().matchId,
 		lifeSequence = record.lifeSequence,
 		weaponId = WeaponDefinitions.WeaponId.None,
@@ -8210,7 +9016,11 @@ local WATER_EVENT_KIND: { [Movement.WaterEvent]: string } = table.freeze({
 	Clear = "WaterClear",
 })
 
-function CombatService.HandleWaterEvent(player: Player, event: Movement.WaterEvent, eventIndex: number): boolean
+function CombatService.HandleWaterEvent(
+	player: Player,
+	event: Movement.WaterEvent,
+	eventIndex: number
+): boolean
 	local record = records[player]
 	local state = MovementService.GetState(player)
 	local revision = MovementService.GetRevision(player)
@@ -8294,7 +9104,8 @@ function CombatService.HandleWorldEffectsFrame(frameValue: unknown)
 				if not record.alive then
 					break
 				end
-				local context = makeEnvironmentContext(player, record, summary.currentTimeMilliseconds)
+				local context =
+					makeEnvironmentContext(player, record, summary.currentTimeMilliseconds)
 				context.id = string.format(
 					"environment:%d:%d:%d:%s:%d",
 					player.UserId,
@@ -8322,7 +9133,11 @@ function CombatService.HandleWorldEffectsFrame(frameValue: unknown)
 		if pendingPainTime ~= nil and pendingPainTime <= summary.currentTimeMilliseconds then
 			record.pendingPainFeedbackLevelTimeMilliseconds = nil
 			local environmentState = record.environmentDamageState
-			if record.alive and environmentState.painDebounceUntilMilliseconds <= summary.currentTimeMilliseconds then
+			if
+				record.alive
+				and environmentState.painDebounceUntilMilliseconds
+					<= summary.currentTimeMilliseconds
+			then
 				record.environmentDamageState = table.freeze({
 					airOutTimeMilliseconds = environmentState.airOutTimeMilliseconds,
 					drowningDamage = environmentState.drowningDamage,
@@ -8363,8 +9178,10 @@ function CombatService.EliminateForEnvironment(
 	-- boundary is the sole extension; all other administrative/Humanoid death
 	-- labels normalize to the canonical World route before capability capture.
 	local resolvedMeans = if means == "Void" then "Void" else "World"
-	local forcedEnvironmentAllowed =
-		OneShotRules.AllowsForcedEnvironmentElimination(MatchService.GetRules().OneShot, resolvedMeans)
+	local forcedEnvironmentAllowed = OneShotRules.AllowsForcedEnvironmentElimination(
+		MatchService.GetRules().OneShot,
+		resolvedMeans
+	)
 	assert(forcedEnvironmentAllowed ~= nil, "One-Shot forced-environment rule must be valid")
 	if not forcedEnvironmentAllowed then
 		pendingExternalEliminations[player] = nil
@@ -8427,7 +9244,10 @@ function CombatService.HandleBinaryMoverBlocked(
 	_player: Player,
 	_moverId: string,
 	_damage: number
-): (MoverPushRules.SynchronousCrushTransition?, string?)
+): (
+	MoverPushRules.SynchronousCrushTransition?,
+	string?
+)
 	return nil, "direct-mover-damage-disabled"
 end
 
@@ -8457,7 +9277,12 @@ function CombatService.EliminateForTelefrag(
 	end
 	local attackerState = MovementService.GetState(attacker)
 	local context: ShotContext = {
-		id = string.format("telefrag:%d:%d:%d", attacker.UserId, target.UserId, targetRecord.lifeSequence),
+		id = string.format(
+			"telefrag:%d:%d:%d",
+			attacker.UserId,
+			target.UserId,
+			targetRecord.lifeSequence
+		),
 		matchId = MatchService.GetSnapshot().matchId,
 		lifeSequence = attackerRecord.lifeSequence,
 		weaponId = WeaponDefinitions.WeaponId.None,
@@ -8473,7 +9298,8 @@ function CombatService.EliminateForTelefrag(
 	}
 	local installedProvisionalBinding = false
 	if provisionalLifeBinding and attackerRecord.movementLifeBinding == nil then
-		local provisionalSummary = MovementService.InspectMovementLifeBinding(provisionalLifeBinding)
+		local provisionalSummary =
+			MovementService.InspectMovementLifeBinding(provisionalLifeBinding)
 		if
 			not provisionalSummary
 			or provisionalSummary.player ~= attacker
@@ -8520,10 +9346,15 @@ function CombatService.Start(arenaWorld: Folder)
 	local departureOwner, departureOwnerError = CorpseService.ClaimDepartureCleanupOwner()
 	assert(departureOwner, departureOwnerError or "corpse departure cleanup owner unavailable")
 	corpseDepartureCleanupOwner = departureOwner
-	local matchTransitionOwner, matchTransitionOwnerError = CorpseService.ClaimMatchTransitionCleanupOwner()
-	assert(matchTransitionOwner, matchTransitionOwnerError or "corpse Match-transition cleanup owner unavailable")
+	local matchTransitionOwner, matchTransitionOwnerError =
+		CorpseService.ClaimMatchTransitionCleanupOwner()
+	assert(
+		matchTransitionOwner,
+		matchTransitionOwnerError or "corpse Match-transition cleanup owner unavailable"
+	)
 	corpseMatchTransitionCleanupOwner = matchTransitionOwner
-	local movementTransitionOwner, movementTransitionOwnerError = MovementService.ClaimMatchTransitionCleanupOwner()
+	local movementTransitionOwner, movementTransitionOwnerError =
+		MovementService.ClaimMatchTransitionCleanupOwner()
 	assert(
 		movementTransitionOwner,
 		movementTransitionOwnerError or "Movement Match-transition cleanup owner unavailable"
@@ -8538,7 +9369,8 @@ function CombatService.Start(arenaWorld: Folder)
 	local suicideRemote = ensureRemote(network, RemoteNames.SuicideRequest)
 	snapshotRemote = ensureRemote(network, RemoteNames.CombatSnapshot)
 	eventRemote = ensureRemote(network, RemoteNames.CombatEvent)
-	local combatSnapshotRequestRemote = assert(snapshotRemote, "CombatSnapshot remote is unavailable")
+	local combatSnapshotRequestRemote =
+		assert(snapshotRemote, "CombatSnapshot remote is unavailable")
 	combatSnapshotRequestRemote.OnServerEvent:Connect(function(player: Player)
 		local now = os.clock()
 		local previous = snapshotRequestTimes[player] or -math.huge
@@ -8550,7 +9382,9 @@ function CombatService.Start(arenaWorld: Folder)
 	end)
 
 	assert(
-		#projectiles == 0 and next(projectilesByRegistration) == nil and next(projectilesBySource) == nil,
+		#projectiles == 0
+			and next(projectilesByRegistration) == nil
+			and next(projectilesBySource) == nil,
 		"CombatService started with stale projectile mirrors"
 	)
 	CombatHitscanRewindRuntime.Reset()
@@ -8632,12 +9466,20 @@ function CombatService.Start(arenaWorld: Folder)
 				"active direct death lost its owner capability"
 			)
 			if activeCapability.status == "Prepared" then
-				local aborted, abortError = CombatService.AbortPreparedDirectDeath(activeDirectDeath)
+				local aborted, abortError =
+					CombatService.AbortPreparedDirectDeath(activeDirectDeath)
 				assert(aborted, abortError or "departing player direct death could not abort")
 			elseif activeCapability.status == "Applied" then
-				if player == activeCapability.mutation.target or player == activeCapability.mutation.attacker then
-					local departureError = directDeathOwner.appliedDepartureError(activeCapability, player)
-					assert(departureError == nil, departureError or "departing player direct death became stale")
+				if
+					player == activeCapability.mutation.target
+					or player == activeCapability.mutation.attacker
+				then
+					local departureError =
+						directDeathOwner.appliedDepartureError(activeCapability, player)
+					assert(
+						departureError == nil,
+						departureError or "departing player direct death became stale"
+					)
 					directDeathOwner.flushAppliedPublication(activeCapability, false)
 				else
 					CombatService.FlushPreparedDirectDeath(activeCapability.receipt)
@@ -8676,10 +9518,16 @@ function CombatService.Start(arenaWorld: Folder)
 	local observedMatchId = MatchService.GetMatchId()
 	MatchService.OnAuthorityStateChanged(function(snapshot: any)
 		local snapshotMatchId = if type(snapshot) == "table" then snapshot.matchId else nil
-		if type(observedMatchId) == "string" and observedMatchId ~= "" and snapshotMatchId ~= observedMatchId then
+		if
+			type(observedMatchId) == "string"
+			and observedMatchId ~= ""
+			and snapshotMatchId ~= observedMatchId
+		then
 			pendingPostBeginMatchCleanupId = observedMatchId
-			local cleanupOwner =
-				assert(corpseMatchTransitionCleanupOwner, "corpse Match-transition cleanup owner disappeared")
+			local cleanupOwner = assert(
+				corpseMatchTransitionCleanupOwner,
+				"corpse Match-transition cleanup owner disappeared"
+			)
 			for player in records do
 				-- A Humanoid/world callback captured under the retired Match may not
 				-- execute after the replacement identity is installed, even when Roblox
@@ -8708,7 +9556,11 @@ function CombatService.Start(arenaWorld: Folder)
 					setCharacterCombatQuery(record.character, false)
 				end
 				assert(
-					CorpseService.ClearPlayerForMatchTransition(player, cleanupOwner, observedMatchId),
+					CorpseService.ClearPlayerForMatchTransition(
+						player,
+						cleanupOwner,
+						observedMatchId
+					),
 					"old-Match client corpse could not be cleared"
 				)
 				if record and transitionDead and MovementService.GetState(player) ~= nil then
@@ -8724,7 +9576,9 @@ function CombatService.Start(arenaWorld: Folder)
 					)
 				end
 				local handoff = directDeathOwner.handoffByPlayer[player]
-				local handoffCapability = if handoff then directDeathOwner.handoffCapabilities[handoff] else nil
+				local handoffCapability = if handoff
+					then directDeathOwner.handoffCapabilities[handoff]
+					else nil
 				if handoffCapability then
 					directDeathOwner.retireHandoffCapability(handoffCapability)
 				end
@@ -8737,7 +9591,10 @@ function CombatService.Start(arenaWorld: Folder)
 		end
 		observedMatchId = snapshotMatchId
 		if type(snapshot) == "table" and snapshot.state ~= "Live" then
-			projectileRuntime.queueCleanup(nil, ProjectileEntityLifecycleRules.AdministrativeReleaseReason.MatchCleanup)
+			projectileRuntime.queueCleanup(
+				nil,
+				ProjectileEntityLifecycleRules.AdministrativeReleaseReason.MatchCleanup
+			)
 		end
 		if type(snapshot) == "table" then
 			resetAccuracyForMatchIdentity(snapshot.matchId)
@@ -8768,8 +9625,10 @@ function CombatService.Start(arenaWorld: Folder)
 			AuthoritativeFrameService.GetOpenFrame(),
 			"Match respawn request occurred outside the authoritative frame"
 		)
-		local summary =
-			assert(AuthoritativeFrameService.InspectFrame(frame), "Match respawn request lost its authoritative frame")
+		local summary = assert(
+			AuthoritativeFrameService.InspectFrame(frame),
+			"Match respawn request lost its authoritative frame"
+		)
 		local levelTimeMilliseconds = summary.currentTimeMilliseconds
 		assert(
 			isFinite(delaySeconds) and delaySeconds >= 0,
@@ -8783,7 +9642,10 @@ function CombatService.Start(arenaWorld: Folder)
 			local forcedRespawnSeconds = MatchService.GetRules().ForcedRespawnSeconds
 			local forcedRespawnAtMilliseconds = if forcedRespawnSeconds > 0
 				then assert(
-					MatchFrameRules.DeadlineMilliseconds(respawnEligibleAtMilliseconds, forcedRespawnSeconds),
+					MatchFrameRules.DeadlineMilliseconds(
+						respawnEligibleAtMilliseconds,
+						forcedRespawnSeconds
+					),
 					"forced respawn deadline overflowed integer level time"
 				)
 				else nil
@@ -8804,7 +9666,12 @@ function CombatService.Start(arenaWorld: Folder)
 		-- normal PM_DEAD coordinator so its post-Pmove capture copies the body and
 		-- consumes every corpse/dead-client root before Roblox replaces the avatar.
 		if not record.alive and directDeathOwner.handoffByPlayer[player] ~= nil then
-			directDeathOwner.rebindHandoffRespawnDeadlines(player, record, levelTimeMilliseconds, nil)
+			directDeathOwner.rebindHandoffRespawnDeadlines(
+				player,
+				record,
+				levelTimeMilliseconds,
+				nil
+			)
 			record.manualRespawnQueued = true
 			record.respawnRequested = false
 			syncPlayer(player)
@@ -8827,7 +9694,12 @@ function CombatService.Start(arenaWorld: Folder)
 			-- is the yielding Roblox boundary, so a Match transition that observes the
 			-- still-missing body must preserve an already-issued request instead of
 			-- clearing its latch and starting a second replacement on the next frame.
-			directDeathOwner.rebindHandoffRespawnDeadlines(player, record, levelTimeMilliseconds, nil)
+			directDeathOwner.rebindHandoffRespawnDeadlines(
+				player,
+				record,
+				levelTimeMilliseconds,
+				nil
+			)
 			if not record.respawnRequested then
 				record.manualRespawnQueued = true
 			end
@@ -8836,7 +9708,10 @@ function CombatService.Start(arenaWorld: Folder)
 		end
 
 		local loadout = MatchService.GetSpawnLoadout(player)
-		assert(CorpseService.ClearPlayer(player), "client corpse could not be cleared before same-character respawn")
+		assert(
+			CorpseService.ClearPlayer(player),
+			"client corpse could not be cleared before same-character respawn"
+		)
 		record.baseHealth = loadout.maxHealth
 		record.health = loadout.health
 		record.armor = loadout.armor
@@ -8863,7 +9738,10 @@ function CombatService.Start(arenaWorld: Folder)
 				else nil
 		)
 		record.railJumpReadyAtMilliseconds = 0
-		local nextLifeSequence = math.max(lastLifeSequenceByUserId[player.UserId] or 0, record.lifeSequence) + 1
+		local nextLifeSequence = math.max(
+			lastLifeSequenceByUserId[player.UserId] or 0,
+			record.lifeSequence
+		) + 1
 		lastLifeSequenceByUserId[player.UserId] = nextLifeSequence
 		record.lifeSequence = nextLifeSequence
 		record.lastLandingFrame = -1

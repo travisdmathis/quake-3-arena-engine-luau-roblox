@@ -89,7 +89,7 @@ FlagDefinitions.Events = table.freeze({
 
 -- CTF flag markers are invisible/anchored BaseParts authored into the arena world.
 -- ArenaFlagTeam is authoritative; the canonical names are a convenient fallback.
-FlagDefinitions.MarkerTeamAttribute = "ArenaFlagTeam"
+FlagDefinitions.MarkerTeamAttribute = "Q3EngineFlagTeam"
 FlagDefinitions.MarkerNames = table.freeze({
 	[FlagDefinitions.TeamIds.Red] = "RedFlagBase",
 	[FlagDefinitions.TeamIds.Blue] = "BlueFlagBase",

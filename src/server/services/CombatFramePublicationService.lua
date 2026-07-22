@@ -57,7 +57,10 @@ function CombatFramePublicationService.Begin(frame: unknown)
 	assert(not quarantined, "Combat outward publication is permanently quarantined")
 	assert(frame ~= nil, "Combat publication frame is unavailable")
 	assert(activeFrame == nil, "Combat publication frame is already active")
-	assert(pendingOwner == nil and #pendingCallbacks == 0, "Combat publication callbacks survived their owning frame")
+	assert(
+		pendingOwner == nil and #pendingCallbacks == 0,
+		"Combat publication callbacks survived their owning frame"
+	)
 	activeFrame = frame
 end
 

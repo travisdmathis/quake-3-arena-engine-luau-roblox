@@ -556,6 +556,31 @@ function MoverItemFlagParticipantRules.CreateFromInsertion(value: unknown): (Par
 	})
 end
 
+-- LaunchItem's linked ET_ITEM body participates in two distinct Q3 queries.
+-- G_RunItem traces with MASK_DEADSOLID, while G_TestEntityPosition uses
+-- MASK_SOLID when a mover pushes the item. CreateFromInsertion therefore must
+-- reconstruct the body with a different clip mask; reference identity (and a
+-- whole-body equality check) can never prove that conversion. This validator
+-- admits only the exact value-preserving, mask-changing representation pair.
+function MoverItemFlagParticipantRules.InsertionBodyMatchesParticipant(
+	insertionBodyValue: unknown,
+	participantBodyValue: unknown
+): boolean
+	local insertionBody = validateBody(insertionBodyValue, CONTENTS_TRIGGER, RUN_ITEM_CLIP_MASK)
+	local participantBody = validateBody(participantBodyValue, CONTENTS_TRIGGER, MOVER_POSITION_CLIP_MASK)
+	if not insertionBody or not participantBody then
+		return false
+	end
+	return insertionBody.groundMoverId == nil
+		and participantBody.groundMoverId == nil
+		and insertionBody.id == participantBody.id
+		and insertionBody.sourceOrder == participantBody.sourceOrder
+		and insertionBody.position == participantBody.position
+		and insertionBody.size == participantBody.size
+		and insertionBody.centerOffset == participantBody.centerOffset
+		and insertionBody.velocity == participantBody.velocity
+end
+
 function MoverItemFlagParticipantRules.Collect(value: unknown): (Collection?, string?)
 	local count, countError = denseArrayLength(value)
 	if not count then

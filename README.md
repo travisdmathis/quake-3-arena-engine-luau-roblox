@@ -4,6 +4,8 @@ This repository contains the reusable Luau engine work translated from the
 GPL-released Quake III Arena engine for Roblox. It is an engine source package,
 not a finished Roblox experience.
 
+Current version: **0.0.2**. See [CHANGELOG.md](CHANGELOG.md).
+
 The public source includes server-authoritative movement, collision, movers,
 prediction/reconciliation rules, weapons, projectiles, damage, items, flags,
 match rules, entity-frame publication, and generic map contracts. It deliberately

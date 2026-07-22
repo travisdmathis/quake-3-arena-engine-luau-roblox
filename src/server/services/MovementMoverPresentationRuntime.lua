@@ -35,14 +35,17 @@ local function validatePart(part: BasePart)
 	)
 end
 
-function MovementMoverPresentationRuntime.Plan(folder: Folder?, poses: { MoverPushRules.Pose }): { Operation }
+function MovementMoverPresentationRuntime.Plan(
+	folder: Folder?,
+	poses: { MoverPushRules.Pose }
+): { Operation }
 	local operations: { Operation } = {}
 	if not folder then
 		table.freeze(operations)
 		return operations
 	end
 	assert(
-		folder:GetAttribute("ArenaMoverPresentationOnly") == true,
+		folder:GetAttribute("Q3EngineMoverPresentationOnly") == true,
 		"mover presentation folder lost its presentation-only boundary"
 	)
 	local posesById: { [string]: MoverPushRules.Pose } = {}
@@ -50,12 +53,12 @@ function MovementMoverPresentationRuntime.Plan(folder: Folder?, poses: { MoverPu
 		posesById[pose.id] = pose
 	end
 	for _, child in folder:GetChildren() do
-		local moverId = child:GetAttribute("ArenaMoverId")
+		local moverId = child:GetAttribute("Q3EngineMoverId")
 		assert(
 			type(moverId) == "string" and posesById[moverId] ~= nil,
 			"mover presentation has no authoritative definition"
 		)
-		local offsetValue = child:GetAttribute("ArenaMoverPresentationOffset")
+		local offsetValue = child:GetAttribute("Q3EngineMoverPresentationOffset")
 		assert(
 			offsetValue == nil or (typeof(offsetValue) == "CFrame" and cframeIsFinite(offsetValue)),
 			"mover presentation offset must be a CFrame"
@@ -63,7 +66,11 @@ function MovementMoverPresentationRuntime.Plan(folder: Folder?, poses: { MoverPu
 		local offset = if typeof(offsetValue) == "CFrame" then offsetValue else CFrame.identity
 		local pose = posesById[moverId]
 		local target = CFrame.new(pose.position)
-			* CFrame.Angles(math.rad(pose.angles.X), math.rad(pose.angles.Y), math.rad(pose.angles.Z))
+			* CFrame.Angles(
+				math.rad(pose.angles.X),
+				math.rad(pose.angles.Y),
+				math.rad(pose.angles.Z)
+			)
 			* offset
 		assert(cframeIsFinite(target), "mover presentation target must be finite")
 		if child:IsA("BasePart") then

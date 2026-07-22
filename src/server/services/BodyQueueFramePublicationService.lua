@@ -33,7 +33,10 @@ end
 function BodyQueueFramePublicationService.Begin(frame: unknown)
 	assert(not quarantined, "BodyQueue outward publication is permanently quarantined")
 	assert(frame ~= nil and activeFrame == nil, "BodyQueue publication frame is invalid")
-	assert(pendingOwner == nil and #callbacks == 0, "BodyQueue publication callbacks survived their owning frame")
+	assert(
+		pendingOwner == nil and #callbacks == 0,
+		"BodyQueue publication callbacks survived their owning frame"
+	)
 	activeFrame = frame
 end
 

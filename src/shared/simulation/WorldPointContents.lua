@@ -56,12 +56,12 @@ local SOLID_PROBE_SIZE = Vector3.one * 0.001
 local FAIL_CLOSED_CONTENTS = bit32.bor(Contents.Solid, Contents.NoDrop)
 
 local Attributes = table.freeze({
-	Marker = "ArenaWaterVolume",
-	NoDropMarker = "ArenaNoDropVolume",
-	EntityId = "ArenaMapEntityId",
-	Contents = "ArenaPointContents",
-	WaterVolumeCount = "ArenaWaterVolumeCount",
-	NoDropVolumeCount = "ArenaNoDropVolumeCount",
+	Marker = "Q3EngineWaterVolume",
+	NoDropMarker = "Q3EngineNoDropVolume",
+	EntityId = "Q3EngineMapEntityId",
+	Contents = "Q3EnginePointContents",
+	WaterVolumeCount = "Q3EngineWaterVolumeCount",
+	NoDropVolumeCount = "Q3EngineNoDropVolumeCount",
 })
 
 local DEFINITION_KEYS: { [string]: boolean } = {
@@ -373,7 +373,7 @@ local function createBoundPointContents(
 	parameters.MaxParts = 1
 
 	local probe = Instance.new("Part")
-	probe.Name = "ArenaUnparentedPointContentsProbe"
+	probe.Name = "Q3EngineUnparentedPointContentsProbe"
 	probe.Anchored = true
 	probe.CanCollide = false
 	probe.CanTouch = false

@@ -17,12 +17,15 @@ local Workspace = game:GetService("Workspace")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
 local FlagDefinitions = require(sharedRoot:WaitForChild("ctf"):WaitForChild("FlagDefinitions"))
-local DroppedWeaponRules = require(sharedRoot:WaitForChild("items"):WaitForChild("DroppedWeaponRules"))
+local DroppedWeaponRules =
+	require(sharedRoot:WaitForChild("items"):WaitForChild("DroppedWeaponRules"))
 local MatchFrameRules = require(sharedRoot:WaitForChild("match"):WaitForChild("MatchFrameRules"))
-local MoverConsequenceRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverConsequenceRules"))
+local MoverConsequenceRules =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverConsequenceRules"))
 local MoverItemFlagParticipantRules =
 	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverItemFlagParticipantRules"))
-local WorldPointContents = require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
+local WorldPointContents =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
 local AuthoritativeFrameService = require(script.Parent.AuthoritativeFrameService)
 local EntityFrameDispatcherService = require(script.Parent.EntityFrameDispatcherService)
 local EntitySlotService = require(script.Parent.EntitySlotService)
@@ -78,7 +81,10 @@ export type MoverAdapter = {
 	read Apply: (prepared: unknown) -> MoverUpdateReceipt,
 	read Flush: (receipt: unknown) -> boolean,
 	read Abort: (prepared: unknown) -> boolean,
-	read BindSharedMutation: (prepared: unknown, sharedPrepared: ReleaseBroker.Prepared) -> (boolean, string?),
+	read BindSharedMutation: (
+		prepared: unknown,
+		sharedPrepared: ReleaseBroker.Prepared
+	) -> (boolean, string?),
 }
 type PreparedPendingInsertion = {
 	pending: PendingMoverInsertion,
@@ -112,8 +118,14 @@ local hooks: Hooks? = nil
 local castParameters: RaycastParams? = nil
 local activePrepared: PreparedMoverUpdate? = nil
 local pendingMoverInsertions: { PendingMoverInsertion } = {}
-local preparedCapabilities: { [PreparedMoverUpdate]: PreparedCapability } = setmetatable({}, { __mode = "k" }) :: any
-local receiptCapabilities: { [MoverUpdateReceipt]: PreparedCapability } = setmetatable({}, { __mode = "k" }) :: any
+local preparedCapabilities: { [PreparedMoverUpdate]: PreparedCapability } = setmetatable(
+	{},
+	{ __mode = "k" }
+) :: any
+local receiptCapabilities: { [MoverUpdateReceipt]: PreparedCapability } = setmetatable(
+	{},
+	{ __mode = "k" }
+) :: any
 
 local function preparedMoverUpdateBlocksAuthority(): boolean
 	local prepared = activePrepared
@@ -161,7 +173,9 @@ local function replaceRecord(record: Record, nextRecord: Record)
 	table.freeze(recordsById)
 	local activeByTeamId = table.clone(base.activeByTeamId)
 	if activeByTeamId[record.teamId] == record then
-		activeByTeamId[record.teamId] = if nextRecord.participant.lifecycle == "ActiveLinked" then nextRecord else nil
+		activeByTeamId[record.teamId] = if nextRecord.participant.lifecycle == "ActiveLinked"
+			then nextRecord
+			else nil
 	end
 	table.freeze(activeByTeamId)
 	local order = table.clone(base.order)
@@ -206,20 +220,23 @@ local function pointHasNoDrop(position: Vector3): boolean
 end
 
 local function releaseDynamic(record: Record, reason: string?, returnFlag: boolean)
-	local frame = assert(AuthoritativeFrameService.GetOpenFrame(), "dropped flag release outside frame")
-	local summary = assert(AuthoritativeFrameService.InspectFrame(frame), "dropped flag frame missing")
+	local frame =
+		assert(AuthoritativeFrameService.GetOpenFrame(), "dropped flag release outside frame")
+	local summary =
+		assert(AuthoritativeFrameService.InspectFrame(frame), "dropped flag frame missing")
 	local token = assert(EntitySlotService.Begin(summary.currentTimeMilliseconds))
 	assert(EntitySlotService.ReleaseWorld(token, record.registration))
 	local entityPrepared = assert(EntitySlotService.Prepare(token))
 	local entitySummary = assert(EntitySlotService.InspectPreparedCommitSummary(entityPrepared))
 	local entityReceipt = assert(EntitySlotService.InspectPreparedCommitReceipt(entityPrepared))
-	local dispatcherPrepared = assert(EntityFrameDispatcherService.PrepareDynamicBatch(entityPrepared, entitySummary, {
-		{
-			kind = "Unbind",
-			registration = record.registration,
-			binding = record.binding,
-		},
-	}))
+	local dispatcherPrepared =
+		assert(EntityFrameDispatcherService.PrepareDynamicBatch(entityPrepared, entitySummary, {
+			{
+				kind = "Unbind",
+				registration = record.registration,
+				binding = record.binding,
+			},
+		}))
 	local dispatcherReceipt =
 		assert(EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared))
 	for _pass = 1, 2 do
@@ -231,12 +248,16 @@ local function releaseDynamic(record: Record, reason: string?, returnFlag: boole
 		"dropped flag release EntitySlot receipt drifted"
 	)
 	assert(
-		EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared) == dispatcherReceipt,
+		EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
+			== dispatcherReceipt,
 		"dropped flag release Dispatcher receipt drifted"
 	)
 	removeRecordRoot(record)
 	if returnFlag then
-		assert(hooks, "DroppedFlagService hooks are unavailable").OnReturn(record.teamId, reason or "Return")
+		assert(hooks, "DroppedFlagService hooks are unavailable").OnReturn(
+			record.teamId,
+			reason or "Return"
+		)
 	end
 end
 
@@ -249,7 +270,10 @@ function DroppedFlagService.StageSynchronousMoverInsertion(
 	levelTimeMilliseconds: number,
 	operationOrder: number,
 	dropId: string
-): (MoverItemFlagParticipantRules.Body?, string?)
+): (
+	MoverItemFlagParticipantRules.Body?,
+	string?
+)
 	local brokerToken = ReleaseBroker.GetActiveToken()
 	if
 		not started
@@ -279,7 +303,8 @@ function DroppedFlagService.StageSynchronousMoverInsertion(
 		operationOrder = operationOrder,
 	})
 	local participant, participantError =
-		if insertion then MoverItemFlagParticipantRules.CreateFromInsertion(insertion) else nil, insertionError
+		if insertion then MoverItemFlagParticipantRules.CreateFromInsertion(insertion) else nil,
+		insertionError
 	if not participant then
 		ReleaseBroker.CancelAllocation(brokerToken, registration)
 		return nil, participantError
@@ -330,7 +355,8 @@ function DroppedFlagService.Spawn(
 		operationOrder = operationOrder,
 	})
 	local participant, participantError =
-		if insertion then MoverItemFlagParticipantRules.CreateFromInsertion(insertion) else nil, insertionError
+		if insertion then MoverItemFlagParticipantRules.CreateFromInsertion(insertion) else nil,
+		insertionError
 	if not participant then
 		EntitySlotService.Abort(token)
 		return false, participantError
@@ -400,7 +426,8 @@ function DroppedFlagService.Spawn(
 		"dropped flag insertion EntitySlot receipt drifted"
 	)
 	assert(
-		EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared) == dispatcherReceipt,
+		EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
+			== dispatcherReceipt,
 		"dropped flag insertion Dispatcher receipt drifted"
 	)
 	authority = nextAuthority
@@ -434,7 +461,8 @@ function DroppedFlagService.MarkTaken(teamId: TeamId, levelTimeMilliseconds: num
 	if not record or record.participant.lifecycle ~= "ActiveLinked" then
 		return false
 	end
-	local transition = assert(MoverItemFlagParticipantRules.ResolveTouch(record.participant, "DroppedTaken"))
+	local transition =
+		assert(MoverItemFlagParticipantRules.ResolveTouch(record.participant, "DroppedTaken"))
 	replaceRecord(
 		record,
 		cloneRecord(
@@ -454,7 +482,8 @@ function DroppedFlagService.MarkReturn(teamId: TeamId, reason: string): boolean
 	if not record then
 		return false
 	end
-	local transition = assert(MoverItemFlagParticipantRules.ResolveDroppedTimeout(record.participant, 30_000))
+	local transition =
+		assert(MoverItemFlagParticipantRules.ResolveDroppedTimeout(record.participant, 30_000))
 	replaceRecord(
 		record,
 		cloneRecord(
@@ -482,7 +511,10 @@ runDynamic = function(_frame, summary, registration, binding, declaredKind)
 	assert(record.binding == binding, "dropped flag Dispatcher binding drifted")
 	local currentMilliseconds = summary.currentTimeMilliseconds
 	if record.participant.lifecycle == "PendingFreeAfterEvent" then
-		local eventStart = assert(record.eventStartedAtMilliseconds, "dropped flag pending event lost its start time")
+		local eventStart = assert(
+			record.eventStartedAtMilliseconds,
+			"dropped flag pending event lost its start time"
+		)
 		local elapsed = currentMilliseconds - eventStart
 		if elapsed <= 300 then
 			return
@@ -503,14 +535,18 @@ runDynamic = function(_frame, summary, registration, binding, declaredKind)
 		releaseDynamic(record, "Timeout", true)
 		return
 	end
+	assert(
+		record.trajectoryTimeMilliseconds >= record.spawnTimeMilliseconds
+			and record.trajectoryTimeMilliseconds <= currentMilliseconds,
+		"dropped-flag trajectory clock is corrupt"
+	)
 	if record.settled then
 		return
 	end
 	local deltaMilliseconds = currentMilliseconds - record.trajectoryTimeMilliseconds
-	assert(
-		deltaMilliseconds == 0 or deltaMilliseconds == summary.msec,
-		"dropped flag missed its canonical G_RunItem frame"
-	)
+	-- Q3 G_RunItem evaluates at absolute level.time and traces from the last
+	-- linked origin. A delayed dynamic visit therefore advances the complete
+	-- monotonic interval instead of requiring exactly one fixed step.
 	if deltaMilliseconds == 0 then
 		return
 	end
@@ -532,7 +568,8 @@ runDynamic = function(_frame, summary, registration, binding, declaredKind)
 	local settled = false
 	if result then
 		local fraction = math.clamp(result.Distance / math.max(distance, 1e-6), 0, 1)
-		local _, impactVelocity = DroppedWeaponRules.Integrate(start, velocity, deltaTime * fraction)
+		local _, impactVelocity =
+			DroppedWeaponRules.Integrate(start, velocity, deltaTime * fraction)
 		nextPosition = start + displacement.Unit * result.Distance
 		if pointHasNoDrop(nextPosition) then
 			assert(MoverItemFlagParticipantRules.ResolveNoDropCollision(record.participant))
@@ -551,11 +588,20 @@ runDynamic = function(_frame, summary, registration, binding, declaredKind)
 			nextPosition += result.Normal * DroppedWeaponRules.SurfaceNudge
 		end
 	end
-	local participant =
-		assert(MoverItemFlagParticipantRules.ApplyRunItemBody(record.participant, nextPosition, nextVelocity, nil))
+	local participant = assert(
+		MoverItemFlagParticipantRules.ApplyRunItemBody(
+			record.participant,
+			nextPosition,
+			nextVelocity,
+			nil
+		)
+	)
 	local nextRecord = cloneRecord(record, participant, currentMilliseconds, nil, settled, nil)
 	replaceRecord(record, nextRecord)
-	assert(hooks, "DroppedFlagService hooks are unavailable").OnPosition(record.teamId, nextPosition)
+	assert(hooks, "DroppedFlagService hooks are unavailable").OnPosition(
+		record.teamId,
+		nextPosition
+	)
 end
 
 function DroppedFlagService.CollectMoverParticipants(): MoverItemFlagParticipantRules.Collection
@@ -585,14 +631,20 @@ local function recordForBodyId(bodyId: string): Record
 end
 
 function DroppedFlagService.ResolveMoverSine(bodyId: string)
-	return assert(MoverItemFlagParticipantRules.ResolveSineCrush(recordForBodyId(bodyId).participant))
+	return assert(
+		MoverItemFlagParticipantRules.ResolveSineCrush(recordForBodyId(bodyId).participant)
+	)
 end
 
 function DroppedFlagService.ResolveMoverBlockedDoor(bodyId: string)
-	return assert(MoverItemFlagParticipantRules.ResolveBlockedDoor(recordForBodyId(bodyId).participant))
+	return assert(
+		MoverItemFlagParticipantRules.ResolveBlockedDoor(recordForBodyId(bodyId).participant)
+	)
 end
 
-function DroppedFlagService.PrepareMoverUpdate(finalBodiesValue: unknown): (PreparedMoverUpdate?, string?)
+function DroppedFlagService.PrepareMoverUpdate(
+	finalBodiesValue: unknown
+): (PreparedMoverUpdate?, string?)
 	if activePrepared ~= nil or type(finalBodiesValue) ~= "table" then
 		return nil, "dropped-flag-mover-owner-unavailable"
 	end
@@ -620,7 +672,8 @@ function DroppedFlagService.PrepareMoverUpdate(finalBodiesValue: unknown): (Prep
 			table.insert(removedRecords, record)
 			returnReasons[record.teamId] = record.pendingReturnReason or "BlockedDoor"
 			local brokerToken = assert(ReleaseBroker.GetActiveToken())
-			local staged, stageError = ReleaseBroker.StageRelease(brokerToken, record.registration, record.binding)
+			local staged, stageError =
+				ReleaseBroker.StageRelease(brokerToken, record.registration, record.binding)
 			if not staged then
 				return nil, stageError
 			end
@@ -660,7 +713,8 @@ function DroppedFlagService.PrepareMoverUpdate(finalBodiesValue: unknown): (Prep
 			if not brokerToken then
 				return nil, "removed-pending-flag-lost-shared-broker"
 			end
-			local canceled, cancelError = ReleaseBroker.CancelAllocation(brokerToken, pending.registration)
+			local canceled, cancelError =
+				ReleaseBroker.CancelAllocation(brokerToken, pending.registration)
 			if not canceled then
 				return nil, cancelError
 			end
@@ -723,7 +777,11 @@ function DroppedFlagService.CanApplyMoverUpdate(preparedValue: unknown): (boolea
 	local capability = if type(preparedValue) == "table"
 		then preparedCapabilities[preparedValue :: PreparedMoverUpdate]
 		else nil
-	if not capability or capability.status ~= "Prepared" or authority ~= capability.baseAuthority then
+	if
+		not capability
+		or capability.status ~= "Prepared"
+		or authority ~= capability.baseAuthority
+	then
 		return false, "stale-prepared-dropped-flag-mover-update"
 	end
 	capability.preflightPassCount = math.min(capability.preflightPassCount + 1, 2)
@@ -748,8 +806,15 @@ function DroppedFlagService.BindMoverUpdateSharedMutation(
 	local order = table.clone(capability.nextAuthority.order)
 	for _, preparedPending in capability.pendingInsertions do
 		local pending = preparedPending.pending
-		local binding = ReleaseBroker.InspectPreparedAllocationBinding(sharedPreparedValue, pending.registration)
-		if not binding or recordsById[pending.dropId] ~= nil or activeByTeamId[pending.teamId] ~= nil then
+		local binding = ReleaseBroker.InspectPreparedAllocationBinding(
+			sharedPreparedValue,
+			pending.registration
+		)
+		if
+			not binding
+			or recordsById[pending.dropId] ~= nil
+			or activeByTeamId[pending.teamId] ~= nil
+		then
 			return false, "pending-dropped-flag-shared-binding-invalid"
 		end
 		local record: Record = table.freeze({
@@ -789,7 +854,8 @@ end
 
 function DroppedFlagService.ApplyMoverUpdate(preparedValue: unknown): MoverUpdateReceipt
 	local prepared = preparedValue :: PreparedMoverUpdate
-	local capability = assert(preparedCapabilities[prepared], "invalid prepared dropped flag mover update")
+	local capability =
+		assert(preparedCapabilities[prepared], "invalid prepared dropped flag mover update")
 	assert(
 		capability.status == "Prepared" and capability.preflightPassCount >= 2,
 		"stale prepared dropped flag mover apply"
@@ -797,6 +863,12 @@ function DroppedFlagService.ApplyMoverUpdate(preparedValue: unknown): MoverUpdat
 	authority = capability.nextAuthority
 	capability.status = "Applied"
 	preparedCapabilities[prepared] = nil
+	-- Apply commits the dropped-flag authority. Deferred publication owns the
+	-- receipt, not this global prepare slot; carrier deaths can insert a new flag
+	-- after the mover phase and before the spool flushes.
+	if activePrepared == prepared then
+		activePrepared = nil
+	end
 	return capability.receipt
 end
 
@@ -809,18 +881,25 @@ function DroppedFlagService.FlushMoverUpdate(receiptValue: unknown): boolean
 	end
 	capability.status = "Flushed"
 	receiptCapabilities[capability.receipt] = nil
-	activePrepared = nil
+	if activePrepared == capability.prepared then
+		activePrepared = nil
+	end
 	for _, record in capability.changedRecords do
-		assert(hooks, "DroppedFlagService hooks are unavailable").OnPosition(
-			record.teamId,
-			record.participant.body.position
-		)
+		if authority.recordsById[record.dropId] == record then
+			assert(hooks, "DroppedFlagService hooks are unavailable").OnPosition(
+				record.teamId,
+				record.participant.body.position
+			)
+		end
 	end
 	for _, record in capability.insertedRecords do
-		assert(hooks, "DroppedFlagService hooks are unavailable").OnPosition(
-			record.teamId,
-			record.participant.body.position
-		)
+		local current = authority.recordsById[record.dropId]
+		if current and current.registration == record.registration then
+			assert(hooks, "DroppedFlagService hooks are unavailable").OnPosition(
+				current.teamId,
+				current.participant.body.position
+			)
+		end
 		local pendingIndex: number? = nil
 		for index, pending in pendingMoverInsertions do
 			if pending.registration == record.registration then
@@ -833,13 +912,21 @@ function DroppedFlagService.FlushMoverUpdate(receiptValue: unknown): boolean
 		end
 	end
 	for teamId, reason in capability.returnReasons do
-		assert(hooks, "DroppedFlagService hooks are unavailable").OnReturn(teamId :: TeamId, reason)
+		-- Do not let an older removal publication return a newer same-team drop.
+		if authority.activeByTeamId[teamId] == nil then
+			assert(hooks, "DroppedFlagService hooks are unavailable").OnReturn(
+				teamId :: TeamId,
+				reason
+			)
+		end
 	end
 	return true
 end
 
 function DroppedFlagService.AbortMoverUpdate(preparedValue: unknown): boolean
-	local prepared = if type(preparedValue) == "table" then preparedValue :: PreparedMoverUpdate else nil
+	local prepared = if type(preparedValue) == "table"
+		then preparedValue :: PreparedMoverUpdate
+		else nil
 	local capability = if prepared then preparedCapabilities[prepared] else nil
 	if not capability or capability.status ~= "Prepared" then
 		return false

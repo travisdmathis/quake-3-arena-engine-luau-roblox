@@ -183,8 +183,8 @@ local orderedDefinitions: { ItemDefinition } = {
 		presentation = primitive("Ball", Color3.fromRGB(128, 225, 255), Vector3.new(1, 1, 1), "Neon"),
 	}),
 	define({
-		-- Original CPMA-compatible extension used by the approved Aerowalk layout
-		-- recreation. It is intentionally separate from the base-Q3-derived yellow
+		-- Optional CPMA-compatible green-armor extension. It is intentionally
+		-- separate from the base-Q3-derived yellow
 		-- and red definitions: 50 armor, 100 cap at the standard 100 max health,
 		-- and the existing audited 25-second armor respawn.
 		id = "item_armor_jacket",
@@ -528,17 +528,17 @@ return table.freeze({
 	TouchMinimumOffset = touchMinimumOffset,
 	TouchMaximumOffset = touchMaximumOffset,
 	ScanIntervalSeconds = 1 / 20,
-	MarkerTag = "ArenaPickup",
+	MarkerTag = "Q3EnginePickup",
 	Attributes = table.freeze({
-		ItemId = "ArenaItemId",
-		PickupId = "ArenaPickupId",
-		Quantity = "ArenaPickupQuantity",
-		RespawnSeconds = "ArenaPickupRespawnSeconds",
-		Enabled = "ArenaPickupEnabled",
-		Active = "ArenaPickupActive",
-		RespawnAt = "ArenaPickupRespawnAt",
-		Revision = "ArenaPickupRevision",
-		Kind = "ArenaPickupKind",
+		ItemId = "Q3EngineItemId",
+		PickupId = "Q3EnginePickupId",
+		Quantity = "Q3EnginePickupQuantity",
+		RespawnSeconds = "Q3EnginePickupRespawnSeconds",
+		Enabled = "Q3EnginePickupEnabled",
+		Active = "Q3EnginePickupActive",
+		RespawnAt = "Q3EnginePickupRespawnAt",
+		Revision = "Q3EnginePickupRevision",
+		Kind = "Q3EnginePickupKind",
 	}),
 	Network = table.freeze({
 		Folder = "Network",

@@ -36,7 +36,11 @@ export type TeamRow = {
 	eligiblePlayerCount: number,
 }
 
-local function recordRoundWins(record: Record, rules: MatchConfig.Rules, teamRoundWins: { [string]: number }): number
+local function recordRoundWins(
+	record: Record,
+	rules: MatchConfig.Rules,
+	teamRoundWins: { [string]: number }
+): number
 	local teamId = record.teamId
 	if rules.TeamMode and teamId then
 		return teamRoundWins[teamId] or 0

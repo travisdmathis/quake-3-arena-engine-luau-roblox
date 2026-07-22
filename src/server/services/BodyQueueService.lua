@@ -37,7 +37,8 @@ assert(RunService:IsServer(), "BodyQueueService is server-only")
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
 local BodyQueueRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("BodyQueueRules"))
 local MoverPushRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverPushRules"))
-local WorldPointContents = require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
+local WorldPointContents =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
 local AuthoritativeFrameService = require(script.Parent.AuthoritativeFrameService)
 local EntitySlotService = require(script.Parent.EntitySlotService)
 
@@ -276,8 +277,14 @@ local activeTransaction: Transaction? = nil
 local lastEntityFrameLevelTimeMilliseconds = -1
 local lastEntityFrameSourceOrder = -1
 local activePreparedMoverUpdate: PreparedMoverUpdate? = nil
-local moverPreparedCapabilities: { [PreparedMoverUpdate]: MoverPreparedCapability } = setmetatable({}, { __mode = "k" }) :: any
-local moverReceiptCapabilities: { [MoverUpdateReceipt]: MoverPreparedCapability } = setmetatable({}, { __mode = "k" }) :: any
+local moverPreparedCapabilities: { [PreparedMoverUpdate]: MoverPreparedCapability } = setmetatable(
+	{},
+	{ __mode = "k" }
+) :: any
+local moverReceiptCapabilities: { [MoverUpdateReceipt]: MoverPreparedCapability } = setmetatable(
+	{},
+	{ __mode = "k" }
+) :: any
 local entityLifecycleDrainPending = false
 local physicsAdapter: PhysicsAdapter? = nil
 local presentationAdapter: PresentationAdapter? = nil
@@ -465,7 +472,10 @@ local function canonicalizeCopySourceValue(value: unknown): ({ [string]: any }?,
 	return source, nil
 end
 
-local function makeBodyCopyStageRequest(accepted: AcceptedRespawnRequest, value: unknown): ({ [string]: any }?, string?)
+local function makeBodyCopyStageRequest(
+	accepted: AcceptedRespawnRequest,
+	value: unknown
+): ({ [string]: any }?, string?)
 	if type(value) ~= "table" then
 		return nil, "body-queue-copy-request-not-table"
 	end
@@ -504,7 +514,10 @@ local function currentQueue(): (BodyQueueRules.QueueState?, string?)
 	return queueState, nil
 end
 
-local function getTransaction(tokenValue: unknown, requiredStatus: TransactionStatus?): (Transaction?, string?)
+local function getTransaction(
+	tokenValue: unknown,
+	requiredStatus: TransactionStatus?
+): (Transaction?, string?)
 	local transaction = activeTransaction
 	if type(tokenValue) ~= "table" or not transaction or transaction.token ~= tokenValue then
 		return nil, "invalid-body-queue-service-transaction"
@@ -536,7 +549,9 @@ local function getPreparedCapability(preparedValue: unknown): (PreparedCapabilit
 	return capability, nil
 end
 
-local function getPreparedDeathRecordCapability(preparedValue: unknown): (PreparedDeathRecordCapability?, string?)
+local function getPreparedDeathRecordCapability(
+	preparedValue: unknown
+): (PreparedDeathRecordCapability?, string?)
 	if type(preparedValue) ~= "table" then
 		return nil, "invalid-body-queue-service-prepared-death-record"
 	end
@@ -588,7 +603,8 @@ local function preparedDeathRecordCurrentError(
 		or summary.playerUserId ~= rulesSummary.player.playerUserId
 		or summary.lifeSequence ~= rulesSummary.player.lifeSequence
 		or summary.respawnTimeMilliseconds ~= summary.deathTimeMilliseconds + BodyQueueRules.RespawnDelayMilliseconds
-		or BodyQueueRules.InspectPreparedDeathRecordSummary(capability.rulesPrepared) ~= rulesSummary
+		or BodyQueueRules.InspectPreparedDeathRecordSummary(capability.rulesPrepared)
+			~= rulesSummary
 	then
 		return "stale-body-queue-service-prepared-death-record"
 	end
@@ -606,7 +622,8 @@ local function getPreparedDeathRecordBatchCapability(
 	if type(preparedValue) ~= "table" then
 		return nil, "invalid-body-queue-service-prepared-death-record-batch"
 	end
-	local capability = preparedDeathRecordBatchCapabilities[preparedValue :: PreparedDeathRecordBatch]
+	local capability =
+		preparedDeathRecordBatchCapabilities[preparedValue :: PreparedDeathRecordBatch]
 	if not capability or capability.prepared ~= preparedValue then
 		return nil, "invalid-body-queue-service-prepared-death-record-batch"
 	end
@@ -643,7 +660,8 @@ local function preparedDeathRecordBatchCurrentError(
 		or summary.queueRevision ~= rulesSummary.queueRevision
 		or summary.deathIndexRevision ~= rulesSummary.deathIndexRevision
 		or summary.matchLineage ~= rulesSummary.matchLineage
-		or BodyQueueRules.InspectPreparedDeathRecordBatchSummary(capability.rulesPrepared) ~= rulesSummary
+		or BodyQueueRules.InspectPreparedDeathRecordBatchSummary(capability.rulesPrepared)
+			~= rulesSummary
 	then
 		return "stale-body-queue-service-prepared-death-record-batch"
 	end
@@ -689,8 +707,10 @@ local function preparedDeathRecordBatchCurrentError(
 			return "stale-body-queue-service-prepared-death-record-batch"
 		end
 	end
-	local validRulesDependency =
-		BodyQueueRules.ValidatePreparedDeathRecordBatchDependency(capability.rulesPrepared, rulesSummary)
+	local validRulesDependency = BodyQueueRules.ValidatePreparedDeathRecordBatchDependency(
+		capability.rulesPrepared,
+		rulesSummary
+	)
 	if not validRulesDependency then
 		return "stale-body-queue-service-prepared-death-record-batch"
 	end
@@ -738,7 +758,9 @@ local function appliedDeathHandleCurrentError(capability: DeathHandleCapability)
 	return nil
 end
 
-local function getAcceptedRespawnGateCapability(gateValue: unknown): (AcceptedRespawnGateCapability?, string?)
+local function getAcceptedRespawnGateCapability(
+	gateValue: unknown
+): (AcceptedRespawnGateCapability?, string?)
 	if type(gateValue) ~= "table" then
 		return nil, "invalid-body-queue-service-accepted-respawn-gate"
 	end
@@ -749,7 +771,10 @@ local function getAcceptedRespawnGateCapability(gateValue: unknown): (AcceptedRe
 	return capability, nil
 end
 
-local function acceptedRespawnGateCurrentError(gateValue: unknown, capability: AcceptedRespawnGateCapability): string?
+local function acceptedRespawnGateCurrentError(
+	gateValue: unknown,
+	capability: AcceptedRespawnGateCapability
+): string?
 	local request = capability.request
 	local decision = capability.decision
 	local summary = capability.summary
@@ -882,7 +907,8 @@ local function makePreparedSinkDiagnostic(copy: BodyQueueRules.PreparedCopy): Si
 	local collisionBody = assert(copy.collisionBody, "prepared body copy lost collision")
 	local trajectory = assert(copy.trajectory, "prepared body copy lost trajectory")
 	local queueIndex = assert(copy.queueIndex, "prepared body copy lost queue index")
-	local occupantGeneration = assert(copy.occupantGeneration, "prepared body copy lost occupant generation")
+	local occupantGeneration =
+		assert(copy.occupantGeneration, "prepared body copy lost occupant generation")
 	local now = copy.decision.nowMilliseconds
 	local diagnostic: SinkDiagnostic = {
 		queueIndex = queueIndex,
@@ -926,7 +952,11 @@ function BodyQueueService.Start(): (boolean, string?)
 	local descriptors: { BodyQueueRules.QueueSlotDescriptor } = {}
 	for index = 1, BodyQueueRules.BodyQueueSize do
 		local registration = EntitySlotService.GetBodyQueueRegistration(index)
-		if not registration or registration.kind ~= "BodyQueue" or registration.bodyQueueIndex ~= index then
+		if
+			not registration
+			or registration.kind ~= "BodyQueue"
+			or registration.bodyQueueIndex ~= index
+		then
 			return false, string.format("body-queue-registration-%d-unavailable", index)
 		end
 		descriptors[index] = {
@@ -964,7 +994,11 @@ function BodyQueueService.PrepareDeathRecord(
 	matchLineageValue: unknown,
 	deathTimeMillisecondsValue: unknown,
 	lifeSequenceValue: unknown
-): (PreparedDeathRecord?, PreparedDeathRecordSummary?, string?)
+): (
+	PreparedDeathRecord?,
+	PreparedDeathRecordSummary?,
+	string?
+)
 	local state, stateError = currentQueue()
 	if not state then
 		return nil, nil, stateError
@@ -1041,7 +1075,9 @@ function BodyQueueService.PrepareDeathRecord(
 	return prepared, summary, nil
 end
 
-function BodyQueueService.InspectPreparedDeathRecordSummary(preparedValue: unknown): PreparedDeathRecordSummary?
+function BodyQueueService.InspectPreparedDeathRecordSummary(
+	preparedValue: unknown
+): PreparedDeathRecordSummary?
 	local capability = select(1, getPreparedDeathRecordCapability(preparedValue))
 	if not capability or preparedDeathRecordCurrentError(preparedValue, capability) then
 		return nil
@@ -1062,7 +1098,8 @@ function BodyQueueService.ValidatePreparedDeathRecordDependency(
 	end
 	if
 		capability.summary ~= summaryValue
-		or preparedDeathRecordSummaries[summaryValue :: PreparedDeathRecordSummary] ~= preparedValue
+		or preparedDeathRecordSummaries[summaryValue :: PreparedDeathRecordSummary]
+			~= preparedValue
 	then
 		return false, "forged-body-queue-service-prepared-death-summary"
 	end
@@ -1122,7 +1159,11 @@ end
 function BodyQueueService.EvaluateRespawn(
 	deathHandleValue: unknown,
 	requestValue: unknown
-): (AcceptedRespawnGate?, BodyQueueRules.RespawnDecision?, string?)
+): (
+	AcceptedRespawnGate?,
+	BodyQueueRules.RespawnDecision?,
+	string?
+)
 	local state, stateError = currentQueue()
 	if not state then
 		return nil, nil, stateError
@@ -1138,7 +1179,10 @@ function BodyQueueService.EvaluateRespawn(
 	end
 	local deathHandle = deathHandleValue :: DeathHandle
 	local deathHandleCapability = deathSnapshots[deathHandle]
-	if not deathHandleCapability or appliedDeathHandleCurrentError(deathHandleCapability) ~= nil then
+	if
+		not deathHandleCapability
+		or appliedDeathHandleCurrentError(deathHandleCapability) ~= nil
+	then
 		return nil, nil, "invalid-body-queue-service-death-handle"
 	end
 	if deathHandleCapability.acceptedRespawnGate ~= nil then
@@ -1181,7 +1225,9 @@ function BodyQueueService.EvaluateRespawn(
 	return gate, decision, nil
 end
 
-function BodyQueueService.InspectAcceptedRespawnGateSummary(gateValue: unknown): AcceptedRespawnGateSummary?
+function BodyQueueService.InspectAcceptedRespawnGateSummary(
+	gateValue: unknown
+): AcceptedRespawnGateSummary?
 	local capability = select(1, getAcceptedRespawnGateCapability(gateValue))
 	if not capability or acceptedRespawnGateCurrentError(gateValue, capability) then
 		return nil
@@ -1202,7 +1248,8 @@ function BodyQueueService.ValidateAcceptedRespawnGateDependency(
 	end
 	if
 		capability.summary ~= summaryValue
-		or acceptedRespawnGateSummaries[summaryValue :: AcceptedRespawnGateSummary] ~= capability.gate
+		or acceptedRespawnGateSummaries[summaryValue :: AcceptedRespawnGateSummary]
+			~= capability.gate
 	then
 		return false, "forged-body-queue-service-accepted-respawn-gate-summary"
 	end
@@ -1244,7 +1291,8 @@ function BodyQueueService.CanApplyPreparedDeathRecord(preparedValue: unknown): (
 	if currentError then
 		return false, currentError
 	end
-	local canApplyRules, rulesError = BodyQueueRules.CanApplyPreparedDeathRecord(capability.rulesPrepared)
+	local canApplyRules, rulesError =
+		BodyQueueRules.CanApplyPreparedDeathRecord(capability.rulesPrepared)
 	if not canApplyRules then
 		return false, rulesError or "body-queue-death-record-rules-preflight-failed"
 	end
@@ -1261,7 +1309,8 @@ function BodyQueueService.ApplyPreparedDeathRecord(preparedValue: unknown): Deat
 	assert(capability.applyValidated, "body-queue-service-prepared-death-record-not-validated")
 	local currentError = preparedDeathRecordCurrentError(preparedValue, capability)
 	assert(currentError == nil, currentError or "stale-body-queue-service-prepared-death-record")
-	local canApplyRules, rulesError = BodyQueueRules.CanApplyPreparedDeathRecord(capability.rulesPrepared)
+	local canApplyRules, rulesError =
+		BodyQueueRules.CanApplyPreparedDeathRecord(capability.rulesPrepared)
 	assert(canApplyRules, rulesError or "body-queue-death-record-rules-preflight-failed")
 
 	local snapshot = BodyQueueRules.ApplyPreparedDeathRecord(capability.rulesPrepared)
@@ -1315,7 +1364,8 @@ function BodyQueueService.PrepareDeathRecordBatch(requestsValue: unknown): (
 	if not state then
 		return nil, nil, stateError
 	end
-	local operationCount = boundedDenseArrayLength(requestsValue, BodyQueueRules.MaximumDeathRecordBatchSize)
+	local operationCount =
+		boundedDenseArrayLength(requestsValue, BodyQueueRules.MaximumDeathRecordBatchSize)
 	if not operationCount then
 		return nil, nil, "body-queue-service-death-record-batch-not-dense-bounded-array"
 	end
@@ -1484,7 +1534,9 @@ end
 -- The handles remain unusable while Prepared, but a future multi-owner death
 -- coordinator must know the exact prebuilt identities before BodyQueue becomes
 -- its first authority swap. Apply returns this same frozen array.
-function BodyQueueService.InspectPreparedDeathRecordBatchHandles(preparedValue: unknown): { DeathHandle }?
+function BodyQueueService.InspectPreparedDeathRecordBatchHandles(
+	preparedValue: unknown
+): { DeathHandle }?
 	local capability = select(1, getPreparedDeathRecordBatchCapability(preparedValue))
 	if not capability or preparedDeathRecordBatchCurrentError(preparedValue, capability) then
 		return nil
@@ -1505,7 +1557,8 @@ function BodyQueueService.ValidatePreparedDeathRecordBatchDependency(
 	end
 	if
 		capability.summary ~= summaryValue
-		or preparedDeathRecordBatchSummaries[summaryValue :: PreparedDeathRecordBatchSummary] ~= preparedValue
+		or preparedDeathRecordBatchSummaries[summaryValue :: PreparedDeathRecordBatchSummary]
+			~= preparedValue
 	then
 		return false, "forged-body-queue-service-prepared-death-record-batch-summary"
 	end
@@ -1516,7 +1569,9 @@ function BodyQueueService.ValidatePreparedDeathRecordBatchDependency(
 	return true, nil
 end
 
-function BodyQueueService.CanApplyPreparedDeathRecordBatch(preparedValue: unknown): (boolean, string?)
+function BodyQueueService.CanApplyPreparedDeathRecordBatch(
+	preparedValue: unknown
+): (boolean, string?)
 	local capability, capabilityError = getPreparedDeathRecordBatchCapability(preparedValue)
 	if not capability then
 		return false, capabilityError
@@ -1526,7 +1581,8 @@ function BodyQueueService.CanApplyPreparedDeathRecordBatch(preparedValue: unknow
 	if currentError then
 		return false, currentError
 	end
-	local canApplyRules, rulesError = BodyQueueRules.CanApplyPreparedDeathRecordBatch(capability.rulesPrepared)
+	local canApplyRules, rulesError =
+		BodyQueueRules.CanApplyPreparedDeathRecordBatch(capability.rulesPrepared)
 	if not canApplyRules then
 		return false, rulesError or "body-queue-death-record-batch-rules-preflight-failed"
 	end
@@ -1540,10 +1596,17 @@ end
 function BodyQueueService.ApplyPreparedDeathRecordBatch(preparedValue: unknown): { DeathHandle }
 	local capability, capabilityError = getPreparedDeathRecordBatchCapability(preparedValue)
 	assert(capability, capabilityError or "invalid-body-queue-service-prepared-death-record-batch")
-	assert(capability.applyValidated, "body-queue-service-prepared-death-record-batch-not-validated")
+	assert(
+		capability.applyValidated,
+		"body-queue-service-prepared-death-record-batch-not-validated"
+	)
 	local currentError = preparedDeathRecordBatchCurrentError(preparedValue, capability)
-	assert(currentError == nil, currentError or "stale-body-queue-service-prepared-death-record-batch")
-	local canApplyRules, rulesError = BodyQueueRules.CanApplyPreparedDeathRecordBatch(capability.rulesPrepared)
+	assert(
+		currentError == nil,
+		currentError or "stale-body-queue-service-prepared-death-record-batch"
+	)
+	local canApplyRules, rulesError =
+		BodyQueueRules.CanApplyPreparedDeathRecordBatch(capability.rulesPrepared)
 	assert(canApplyRules, rulesError or "body-queue-death-record-batch-rules-preflight-failed")
 
 	local snapshots = BodyQueueRules.ApplyPreparedDeathRecordBatch(capability.rulesPrepared)
@@ -1576,7 +1639,8 @@ function BodyQueueService.AbortPreparedDeathRecordBatch(preparedValue: unknown):
 			return false, "stale-body-queue-service-prepared-death-record-batch"
 		end
 	end
-	local aborted, abortError = BodyQueueRules.AbortPreparedDeathRecordBatch(capability.rulesPrepared)
+	local aborted, abortError =
+		BodyQueueRules.AbortPreparedDeathRecordBatch(capability.rulesPrepared)
 	if not aborted then
 		return false, abortError or "body-queue-death-record-batch-rules-abort-failed"
 	end
@@ -1657,7 +1721,8 @@ function BodyQueueService.StageRespawn(
 	if not bodyOpen then
 		return nil, nil, bodyBeginError or "body-queue-rules-begin-failed"
 	end
-	local bodyStaged, preparedCopy, stageError = BodyQueueRules.StageCopy(bodyOpen, deathSnapshot, request)
+	local bodyStaged, preparedCopy, stageError =
+		BodyQueueRules.StageCopy(bodyOpen, deathSnapshot, request)
 	if not bodyStaged or not preparedCopy then
 		local aborted, abortError = abortNested(bodyOpen, nil, nil)
 		if not aborted then
@@ -1677,7 +1742,8 @@ function BodyQueueService.StageRespawn(
 			end
 			return nil, nil, "body-queue-entity-slot-transaction-active"
 		end
-		local openedEntityToken, entityBeginError = EntitySlotService.Begin(preparedCopy.decision.nowMilliseconds)
+		local openedEntityToken, entityBeginError =
+			EntitySlotService.Begin(preparedCopy.decision.nowMilliseconds)
 		if not openedEntityToken then
 			local aborted, abortError = abortNested(bodyStaged, nil, nil)
 			if not aborted then
@@ -1686,7 +1752,8 @@ function BodyQueueService.StageRespawn(
 			return nil, nil, entityBeginError or "body-queue-entity-slot-begin-failed"
 		end
 		entityToken = openedEntityToken
-		local registration, registrationError = EntitySlotService.NextBodyQueue(entityToken, entityCursorOwner)
+		local registration, registrationError =
+			EntitySlotService.NextBodyQueue(entityToken, entityCursorOwner)
 		if not registration or not descriptorMatches(preparedCopy, registration) then
 			local aborted, abortError = abortNested(bodyStaged, entityToken, entityBaseSnapshot)
 			if not aborted then
@@ -1784,7 +1851,8 @@ function BodyQueueService.CanApplyPrepared(preparedValue: unknown): (boolean, st
 		return false, "stale-body-queue-service-death-handle"
 	end
 	if transaction.entityPrepared then
-		local canApplyEntity, entityError = EntitySlotService.CanApplyPrepared(transaction.entityPrepared)
+		local canApplyEntity, entityError =
+			EntitySlotService.CanApplyPrepared(transaction.entityPrepared)
 		if not canApplyEntity then
 			return false, entityError or "body-queue-entity-slot-preflight-failed"
 		end
@@ -1801,7 +1869,9 @@ end
 -- nested allocation-free checks twice before the first root swap so stale sink
 -- or allocator lineage fails before EntitySlot can apply. No callback/yield is
 -- permitted between the fixed EntitySlot -> BodyQueue assignments below.
-function BodyQueueService.ApplyPrepared(preparedValue: unknown): (EntitySlotService.CommitReceipt?, ApplyDiagnostic)
+function BodyQueueService.ApplyPrepared(
+	preparedValue: unknown
+): (EntitySlotService.CommitReceipt?, ApplyDiagnostic)
 	local capability, capabilityError = getPreparedCapability(preparedValue)
 	assert(capability, capabilityError or "invalid-body-queue-service-prepared-respawn")
 	assert(capability.applyValidated, "body-queue-service-prepared-respawn-not-validated")
@@ -1813,11 +1883,13 @@ function BodyQueueService.ApplyPrepared(preparedValue: unknown): (EntitySlotServ
 	for _ = 1, 2 do
 		local deathHandleError = appliedDeathHandleCurrentError(transaction.deathHandleCapability)
 		assert(
-			deathSnapshots[transaction.deathHandle] == transaction.deathHandleCapability and deathHandleError == nil,
+			deathSnapshots[transaction.deathHandle] == transaction.deathHandleCapability
+				and deathHandleError == nil,
 			deathHandleError or "stale-body-queue-service-death-handle"
 		)
 		if transaction.entityPrepared then
-			local canApplyEntity, entityError = EntitySlotService.CanApplyPrepared(transaction.entityPrepared)
+			local canApplyEntity, entityError =
+				EntitySlotService.CanApplyPrepared(transaction.entityPrepared)
 			assert(canApplyEntity, entityError or "body-queue-entity-slot-preflight-failed")
 		end
 		local canApplyBody, bodyError = BodyQueueRules.CanApplyPrepared(bodyPrepared)
@@ -1852,8 +1924,11 @@ function BodyQueueService.Abort(tokenValue: unknown): (boolean, string?)
 	if transaction.status ~= "Sealed" and transaction.status ~= "Prepared" then
 		return false, "invalid-body-queue-service-transaction-state"
 	end
-	local aborted, abortError =
-		abortNested(transaction.bodyTransaction, transaction.entityToken, transaction.entityBaseSnapshot)
+	local aborted, abortError = abortNested(
+		transaction.bodyTransaction,
+		transaction.entityToken,
+		transaction.entityBaseSnapshot
+	)
 	if not aborted then
 		return false, abortError
 	end
@@ -1943,7 +2018,10 @@ function BodyQueueService.HandleEntityFrame(
 			"BodyQueue entity frame time regressed"
 		)
 	end
-	assert(registration.sourceOrder > lastEntityFrameSourceOrder, "BodyQueue entities did not run in source order")
+	assert(
+		registration.sourceOrder > lastEntityFrameSourceOrder,
+		"BodyQueue entities did not run in source order"
+	)
 	lastEntityFrameSourceOrder = registration.sourceOrder
 	local state = assert(queueState, "BodyQueue state is unavailable")
 	local sink = BodyQueueRules.GetCurrentSink(state, queueIndex)
@@ -1954,10 +2032,14 @@ function BodyQueueService.HandleEntityFrame(
 	local advanceError: string?
 	if sink.physicsObject and sink.trajectory.kind == "Gravity" then
 		local adapter = assert(physicsAdapter, "BodyQueue physics adapter is unavailable")
-		local evaluation, evaluationError = BodyQueueRules.EvaluateSinkTrajectory(sink, summary.currentTimeMilliseconds)
+		local evaluation, evaluationError =
+			BodyQueueRules.EvaluateSinkTrajectory(sink, summary.currentTimeMilliseconds)
 		assert(evaluation, evaluationError or "BodyQueue trajectory evaluation failed")
-		local trace =
-			adapter.Trace(frameValue, sink.collisionBody.position, evaluation.position - sink.collisionBody.position)
+		local trace = adapter.Trace(
+			frameValue,
+			sink.collisionBody.position,
+			evaluation.position - sink.collisionBody.position
+		)
 		local physicsTrace: BodyQueueRules.PhysicsTrace = table.freeze({
 			fraction = trace.fraction,
 			endPosition = trace.position,
@@ -1966,7 +2048,8 @@ function BodyQueueService.HandleEntityFrame(
 			startSolid = trace.startSolid,
 			noDrop = WorldPointContents.IsNoDrop(adapter.PointContents(trace.position)),
 		})
-		nextSink, advanceError = BodyQueueRules.RunSinkPhysics(sink, summary.currentTimeMilliseconds, physicsTrace)
+		nextSink, advanceError =
+			BodyQueueRules.RunSinkPhysics(sink, summary.currentTimeMilliseconds, physicsTrace)
 	else
 		nextSink, advanceError = BodyQueueRules.AdvanceSink(sink, summary.currentTimeMilliseconds)
 	end
@@ -2016,7 +2099,10 @@ end
 
 function BodyQueueService.CollectCombatTargets(): { CombatTarget }
 	assert(started and activeTransaction == nil, "BodyQueue combat collection is unavailable")
-	assert(not preparedMoverUpdateBlocksAuthority(), "BodyQueue combat collection crossed mover prepare")
+	assert(
+		not preparedMoverUpdateBlocksAuthority(),
+		"BodyQueue combat collection crossed mover prepare"
+	)
 	local state = assert(queueState, "BodyQueue state is unavailable")
 	local targets: { CombatTarget } = {}
 	for queueIndex = 1, BodyQueueRules.BodyQueueSize do
@@ -2048,7 +2134,10 @@ function BodyQueueService.DamageBody(
 ): (BodyQueueRules.DamageResult?, string?)
 	assert(started and activeTransaction == nil, "BodyQueue damage owner is unavailable")
 	assert(not preparedMoverUpdateBlocksAuthority(), "BodyQueue damage crossed mover prepare")
-	assert(AuthoritativeFrameService.GetOpenFrame() ~= nil, "BodyQueue damage occurred outside the authoritative frame")
+	assert(
+		AuthoritativeFrameService.GetOpenFrame() ~= nil,
+		"BodyQueue damage occurred outside the authoritative frame"
+	)
 	local nextQueue, nextSink, result, damageError = BodyQueueRules.DamageSink(
 		assert(queueState, "BodyQueue state is unavailable"),
 		queueIndex,
@@ -2076,7 +2165,9 @@ local function bodyQueueRemoveMutation(bodyId: string): MoverPushRules.BodyMutat
 	}) :: any
 end
 
-function BodyQueueService.PrepareMoverUpdate(finalBodiesValue: unknown): (PreparedMoverUpdate?, string?)
+function BodyQueueService.PrepareMoverUpdate(
+	finalBodiesValue: unknown
+): (PreparedMoverUpdate?, string?)
 	if activePreparedMoverUpdate ~= nil or type(finalBodiesValue) ~= "table" then
 		return nil, "body-queue-mover-owner-unavailable"
 	end
@@ -2121,7 +2212,11 @@ function BodyQueueService.CanApplyPreparedMoverUpdate(preparedValue: unknown): (
 	local capability = if type(preparedValue) == "table"
 		then moverPreparedCapabilities[preparedValue :: PreparedMoverUpdate]
 		else nil
-	if not capability or capability.status ~= "Prepared" or activePreparedMoverUpdate ~= preparedValue then
+	if
+		not capability
+		or capability.status ~= "Prepared"
+		or activePreparedMoverUpdate ~= preparedValue
+	then
 		return false, "stale-prepared-body-queue-mover-update"
 	end
 	for _, child in capability.children do
@@ -2135,7 +2230,8 @@ end
 
 function BodyQueueService.ApplyPreparedMoverUpdate(preparedValue: unknown): MoverUpdateReceipt
 	local prepared = preparedValue :: PreparedMoverUpdate
-	local capability = assert(moverPreparedCapabilities[prepared], "invalid prepared BodyQueue mover update")
+	local capability =
+		assert(moverPreparedCapabilities[prepared], "invalid prepared BodyQueue mover update")
 	assert(
 		capability.status == "Prepared" and activePreparedMoverUpdate == prepared,
 		"stale prepared BodyQueue mover update"
@@ -2162,9 +2258,15 @@ function BodyQueueService.FlushPreparedMoverUpdate(receiptValue: unknown): boole
 end
 
 function BodyQueueService.AbortPreparedMoverUpdate(preparedValue: unknown): boolean
-	local prepared = if type(preparedValue) == "table" then preparedValue :: PreparedMoverUpdate else nil
+	local prepared = if type(preparedValue) == "table"
+		then preparedValue :: PreparedMoverUpdate
+		else nil
 	local capability = if prepared then moverPreparedCapabilities[prepared] else nil
-	if not capability or capability.status ~= "Prepared" or activePreparedMoverUpdate ~= prepared then
+	if
+		not capability
+		or capability.status ~= "Prepared"
+		or activePreparedMoverUpdate ~= prepared
+	then
 		return false
 	end
 	for index = #capability.children, 1, -1 do
@@ -2215,7 +2317,9 @@ function BodyQueueService.SetPresentationAdapter(adapterValue: PresentationAdapt
 	assert(started, "BodyQueueService must start before presentation adapter installation")
 	assert(presentationAdapter == nil, "BodyQueue presentation adapter is already configured")
 	assert(
-		type(adapterValue) == "table" and table.isfrozen(adapterValue) and type(adapterValue.StageSink) == "function",
+		type(adapterValue) == "table"
+			and table.isfrozen(adapterValue)
+			and type(adapterValue.StageSink) == "function",
 		"BodyQueue presentation adapter is invalid"
 	)
 	presentationAdapter = adapterValue
@@ -2272,12 +2376,15 @@ function BodyQueueService.GetDebugSnapshot(): DebugSnapshot
 		revision = if state then state.revision else 0,
 		nextBodyQueueIndex = if state then state.nextQueueIndex else 0,
 		entityNextBodyQueueIndex = entitySnapshot.nextBodyQueueIndex,
-		cursorsSynchronized = state ~= nil and state.nextQueueIndex == entitySnapshot.nextBodyQueueIndex,
+		cursorsSynchronized = state ~= nil
+			and state.nextQueueIndex == entitySnapshot.nextBodyQueueIndex,
 		occupiedSlotCount = occupied,
 		transactionActive = transaction ~= nil,
 		transactionStatus = if transaction then transaction.status else nil,
 		transactionKind = if transaction then transaction.kind else nil,
-		transactionApplyValidated = if preparedCapability then preparedCapability.applyValidated else false,
+		transactionApplyValidated = if preparedCapability
+			then preparedCapability.applyValidated
+			else false,
 		entityLifecycleDrainPending = entityLifecycleDrainPending,
 	}
 	table.freeze(snapshot)

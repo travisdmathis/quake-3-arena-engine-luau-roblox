@@ -9,11 +9,8 @@ local PlayerClipDomain = require(script.Parent.Parent.simulation.PlayerClipDomai
 local WorldPointContents = require(script.Parent.Parent.simulation.WorldPointContents)
 local WorldTriggerRules = require(script.Parent.Parent.simulation.WorldTriggerRules)
 local MapCapabilities = require(script.Parent.MapCapabilities)
-local ArenaKitCatalog = require(script.Parent.ArenaKitCatalog)
-local ArenaMaterialSkins = require(script.Parent.ArenaMaterialSkins)
 local JumpPadPresentationRules = require(script.Parent.JumpPadPresentationRules)
 local MapMoverContract = require(script.Parent.MapMoverContract)
-local MapNativeStyles = require(script.Parent.MapNativeStyles)
 local TeleporterPresentationRules = require(script.Parent.TeleporterPresentationRules)
 
 local MapSchema = {}
@@ -37,7 +34,7 @@ export type SurfaceMetadata = {
 
 export type StaticTextureFaceRole = {
 	face: TextureFace,
-	materialRole: ArenaKitCatalog.FaceRole,
+	materialRole: string,
 }
 
 export type StaticChunk = {
@@ -50,7 +47,7 @@ export type StaticChunk = {
 	visual: boolean,
 	styleId: string,
 	skinId: string?,
-	materialRole: ArenaKitCatalog.FaceRole?,
+	materialRole: string?,
 	textureFaceRoles: { StaticTextureFaceRole }?,
 	surface: SurfaceMetadata,
 }
@@ -258,10 +255,7 @@ end
 table.freeze(validTextureFaces)
 
 local function validMaterialRole(value: unknown): boolean
-	return value == ArenaKitCatalog.Roles.Wall
-		or value == ArenaKitCatalog.Roles.Ceiling
-		or value == ArenaKitCatalog.Roles.Floor
-		or value == ArenaKitCatalog.Roles.Grate
+	return validId(value)
 end
 
 local WaterContents = table.freeze({
@@ -654,26 +648,16 @@ function MapSchema.Validate(value: unknown): Validation
 		end
 		if not validId(entry.styleId) then
 			table.insert(errors, path .. ".styleId:Invalid")
-		elseif MapNativeStyles.Get(entry.styleId) == nil then
-			table.insert(errors, path .. ".styleId:Unknown:" .. entry.styleId)
 		end
 		local hasSkin = entry.skinId ~= nil
 		local hasMaterialRole = entry.materialRole ~= nil
 		if hasSkin ~= hasMaterialRole then
 			table.insert(errors, path .. ":SkinAndMaterialRoleMustBePaired")
 		elseif hasSkin then
-			local skin = if validId(entry.skinId) then ArenaMaterialSkins.Get(entry.skinId) else nil
-			if not skin then
-				table.insert(errors, path .. ".skinId:Unknown")
+			if not validId(entry.skinId) then
+				table.insert(errors, path .. ".skinId:Invalid")
 			elseif not validMaterialRole(entry.materialRole) then
 				table.insert(errors, path .. ".materialRole:Invalid")
-			else
-				local resolvedStyle = skin.roleStyles[entry.materialRole]
-				if not resolvedStyle then
-					table.insert(errors, path .. ".materialRole:Unknown")
-				elseif resolvedStyle ~= entry.styleId then
-					table.insert(errors, path .. ":MaterialStyleMismatch")
-				end
 			end
 			if entry.visual ~= true then
 				table.insert(errors, path .. ":TexturedChunkMustBeVisual")
@@ -724,11 +708,6 @@ function MapSchema.Validate(value: unknown): Validation
 				end
 				if not validMaterialRole(faceRole.materialRole) then
 					table.insert(errors, facePath .. ".materialRole:Invalid")
-				elseif hasSkin then
-					local skin = if validId(entry.skinId) then ArenaMaterialSkins.Get(entry.skinId) else nil
-					if skin and skin.roleStyles[faceRole.materialRole] == nil then
-						table.insert(errors, facePath .. ".materialRole:Unknown")
-					end
 				end
 			end
 		end
@@ -785,31 +764,11 @@ function MapSchema.Validate(value: unknown): Validation
 		end
 		registerId(entry.id, path)
 		local validBox = validateRotatedBox(entry.position, entry.rotationDegrees, entry.size, path, bounds, errors)
-		local kitPiece = if validId(entry.kitPieceId) then ArenaKitCatalog.Get(entry.kitPieceId) else nil
 		if not validId(entry.kitPieceId) then
 			table.insert(errors, path .. ".kitPieceId:Invalid")
-		elseif kitPiece == nil then
-			table.insert(errors, path .. ".kitPieceId:Unknown:" .. entry.kitPieceId)
 		end
 		if not validId(entry.skinId) then
 			table.insert(errors, path .. ".skinId:Invalid")
-		elseif ArenaMaterialSkins.Get(entry.skinId) == nil then
-			table.insert(errors, path .. ".skinId:Unknown:" .. entry.skinId)
-		end
-		if kitPiece and isPositiveVector3(entry.size) then
-			local size = entry.size :: Vector3
-			local minimum = kitPiece.minimumSize
-			local maximum = kitPiece.maximumSize
-			if
-				size.X < minimum.X
-				or size.Y < minimum.Y
-				or size.Z < minimum.Z
-				or size.X > maximum.X
-				or size.Y > maximum.Y
-				or size.Z > maximum.Z
-			then
-				table.insert(errors, path .. ".size:OutsideKitBounds:" .. kitPiece.id)
-			end
 		end
 		if type(entry.roleStyleOverrides) ~= "table" then
 			table.insert(errors, path .. ".roleStyleOverrides:MustBeTable")
@@ -821,15 +780,15 @@ function MapSchema.Validate(value: unknown): Validation
 					table.insert(errors, path .. ".roleStyleOverrides:TooManyEntries")
 					break
 				end
-				if type(role) ~= "string" or not kitPiece or not ArenaKitCatalog.HasRole(kitPiece, role) then
+				if not validId(role) then
 					table.insert(errors, path .. ".roleStyleOverrides:RoleInvalid:" .. tostring(role))
 				end
-				if type(styleId) ~= "string" or MapNativeStyles.Get(styleId) == nil then
+				if not validId(styleId) then
 					table.insert(errors, path .. ".roleStyleOverrides:StyleInvalid:" .. tostring(styleId))
 				end
 			end
 		end
-		if validBox and kitPiece and ArenaMaterialSkins.Get(entry.skinId) then
+		if validBox and validId(entry.kitPieceId) and validId(entry.skinId) then
 			visualPieceCount += 1
 		end
 	end

@@ -154,7 +154,8 @@ function MovementTelemetryRuntime.new(): Runtime
 	function runtime:Snapshot(currentBacklogs: { [number]: number }): Snapshot
 		local maximumBacklogs: { [number]: number } = {}
 		for userId, current in currentBacklogs do
-			maximumBacklogs[userId] = math.max(state.maximumCommandBacklogByUserId[userId] or 0, current)
+			maximumBacklogs[userId] =
+				math.max(state.maximumCommandBacklogByUserId[userId] or 0, current)
 		end
 		return table.freeze({
 			heartbeatCount = state.heartbeatCount,

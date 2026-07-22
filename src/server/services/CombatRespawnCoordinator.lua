@@ -53,10 +53,11 @@ local function abortGate(gate: unknown?)
 end
 
 function CombatRespawnCoordinator.Execute(request: Request): (Result?, string?)
-	local captureValid, captureError = PostPmoveCorpseSourceService.ValidatePostPmoveCaptureDependency(
-		request.postPmoveCapture,
-		request.postPmoveCaptureSummary
-	)
+	local captureValid, captureError =
+		PostPmoveCorpseSourceService.ValidatePostPmoveCaptureDependency(
+			request.postPmoveCapture,
+			request.postPmoveCaptureSummary
+		)
 	if not captureValid then
 		return nil, captureError or "respawn-post-pmove-capture-invalid"
 	end
@@ -75,19 +76,21 @@ function CombatRespawnCoordinator.Execute(request: Request): (Result?, string?)
 		abortGate(gate)
 		return nil, corpsePrepareError or "respawn-corpse-consume-prepare-failed"
 	end
-	local corpseSource = CorpseService.InspectPreparedRespawnCopyTombstoneConsumeSource(corpsePrepared)
+	local corpseSource =
+		CorpseService.InspectPreparedRespawnCopyTombstoneConsumeSource(corpsePrepared)
 	if not corpseSource then
 		CorpseService.AbortPreparedRespawnCopyTombstoneConsume(corpsePrepared)
 		abortGate(gate)
 		return nil, "respawn-corpse-source-unavailable"
 	end
-	local sourcePrepared, source, sourcePrepareError = PostPmoveCorpseSourceService.PrepareRespawnGate(
-		request.postPmoveCapture,
-		corpsePrepared,
-		corpseSource,
-		request.playerStateVelocity,
-		request.pointContents
-	)
+	local sourcePrepared, source, sourcePrepareError =
+		PostPmoveCorpseSourceService.PrepareRespawnGate(
+			request.postPmoveCapture,
+			corpsePrepared,
+			corpseSource,
+			request.playerStateVelocity,
+			request.pointContents
+		)
 	if not sourcePrepared or not source then
 		CorpseService.AbortPreparedRespawnCopyTombstoneConsume(corpsePrepared)
 		abortGate(gate)
@@ -95,7 +98,9 @@ function CombatRespawnCoordinator.Execute(request: Request): (Result?, string?)
 	end
 	local bodyToken, stageDiagnostic, bodyStageError = BodyQueueService.StageRespawn(
 		gate,
-		if source.noDrop then { noDrop = true } else { noDrop = false, copySource = source.copySource }
+		if source.noDrop
+			then { noDrop = true }
+			else { noDrop = false, copySource = source.copySource }
 	)
 	if not bodyToken or not stageDiagnostic then
 		abortGate(gate)
@@ -112,13 +117,16 @@ function CombatRespawnCoordinator.Execute(request: Request): (Result?, string?)
 	end
 	for _pass = 1, 2 do
 		local bodyReady, bodyError = BodyQueueService.CanApplyPrepared(bodyPrepared)
-		local sourceReady, sourceError = PostPmoveCorpseSourceService.CanApplyPrepared(sourcePrepared)
-		local corpseReady, corpseError = CorpseService.CanApplyPreparedRespawnCopyTombstoneConsume(corpsePrepared)
+		local sourceReady, sourceError =
+			PostPmoveCorpseSourceService.CanApplyPrepared(sourcePrepared)
+		local corpseReady, corpseError =
+			CorpseService.CanApplyPreparedRespawnCopyTombstoneConsume(corpsePrepared)
 		if not bodyReady or not sourceReady or not corpseReady then
 			BodyQueueService.Abort(bodyToken)
 			PostPmoveCorpseSourceService.AbortPrepared(sourcePrepared)
 			CorpseService.AbortPreparedRespawnCopyTombstoneConsume(corpsePrepared)
-			return nil, bodyError or sourceError or corpseError or "respawn-composite-preflight-failed"
+			return nil,
+				bodyError or sourceError or corpseError or "respawn-composite-preflight-failed"
 		end
 	end
 	local entityReceipt, applyDiagnostic = BodyQueueService.ApplyPrepared(bodyPrepared)

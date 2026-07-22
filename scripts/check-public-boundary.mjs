@@ -15,6 +15,8 @@ const forbiddenText = [
   [/RobloxArena|Roblox Arena/g, "private codename"],
   [/rbxassetid:\/\/\d+/g, "Roblox asset ID"],
   [/servePlaceIds|game\.PlaceId\s*==\s*\d+/g, "Roblox place ID"],
+  [/sharedRoot[.:](?:commerce|presentation|content|profile|settings|matchmaking)\b/g, "private game-module dependency"],
+  [/(?:aerowalk|blood[_ ]?run|dm17|terminatria|trespass|xtreme[_ ]?force|corrosion|achromatic|all[_ ]?the[_ ]?aces|bad[_ ]?ball|evil[_ ]?gemini|theatre[_ ]?of[_ ]?pain|in[_ ]?perfect[_ ]?harmony)/gi, "authored map identifier"],
   [/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g, "private key"],
 ];
 const ignoredDirectories = new Set([".git", "node_modules", "build"]);

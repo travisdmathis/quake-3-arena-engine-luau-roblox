@@ -82,7 +82,11 @@ function MatchRosterRuntime.GetActivePlayerCount(records: Records): number
 	return count
 end
 
-function MatchRosterRuntime.GetTeamPlayerCount(records: Records, teamId: TeamId, eligibleOnly: boolean): number
+function MatchRosterRuntime.GetTeamPlayerCount(
+	records: Records,
+	teamId: TeamId,
+	eligibleOnly: boolean
+): number
 	local count = 0
 	for _, record in records do
 		if
@@ -117,9 +121,14 @@ function MatchRosterRuntime.BuildRulesRoster(records: Records): { MatchRulesCore
 	return roster
 end
 
-function MatchRosterRuntime.ApplyDeathmatchActiveLimit(records: Records, activePlayerLimit: number): { Player }
-	local selected =
-		MatchRulesCore.SelectFreeForAllActiveUserIds(MatchRosterRuntime.BuildRulesRoster(records), activePlayerLimit)
+function MatchRosterRuntime.ApplyDeathmatchActiveLimit(
+	records: Records,
+	activePlayerLimit: number
+): { Player }
+	local selected = MatchRulesCore.SelectFreeForAllActiveUserIds(
+		MatchRosterRuntime.BuildRulesRoster(records),
+		activePlayerLimit
+	)
 	local selectedByUserId: { [number]: boolean } = {}
 	local promoted: { Player } = {}
 	for _, userId in selected do

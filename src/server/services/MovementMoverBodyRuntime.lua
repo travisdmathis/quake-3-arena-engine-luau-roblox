@@ -52,7 +52,9 @@ export type Binding =
 		queueIndex: number,
 	}
 
-export type CorpseCollector = (token: unknown) -> ({ MoverPushRules.Body }?, { [string]: Player }?, string?)
+export type CorpseCollector = (
+	token: unknown
+) -> ({ MoverPushRules.Body }?, { [string]: Player }?, string?)
 export type BodyQueueCollector = () -> ({ MoverPushRules.Body }, { [string]: number })
 export type ParticipantCollector = () -> MoverItemFlagParticipantRules.Collection
 
@@ -114,7 +116,8 @@ function MovementMoverBodyRuntime.Collect(
 		local bodyQueueBodies, queueIndexByBodyId = bodyQueueCollector()
 		for _, body in bodyQueueBodies do
 			assert(bindings[body.id] == nil, "BodyQueue mover body identity collided")
-			local queueIndex = assert(queueIndexByBodyId[body.id], "BodyQueue mover body omitted its queue index")
+			local queueIndex =
+				assert(queueIndexByBodyId[body.id], "BodyQueue mover body omitted its queue index")
 			table.insert(bodies, body)
 			bindings[body.id] = { kind = "BodyQueue", bodyId = body.id, queueIndex = queueIndex }
 		end

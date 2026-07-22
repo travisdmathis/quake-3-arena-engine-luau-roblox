@@ -23,14 +23,17 @@ local FlagDefinitions = require(sharedRoot:WaitForChild("ctf"):WaitForChild("Fla
 local MatchFrameRules = require(sharedRoot:WaitForChild("match"):WaitForChild("MatchFrameRules"))
 local MatchRulesCore = require(sharedRoot:WaitForChild("match"):WaitForChild("MatchRulesCore"))
 local CtfBonusRules = require(sharedRoot:WaitForChild("match"):WaitForChild("CtfBonusRules"))
-local DroppedWeaponRules = require(sharedRoot:WaitForChild("items"):WaitForChild("DroppedWeaponRules"))
+local DroppedWeaponRules =
+	require(sharedRoot:WaitForChild("items"):WaitForChild("DroppedWeaponRules"))
 local MoverItemFlagParticipantRules =
 	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverItemFlagParticipantRules"))
-local WorldPointContents = require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
+local WorldPointContents =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
 local AuthoritativeFrameService = require(script.Parent.AuthoritativeFrameService)
 local EntitySlotService = require(script.Parent.EntitySlotService)
 local DroppedFlagService = require(script.Parent.DroppedFlagService)
-local MoverParticipantReleaseBrokerService = require(script.Parent.MoverParticipantReleaseBrokerService)
+local MoverParticipantReleaseBrokerService =
+	require(script.Parent.MoverParticipantReleaseBrokerService)
 
 local FlagService = {}
 
@@ -57,7 +60,12 @@ export type MatchServiceDependency = {
 	GetState: () -> string,
 	GetPlayerTeam: (player: Player) -> TeamId?,
 	CanPlayerFight: (player: Player) -> boolean,
-	ReportTeamObjective: (teamId: TeamId, points: number, reason: string?, actor: Player?) -> ObjectiveResult,
+	ReportTeamObjective: (
+		teamId: TeamId,
+		points: number,
+		reason: string?,
+		actor: Player?
+	) -> ObjectiveResult,
 	AwardObjectiveBonus: (player: Player, points: number, reason: string) -> boolean,
 	OnStateChanged: (callback: (snapshot: unknown) -> ()) -> RBXScriptConnection,
 	OnModeChanged: (callback: (modeId: unknown, rules: unknown) -> ()) -> RBXScriptConnection,
@@ -70,7 +78,12 @@ export type CombatServiceDependency = {
 	GetItemState: (player: Player) -> ItemState?,
 	HasWorldVisibility: (origin: Vector3, targetPosition: Vector3) -> boolean,
 	OnPlayerDamaged: (
-		callback: (victim: Player, attacker: Player, damage: number, levelTimeMilliseconds: number) -> ()
+		callback: (
+			victim: Player,
+			attacker: Player,
+			damage: number,
+			levelTimeMilliseconds: number
+		) -> ()
 	) -> RBXScriptConnection,
 }
 
@@ -222,10 +235,16 @@ local pendingSynchronousMoverDrops: { [Player]: PendingSynchronousMoverDrop } = 
 local pendingStudioFixtureCarriers: { [Player]: FlagRecord } = {}
 local pendingDepartures: { [Player]: boolean } = {}
 local bonusStateByPlayer: { [Player]: PlayerBonusState } = {}
-local preparedPersonalTeleporterDrops: { [PreparedPersonalTeleporterDrop]: any } = setmetatable({}, { __mode = "k" })
+local preparedPersonalTeleporterDrops: { [PreparedPersonalTeleporterDrop]: any } = setmetatable(
+	{},
+	{ __mode = "k" }
+)
 
 local function activeLevelTimeMilliseconds(): number
-	return assert(activeAuthoritativeFrameSummary, "Flag authority requires an open authoritative frame").currentTimeMilliseconds
+	return assert(
+		activeAuthoritativeFrameSummary,
+		"Flag authority requires an open authoritative frame"
+	).currentTimeMilliseconds
 end
 
 local function publishOutward(callback: () -> ())
@@ -267,7 +286,11 @@ end
 local function presentationTimeForLevel(levelTimeMilliseconds: number): number
 	local basisLevelTime, basisServerTime = currentPresentationBasis()
 	return assert(
-		MatchFrameRules.PresentationTimeForLevel(basisLevelTime, basisServerTime, levelTimeMilliseconds),
+		MatchFrameRules.PresentationTimeForLevel(
+			basisLevelTime,
+			basisServerTime,
+			levelTimeMilliseconds
+		),
 		"Flag level time could not map to presentation time"
 	)
 end
@@ -297,11 +320,12 @@ end
 local function setReward(player: Player, kind: string)
 	local state = bonusState(player)
 	state.rewardKind = kind
-	state.rewardUntilMilliseconds = activeLevelTimeMilliseconds() + CtfBonusRules.RewardSpriteMilliseconds
+	state.rewardUntilMilliseconds = activeLevelTimeMilliseconds()
+		+ CtfBonusRules.RewardSpriteMilliseconds
 	local rewardEndsAt = presentationTimeForLevel(state.rewardUntilMilliseconds)
 	publishOutward(function()
-		player:SetAttribute("ArenaCtfRewardKind", kind)
-		player:SetAttribute("ArenaCtfRewardEndsAt", rewardEndsAt)
+		player:SetAttribute("Q3EngineCtfRewardKind", kind)
+		player:SetAttribute("Q3EngineCtfRewardEndsAt", rewardEndsAt)
 	end)
 end
 
@@ -365,7 +389,10 @@ local function discoverMarkers(worldFolder: Folder): { [string]: BasePart }
 	return markers
 end
 
-local function validateCompleteMarkers(worldFolder: Folder, candidates: any): { [string]: BasePart }?
+local function validateCompleteMarkers(
+	worldFolder: Folder,
+	candidates: any
+): { [string]: BasePart }?
 	if type(candidates) ~= "table" then
 		return nil
 	end
@@ -373,7 +400,11 @@ local function validateCompleteMarkers(worldFolder: Folder, candidates: any): { 
 	local markers: { [string]: BasePart } = {}
 	for _, teamId in FlagDefinitions.TeamOrder do
 		local marker = candidates[teamId]
-		if typeof(marker) ~= "Instance" or not marker:IsA("BasePart") or not marker:IsDescendantOf(worldFolder) then
+		if
+			typeof(marker) ~= "Instance"
+			or not marker:IsA("BasePart")
+			or not marker:IsDescendantOf(worldFolder)
+		then
 			return nil
 		end
 		markers[teamId] = marker
@@ -384,7 +415,10 @@ local function validateCompleteMarkers(worldFolder: Folder, candidates: any): { 
 	return markers
 end
 
-local function resolveMarkers(worldFolder: Folder, runtimeMapData: RuntimeMapData?): { [string]: BasePart }?
+local function resolveMarkers(
+	worldFolder: Folder,
+	runtimeMapData: RuntimeMapData?
+): { [string]: BasePart }?
 	if runtimeMapData == nil then
 		return validateCompleteMarkers(worldFolder, discoverMarkers(worldFolder))
 	end
@@ -421,7 +455,10 @@ local function preparedMoverParticipantUpdateBlocksAuthority(): boolean
 	return true
 end
 
-local function replaceFlagMoverRecord(record: FlagRecord, participant: MoverItemFlagParticipantRules.Participant)
+local function replaceFlagMoverRecord(
+	record: FlagRecord,
+	participant: MoverItemFlagParticipantRules.Participant
+)
 	assert(not preparedMoverParticipantUpdateBlocksAuthority(), "flag changed during mover prepare")
 	local baseAuthority = flagMoverAuthority
 	local nextRecord: FlagMoverRecord = table.freeze({
@@ -507,7 +544,8 @@ end
 local function publishSnapshot(target: Player?): Snapshot
 	local nowMilliseconds = activeLevelTimeMilliseconds()
 	snapshotSequence += 1
-	nextSnapshotAtMilliseconds = deadlineMilliseconds(nowMilliseconds, FlagDefinitions.SnapshotIntervalSeconds)
+	nextSnapshotAtMilliseconds =
+		deadlineMilliseconds(nowMilliseconds, FlagDefinitions.SnapshotIntervalSeconds)
 	local snapshot = buildSnapshot()
 	local remote = assert(snapshotRemote, "Flag snapshot remote is not initialized")
 	publishOutward(function()
@@ -601,15 +639,24 @@ local function reconcileFlow(reason: string)
 	bonusStateByPlayer = {}
 	for _, player in Players:GetPlayers() do
 		publishOutward(function()
-			player:SetAttribute("ArenaCtfAssists", 0)
-			player:SetAttribute("ArenaCtfDefends", 0)
-			player:SetAttribute("ArenaCtfCaptures", 0)
-			player:SetAttribute("ArenaCtfRewardKind", nil)
-			player:SetAttribute("ArenaCtfRewardEndsAt", nil)
+			player:SetAttribute("Q3EngineCtfAssists", 0)
+			player:SetAttribute("Q3EngineCtfDefends", 0)
+			player:SetAttribute("Q3EngineCtfCaptures", 0)
+			player:SetAttribute("Q3EngineCtfRewardKind", nil)
+			player:SetAttribute("Q3EngineCtfRewardEndsAt", nil)
 		end)
 	end
 	forceResetFlags()
-	publishEvent(FlagDefinitions.Events.Reset, nil, nil, nil, nil, if nextActive then reason else "FlowEnded", nil, nil)
+	publishEvent(
+		FlagDefinitions.Events.Reset,
+		nil,
+		nil,
+		nil,
+		nil,
+		if nextActive then reason else "FlowEnded",
+		nil,
+		nil
+	)
 end
 
 local function queueFlowReconcile(reason: string)
@@ -656,7 +703,8 @@ local function safeItemState(player: Player): ItemState?
 end
 
 local function visibleFrom(origin: Vector3, target: Vector3): boolean
-	local ok, visible = pcall(requireDependencies().CombatService.HasWorldVisibility, origin, target)
+	local ok, visible =
+		pcall(requireDependencies().CombatService.HasWorldVisibility, origin, target)
 	return ok and visible == true
 end
 
@@ -714,19 +762,33 @@ local function returnFlag(record: FlagRecord, reason: string, actor: Player?)
 	if not setAtBase(record) then
 		return
 	end
-	publishEvent(FlagDefinitions.Events.Returned, record.teamId, nil, actor, record.basePosition, reason, nil, nil)
+	publishEvent(
+		FlagDefinitions.Events.Returned,
+		record.teamId,
+		nil,
+		actor,
+		record.basePosition,
+		reason,
+		nil,
+		nil
+	)
 end
 
 local function dropFlag(record: FlagRecord, position: Vector3, reason: string, actor: Player?)
 	if record.state ~= FlagDefinitions.States.Carried then
 		return
 	end
-	local safePosition = if FlagDefinitions.IsFiniteVector3(position) then position else record.lastPosition
+	local safePosition = if FlagDefinitions.IsFiniteVector3(position)
+		then position
+		else record.lastPosition
 	local itemState = if actor then safeItemState(actor) else nil
 	local look = if itemState then itemState.look else Vector3.zAxis
 	local lifeSequence = if itemState then itemState.lifeSequence else record.revision + 1
-	local seed =
-		DroppedWeaponRules.MakeSeed(string.format("flag:%d", session), if actor then actor.UserId else 0, lifeSequence)
+	local seed = DroppedWeaponRules.MakeSeed(
+		string.format("flag:%d", session),
+		if actor then actor.UserId else 0,
+		lifeSequence
+	)
 	local velocity = DroppedWeaponRules.LaunchVelocity(look, seed)
 	local openFrame = AuthoritativeFrameService.GetOpenFrame()
 	local openSummary = if openFrame then AuthoritativeFrameService.InspectFrame(openFrame) else nil
@@ -747,19 +809,32 @@ local function dropFlag(record: FlagRecord, position: Vector3, reason: string, a
 	record.carrier = nil
 	record.lastPosition = safePosition
 	record.droppedPosition = safePosition
-	record.returnAtMilliseconds = deadlineMilliseconds(levelTimeMilliseconds, FlagDefinitions.DroppedReturnSeconds)
+	record.returnAtMilliseconds =
+		deadlineMilliseconds(levelTimeMilliseconds, FlagDefinitions.DroppedReturnSeconds)
 	record.revision += 1
-	publishEvent(FlagDefinitions.Events.Dropped, record.teamId, nil, actor, safePosition, reason, nil, nil)
+	publishEvent(
+		FlagDefinitions.Events.Dropped,
+		record.teamId,
+		nil,
+		actor,
+		safePosition,
+		reason,
+		nil,
+		nil
+	)
 end
 
 function FlagService.StageSynchronousMoverCarrierDrop(
 	player: Player,
 	position: Vector3,
 	operationOrder: number
-): ({ MoverItemFlagParticipantRules.Body }?, string?)
+): (
+	{ MoverItemFlagParticipantRules.Body }?,
+	string?
+)
 	local empty: { MoverItemFlagParticipantRules.Body } = table.freeze({})
 	if RunService:IsStudio() then
-		player:SetAttribute("ArenaStudioMoverFlagStage", "Entered")
+		player:SetAttribute("Q3EngineStudioMoverFlagStage", "Entered")
 	end
 	local queuedStudioRecord = pendingStudioFixtureCarriers[player]
 	if queuedStudioRecord then
@@ -775,39 +850,47 @@ function FlagService.StageSynchronousMoverCarrierDrop(
 		queuedStudioRecord.droppedPosition = nil
 		queuedStudioRecord.returnAtMilliseconds = nil
 		queuedStudioRecord.revision += 1
-		player:SetAttribute("ArenaStudioMoverFlagStage", "CarrierInjected")
+		player:SetAttribute("Q3EngineStudioMoverFlagStage", "CarrierInjected")
 	end
-	if (not objectiveActive and not studioFixtureObjectiveOverride) or pendingSynchronousMoverDrops[player] then
+	if
+		(not objectiveActive and not studioFixtureObjectiveOverride)
+		or pendingSynchronousMoverDrops[player]
+	then
 		return empty, nil
 	end
 	local carried: FlagRecord? = nil
 	for _, teamId in FlagDefinitions.TeamOrder do
 		local record = flags[teamId]
-		if record and record.state == FlagDefinitions.States.Carried and record.carrier == player then
+		if
+			record
+			and record.state == FlagDefinitions.States.Carried
+			and record.carrier == player
+		then
 			carried = record
 			break
 		end
 	end
 	if not carried then
 		if RunService:IsStudio() then
-			player:SetAttribute("ArenaStudioMoverFlagStage", "NoCarrier")
+			player:SetAttribute("Q3EngineStudioMoverFlagStage", "NoCarrier")
 		end
 		return empty, nil
 	end
 	if RunService:IsStudio() then
-		player:SetAttribute("ArenaStudioMoverFlagStage", "CarrierResolved")
+		player:SetAttribute("Q3EngineStudioMoverFlagStage", "CarrierResolved")
 	end
 	local contentsOk, contents = pcall(requireDependencies().GetPointContents, position)
 	if not contentsOk or type(contents) ~= "number" or WorldPointContents.IsNoDrop(contents) then
 		return empty, nil
 	end
 	if RunService:IsStudio() then
-		player:SetAttribute("ArenaStudioMoverFlagStage", "ContentsResolved")
+		player:SetAttribute("Q3EngineStudioMoverFlagStage", "ContentsResolved")
 	end
 	local itemState = safeItemState(player)
 	local look = if itemState then itemState.look else Vector3.zAxis
 	local lifeSequence = if itemState then itemState.lifeSequence else carried.revision + 1
-	local seed = DroppedWeaponRules.MakeSeed(string.format("flag:%d", session), player.UserId, lifeSequence)
+	local seed =
+		DroppedWeaponRules.MakeSeed(string.format("flag:%d", session), player.UserId, lifeSequence)
 	local velocity = DroppedWeaponRules.LaunchVelocity(look, seed)
 	local brokerToken = MoverParticipantReleaseBrokerService.GetActiveToken()
 	local levelTimeMilliseconds = if brokerToken
@@ -817,7 +900,7 @@ function FlagService.StageSynchronousMoverCarrierDrop(
 		return nil, "synchronous-mover-flag-clock-unavailable"
 	end
 	if RunService:IsStudio() then
-		player:SetAttribute("ArenaStudioMoverFlagStage", "Launching")
+		player:SetAttribute("Q3EngineStudioMoverFlagStage", "Launching")
 	end
 	local body, stageError = DroppedFlagService.StageSynchronousMoverInsertion(
 		carried.teamId,
@@ -829,12 +912,12 @@ function FlagService.StageSynchronousMoverCarrierDrop(
 	)
 	if not body then
 		if RunService:IsStudio() then
-			player:SetAttribute("ArenaStudioMoverFlagStage", stageError or "StageFailed")
+			player:SetAttribute("Q3EngineStudioMoverFlagStage", stageError or "StageFailed")
 		end
 		return nil, stageError
 	end
 	if RunService:IsStudio() then
-		player:SetAttribute("ArenaStudioMoverFlagStage", "Staged")
+		player:SetAttribute("Q3EngineStudioMoverFlagStage", "Staged")
 	end
 	pendingSynchronousMoverDrops[player] = {
 		record = carried,
@@ -861,7 +944,11 @@ function FlagService.PreparePersonalTeleporterDrop(player: Player): (
 	local carried: FlagRecord? = nil
 	for _, teamId in FlagDefinitions.TeamOrder do
 		local record = flags[teamId]
-		if record and record.state == FlagDefinitions.States.Carried and record.carrier == player then
+		if
+			record
+			and record.state == FlagDefinitions.States.Carried
+			and record.carrier == player
+		then
 			carried = record
 			break
 		end
@@ -887,7 +974,9 @@ function FlagService.PreparePersonalTeleporterDrop(player: Player): (
 	return prepared, summary, nil
 end
 
-function FlagService.InspectPreparedPersonalTeleporterDrop(value: unknown): PreparedPersonalTeleporterDropSummary?
+function FlagService.InspectPreparedPersonalTeleporterDrop(
+	value: unknown
+): PreparedPersonalTeleporterDropSummary?
 	local capability = if type(value) == "table"
 		then preparedPersonalTeleporterDrops[value :: PreparedPersonalTeleporterDrop]
 		else nil
@@ -922,10 +1011,15 @@ function FlagService.CanApplyPreparedPersonalTeleporterDrop(value: unknown): (bo
 	return true, nil
 end
 
-function FlagService.ApplyPreparedPersonalTeleporterDrop(value: unknown): PersonalTeleporterDropReceipt?
+function FlagService.ApplyPreparedPersonalTeleporterDrop(
+	value: unknown
+): PersonalTeleporterDropReceipt?
 	local prepared = if type(value) == "table" then value :: PreparedPersonalTeleporterDrop else nil
 	local capability = if prepared then preparedPersonalTeleporterDrops[prepared] else nil
-	if not capability or select(1, FlagService.CanApplyPreparedPersonalTeleporterDrop(prepared)) ~= true then
+	if
+		not capability
+		or select(1, FlagService.CanApplyPreparedPersonalTeleporterDrop(prepared)) ~= true
+	then
 		return nil
 	end
 	local summary = capability.summary
@@ -980,7 +1074,9 @@ local function pickupFlag(record: FlagRecord, candidate: Candidate)
 		nil,
 		candidate.player,
 		candidate.position,
-		if previousState == FlagDefinitions.States.Dropped then "RecoveredByEnemy" else "EnemyPickup",
+		if previousState == FlagDefinitions.States.Dropped
+			then "RecoveredByEnemy"
+			else "EnemyPickup",
 		nil,
 		nil
 	)
@@ -991,9 +1087,16 @@ function FlagService.ForceStudioFixtureCarrier(player: Player): boolean
 	local teamId = requireDependencies().MatchService.GetPlayerTeam(player)
 	if not teamId and RunService:IsStudio() then
 		local playerIndex = table.find(Players:GetPlayers(), player) or 1
-		teamId = if playerIndex % 2 == 1 then FlagDefinitions.TeamIds.Red else FlagDefinitions.TeamIds.Blue
+		teamId = if playerIndex % 2 == 1
+			then FlagDefinitions.TeamIds.Red
+			else FlagDefinitions.TeamIds.Blue
 	end
-	if not RunService:IsStudio() or not world or world:GetAttribute("ArenaStudioMoverFixture") == nil or not teamId then
+	if
+		not RunService:IsStudio()
+		or not world
+		or world:GetAttribute("Q3EngineStudioMoverFixture") == nil
+		or not teamId
+	then
 		return false
 	end
 	local enemyTeamId = FlagDefinitions.OtherTeam(teamId)
@@ -1007,7 +1110,7 @@ function FlagService.ForceStudioFixtureCarrier(player: Player): boolean
 		marker.CanTouch = false
 		marker.Transparency = 1
 		marker.Position = Vector3.new(0, -100, 0)
-		marker:SetAttribute("ArenaSystemFixture", true)
+		marker:SetAttribute("Q3EngineSystemFixture", true)
 		record = {
 			teamId = enemyTeamId,
 			marker = marker,
@@ -1033,7 +1136,8 @@ local function captureFlag(record: FlagRecord, candidate: Candidate)
 		return
 	end
 	local match = requireDependencies().MatchService
-	local ok, result = pcall(match.ReportTeamObjective, candidate.teamId, 1, "FlagCapture", candidate.player)
+	local ok, result =
+		pcall(match.ReportTeamObjective, candidate.teamId, 1, "FlagCapture", candidate.player)
 	if not ok then
 		warn(string.format("FlagService objective report failed: %s", tostring(result)))
 		return
@@ -1049,7 +1153,7 @@ local function captureFlag(record: FlagRecord, candidate: Candidate)
 	carrierBonusState.captures += 1
 	local captures = carrierBonusState.captures
 	publishOutward(function()
-		candidate.player:SetAttribute("ArenaCtfCaptures", captures)
+		candidate.player:SetAttribute("Q3EngineCtfCaptures", captures)
 	end)
 	setReward(candidate.player, "Capture")
 	local nowMilliseconds = activeLevelTimeMilliseconds()
@@ -1069,7 +1173,7 @@ local function captureFlag(record: FlagRecord, candidate: Candidate)
 				teammateState.assists += 1
 				local assists = teammateState.assists
 				publishOutward(function()
-					teammate:SetAttribute("ArenaCtfAssists", assists)
+					teammate:SetAttribute("Q3EngineCtfAssists", assists)
 				end)
 				setReward(teammate, "Assist")
 			end
@@ -1109,7 +1213,10 @@ local function validateCarriers(byPlayer: { [Player]: Candidate })
 			continue
 		end
 
-		if carrier.Parent ~= Players or safePlayerTeam(carrier) ~= FlagDefinitions.OtherTeam(teamId) then
+		if
+			carrier.Parent ~= Players
+			or safePlayerTeam(carrier) ~= FlagDefinitions.OtherTeam(teamId)
+		then
 			returnFlag(record, "CarrierIneligible", carrier)
 		else
 			local itemState = safeItemState(carrier)
@@ -1165,7 +1272,11 @@ local function processTouches(candidates: { Candidate })
 			continue
 		end
 		if
-			MatchRulesCore.ResolveFlagTouchAction(candidate.teamId, ownFlag.teamId, ownFlag.state)
+			MatchRulesCore.ResolveFlagTouchAction(
+					candidate.teamId,
+					ownFlag.teamId,
+					ownFlag.state
+				)
 				== "Return"
 			and isTouchingFlag(candidate.position, ownFlag)
 		then
@@ -1174,10 +1285,15 @@ local function processTouches(candidates: { Candidate })
 				awardBonus(candidate.player, CtfBonusRules.Bonuses.Recovery, "FlagRecovery"),
 				"accepted CTF recovery rejected its personal bonus"
 			)
-			bonusState(candidate.player).lastReturnedFlagMilliseconds = activeLevelTimeMilliseconds()
+			bonusState(candidate.player).lastReturnedFlagMilliseconds =
+				activeLevelTimeMilliseconds()
 		end
 
-		local enemyAction = MatchRulesCore.ResolveFlagTouchAction(candidate.teamId, enemyFlag.teamId, enemyFlag.state)
+		local enemyAction = MatchRulesCore.ResolveFlagTouchAction(
+			candidate.teamId,
+			enemyFlag.teamId,
+			enemyFlag.state
+		)
 		if enemyAction == "Pickup" and isTouchingFlag(candidate.position, enemyFlag) then
 			pickupFlag(enemyFlag, candidate)
 		end
@@ -1232,11 +1348,13 @@ local function processElimination(victim: Player, intent: EliminationIntent)
 				local ownFlag = flags[attackerTeam]
 				local enemyFlag = flags[FlagDefinitions.OtherTeam(attackerTeam)]
 				local baseProtected = (
-					(victimState.position - ownFlag.basePosition).Magnitude < CtfBonusRules.ProtectRadiusStuds
+					(victimState.position - ownFlag.basePosition).Magnitude
+						< CtfBonusRules.ProtectRadiusStuds
 					and visibleFrom(ownFlag.basePosition, victimState.position)
 				)
 					or (
-						(attackerState.position - ownFlag.basePosition).Magnitude < CtfBonusRules.ProtectRadiusStuds
+						(attackerState.position - ownFlag.basePosition).Magnitude
+							< CtfBonusRules.ProtectRadiusStuds
 						and visibleFrom(ownFlag.basePosition, attackerState.position)
 					)
 				local teamCarrier = enemyFlag.carrier
@@ -1261,7 +1379,8 @@ local function processElimination(victim: Player, intent: EliminationIntent)
 				local carrierDanger = lastHurtCarrier ~= nil
 					and activeLevelTimeMilliseconds() - lastHurtCarrier < CtfBonusRules.CarrierDangerTimeoutMilliseconds
 					and flags[victimTeam].carrier ~= attacker
-				local defenseKind = CtfBonusRules.DefenseKind(false, carrierDanger, baseProtected, carrierProtected)
+				local defenseKind =
+					CtfBonusRules.DefenseKind(false, carrierDanger, baseProtected, carrierProtected)
 				if defenseKind then
 					local points = if defenseKind == "CarrierDanger"
 						then CtfBonusRules.Bonuses.CarrierDangerProtect
@@ -1276,7 +1395,7 @@ local function processElimination(victim: Player, intent: EliminationIntent)
 					state.defends += 1
 					local defends = state.defends
 					publishOutward(function()
-						attacker:SetAttribute("ArenaCtfDefends", defends)
+						attacker:SetAttribute("Q3EngineCtfDefends", defends)
 					end)
 					setReward(attacker, "Defend")
 					if defenseKind == "CarrierDanger" then
@@ -1298,8 +1417,10 @@ local function processElimination(victim: Player, intent: EliminationIntent)
 			carriedRecord.carrier = nil
 			carriedRecord.lastPosition = staged.position
 			carriedRecord.droppedPosition = staged.position
-			carriedRecord.returnAtMilliseconds =
-				deadlineMilliseconds(staged.levelTimeMilliseconds, FlagDefinitions.DroppedReturnSeconds)
+			carriedRecord.returnAtMilliseconds = deadlineMilliseconds(
+				staged.levelTimeMilliseconds,
+				FlagDefinitions.DroppedReturnSeconds
+			)
 			carriedRecord.revision += 1
 			publishEvent(
 				FlagDefinitions.Events.Dropped,
@@ -1323,7 +1444,11 @@ local function processElimination(victim: Player, intent: EliminationIntent)
 			or type(contents) ~= "number"
 			or WorldPointContents.IsNoDrop(contents)
 		then
-			returnFlag(carriedRecord, if intent.means == "Suicide" then "Suicide" else "NoDropVolume", victim)
+			returnFlag(
+				carriedRecord,
+				if intent.means == "Suicide" then "Suicide" else "NoDropVolume",
+				victim
+			)
 			return
 		end
 		dropFlag(carriedRecord, carrierPosition, "Eliminated", victim)
@@ -1370,8 +1495,17 @@ local function flushPendingCarrierIntents()
 	end
 end
 
-local function onPlayerDamaged(victim: Player, attacker: Player, _damage: number, levelTimeMilliseconds: number)
-	if not objectiveActive or victim == attacker or safePlayerTeam(victim) == safePlayerTeam(attacker) then
+local function onPlayerDamaged(
+	victim: Player,
+	attacker: Player,
+	_damage: number,
+	levelTimeMilliseconds: number
+)
+	if
+		not objectiveActive
+		or victim == attacker
+		or safePlayerTeam(victim) == safePlayerTeam(attacker)
+	then
 		return
 	end
 	for _, teamId in FlagDefinitions.TeamOrder do
@@ -1412,7 +1546,9 @@ local function nextCadenceDeadline(
 	if previousDeadlineMilliseconds > currentMilliseconds then
 		return previousDeadlineMilliseconds
 	end
-	local missedIntervals = math.floor((currentMilliseconds - previousDeadlineMilliseconds) / intervalMilliseconds) + 1
+	local missedIntervals = math.floor(
+		(currentMilliseconds - previousDeadlineMilliseconds) / intervalMilliseconds
+	) + 1
 	local nextDeadline = previousDeadlineMilliseconds + missedIntervals * intervalMilliseconds
 	assert(
 		nextDeadline <= MatchFrameRules.MaximumLevelTimeMilliseconds,
@@ -1449,7 +1585,10 @@ function FlagService.HandleAuthoritativeFrame(frameValue: unknown)
 		"FlagService authoritative frame dependency is invalid"
 	)
 	assert(
-		MatchFrameRules.ShouldRunFrame(lastProcessedFrameLevelTimeMilliseconds, summary.currentTimeMilliseconds),
+		MatchFrameRules.ShouldRunFrame(
+			lastProcessedFrameLevelTimeMilliseconds,
+			summary.currentTimeMilliseconds
+		),
 		"FlagService authoritative frame ran twice"
 	)
 
@@ -1465,20 +1604,26 @@ function FlagService.HandleAuthoritativeFrame(frameValue: unknown)
 	reconcileFlow(flowReason or "AuthoritativeFrame")
 	flushPendingCarrierIntents()
 	for player, state in bonusStateByPlayer do
-		if state.rewardUntilMilliseconds ~= nil and currentMilliseconds > state.rewardUntilMilliseconds then
+		if
+			state.rewardUntilMilliseconds ~= nil
+			and currentMilliseconds > state.rewardUntilMilliseconds
+		then
 			state.rewardKind = nil
 			state.rewardUntilMilliseconds = nil
 			publishOutward(function()
-				player:SetAttribute("ArenaCtfRewardKind", nil)
-				player:SetAttribute("ArenaCtfRewardEndsAt", nil)
+				player:SetAttribute("Q3EngineCtfRewardKind", nil)
+				player:SetAttribute("Q3EngineCtfRewardEndsAt", nil)
 			end)
 		end
 	end
 
 	if nextScanAtMilliseconds == nil or currentMilliseconds >= nextScanAtMilliseconds then
 		scanObjective()
-		nextScanAtMilliseconds =
-			nextCadenceDeadline(nextScanAtMilliseconds, currentMilliseconds, FlagDefinitions.ScanIntervalSeconds)
+		nextScanAtMilliseconds = nextCadenceDeadline(
+			nextScanAtMilliseconds,
+			currentMilliseconds,
+			FlagDefinitions.ScanIntervalSeconds
+		)
 	end
 	-- Q3's G_RunThink executes Team_DroppedFlagThink on the first frame whose
 	-- integer level.time reaches nextthink. Keep that deadline frame-granular;
@@ -1491,7 +1636,9 @@ function FlagService.HandleAuthoritativeFrame(frameValue: unknown)
 	if pendingInitialBroadcast then
 		pendingInitialBroadcast = false
 		publishSnapshot()
-	elseif nextSnapshotAtMilliseconds == nil or currentMilliseconds >= nextSnapshotAtMilliseconds then
+	elseif
+		nextSnapshotAtMilliseconds == nil or currentMilliseconds >= nextSnapshotAtMilliseconds
+	then
 		publishSnapshot()
 	end
 
@@ -1559,12 +1706,22 @@ local function flagMoverRecordForBodyId(bodyId: string): FlagMoverRecord
 	error("flag mover participant body is stale")
 end
 
-function FlagService.ResolveMoverSine(bodyId: string): MoverItemFlagParticipantRules.SynchronousCrushEffect
-	return assert(MoverItemFlagParticipantRules.ResolveSineCrush(flagMoverRecordForBodyId(bodyId).participant))
+function FlagService.ResolveMoverSine(
+	bodyId: string
+): MoverItemFlagParticipantRules.SynchronousCrushEffect
+	return assert(
+		MoverItemFlagParticipantRules.ResolveSineCrush(flagMoverRecordForBodyId(bodyId).participant)
+	)
 end
 
-function FlagService.ResolveMoverBlockedDoor(bodyId: string): MoverItemFlagParticipantRules.Transition
-	return assert(MoverItemFlagParticipantRules.ResolveBlockedDoor(flagMoverRecordForBodyId(bodyId).participant))
+function FlagService.ResolveMoverBlockedDoor(
+	bodyId: string
+): MoverItemFlagParticipantRules.Transition
+	return assert(
+		MoverItemFlagParticipantRules.ResolveBlockedDoor(
+			flagMoverRecordForBodyId(bodyId).participant
+		)
+	)
 end
 
 function FlagService.PrepareMoverParticipantUpdate(
@@ -1590,7 +1747,10 @@ function FlagService.PrepareMoverParticipantUpdate(
 			return nil, "retained-base-flag-mover-body-removed"
 		end
 		local participant = record.participant
-		if participant.lifecycle == "HiddenLinked" and (finalBody :: any).contents == 0x40000000 then
+		if
+			participant.lifecycle == "HiddenLinked"
+			and (finalBody :: any).contents == 0x40000000
+		then
 			local transition, transitionError = MoverItemFlagParticipantRules.Respawn(participant)
 			if not transition then
 				return nil, transitionError or "blocked base flag reset failed"
@@ -1598,7 +1758,8 @@ function FlagService.PrepareMoverParticipantUpdate(
 			participant = transition.participant
 			returnedTeamIds[record.teamId] = true
 		end
-		local nextParticipant, participantError = MoverItemFlagParticipantRules.ApplyMoverBody(participant, finalBody)
+		local nextParticipant, participantError =
+			MoverItemFlagParticipantRules.ApplyMoverBody(participant, finalBody)
 		if not nextParticipant then
 			return nil, participantError or "base flag mover body invalid"
 		end
@@ -1648,7 +1809,9 @@ function FlagService.PrepareMoverParticipantUpdate(
 	return prepared, nil
 end
 
-function FlagService.CanApplyPreparedMoverParticipantUpdate(preparedValue: unknown): (boolean, string?)
+function FlagService.CanApplyPreparedMoverParticipantUpdate(
+	preparedValue: unknown
+): (boolean, string?)
 	local capability = if type(preparedValue) == "table"
 		then preparedMoverCapabilities[preparedValue :: PreparedMoverParticipantUpdate]
 		else nil
@@ -1664,9 +1827,14 @@ function FlagService.CanApplyPreparedMoverParticipantUpdate(preparedValue: unkno
 	return true, nil
 end
 
-function FlagService.ApplyPreparedMoverParticipantUpdate(preparedValue: unknown): MoverParticipantUpdateReceipt
+function FlagService.ApplyPreparedMoverParticipantUpdate(
+	preparedValue: unknown
+): MoverParticipantUpdateReceipt
 	local prepared = preparedValue :: PreparedMoverParticipantUpdate
-	local capability = assert(preparedMoverCapabilities[prepared], "invalid prepared flag mover participant update")
+	local capability = assert(
+		preparedMoverCapabilities[prepared],
+		"invalid prepared flag mover participant update"
+	)
 	assert(
 		capability.status == "Prepared"
 			and capability.preflightPassCount >= 2
@@ -1677,6 +1845,11 @@ function FlagService.ApplyPreparedMoverParticipantUpdate(preparedValue: unknown)
 	flagMoverAuthority = capability.nextAuthority
 	capability.status = "Applied"
 	preparedMoverCapabilities[prepared] = nil
+	-- The logical root is committed. Keep only the receipt alive for deferred
+	-- presentation so post-mover flag mutations cannot see a false busy owner.
+	if activePreparedMoverParticipantUpdate == prepared then
+		activePreparedMoverParticipantUpdate = nil
+	end
 	return capability.receipt
 end
 
@@ -1689,26 +1862,50 @@ function FlagService.FlushPreparedMoverParticipantUpdate(receiptValue: unknown):
 	end
 	capability.status = "Flushed"
 	moverReceiptCapabilities[capability.receipt] = nil
-	activePreparedMoverParticipantUpdate = nil
+	if activePreparedMoverParticipantUpdate == capability.prepared then
+		activePreparedMoverParticipantUpdate = nil
+	end
 	for _, moverRecord in capability.changedRecords do
-		local record = assert(flags[moverRecord.teamId], "moved flag record is unavailable")
-		record.marker.Position = moverRecord.participant.body.position
-		record.basePosition = moverRecord.participant.body.position
-		if record.state == FlagDefinitions.States.AtBase then
-			record.lastPosition = record.basePosition
+		-- A later DynamicTail flag transition can replace this immutable record
+		-- without replacing the registered base-flag entity. Publish the current
+		-- same-registration position so that transition cannot strand the mutable
+		-- FlagRecord/marker at the pre-move base position.
+		local currentMoverRecord = flagMoverAuthority.recordsByTeamId[moverRecord.teamId]
+		if
+			currentMoverRecord ~= nil
+			and currentMoverRecord.registration == moverRecord.registration
+		then
+			local record = assert(flags[moverRecord.teamId], "moved flag record is unavailable")
+			record.marker.Position = currentMoverRecord.participant.body.position
+			record.basePosition = currentMoverRecord.participant.body.position
+			if record.state == FlagDefinitions.States.AtBase then
+				record.lastPosition = record.basePosition
+			end
 		end
 	end
 	for teamId in capability.returnedTeamIds do
-		local record = assert(flags[teamId], "returned flag record is unavailable")
-		returnFlag(record, "BlockedDoor", nil)
+		local expectedMoverRecord = capability.nextAuthority.recordsByTeamId[teamId]
+		if
+			expectedMoverRecord ~= nil
+			and flagMoverAuthority.recordsByTeamId[teamId] == expectedMoverRecord
+		then
+			local record = assert(flags[teamId], "returned flag record is unavailable")
+			returnFlag(record, "BlockedDoor", nil)
+		end
 	end
 	return true
 end
 
 function FlagService.AbortPreparedMoverParticipantUpdate(preparedValue: unknown): boolean
-	local prepared = if type(preparedValue) == "table" then preparedValue :: PreparedMoverParticipantUpdate else nil
+	local prepared = if type(preparedValue) == "table"
+		then preparedValue :: PreparedMoverParticipantUpdate
+		else nil
 	local capability = if prepared then preparedMoverCapabilities[prepared] else nil
-	if not capability or capability.status ~= "Prepared" or activePreparedMoverParticipantUpdate ~= prepared then
+	if
+		not capability
+		or capability.status ~= "Prepared"
+		or activePreparedMoverParticipantUpdate ~= prepared
+	then
 		return false
 	end
 	capability.status = "Aborted"
@@ -1737,12 +1934,19 @@ function FlagService.IsActive(): boolean
 	return objectiveActive
 end
 
-function FlagService.Start(worldFolder: Folder, serviceDependencies: any, runtimeMapData: RuntimeMapData?)
+function FlagService.Start(
+	worldFolder: Folder,
+	serviceDependencies: any,
+	runtimeMapData: RuntimeMapData?
+)
 	assert(not started, "FlagService.Start may only be called once")
 	assert(worldFolder:IsA("Folder"), "FlagService.Start requires the arena world Folder")
 	assert(type(serviceDependencies) == "table", "FlagService.Start requires service dependencies")
 	assert(type(serviceDependencies.MatchService) == "table", "MatchService dependency is required")
-	assert(type(serviceDependencies.CombatService) == "table", "CombatService dependency is required")
+	assert(
+		type(serviceDependencies.CombatService) == "table",
+		"CombatService dependency is required"
+	)
 
 	local match = serviceDependencies.MatchService
 	validateDependency(match, "GetModeId")
@@ -1766,10 +1970,12 @@ function FlagService.Start(worldFolder: Folder, serviceDependencies: any, runtim
 		local moverOrder: { FlagMoverRecord } = {}
 		for _, teamId in FlagDefinitions.TeamOrder do
 			local marker = markers[teamId]
-			local mapEntityId = marker:GetAttribute("ArenaMapEntityId")
+			local mapEntityId = marker:GetAttribute("Q3EngineMapEntityId")
 			assert(type(mapEntityId) == "string", "flag base lost ArenaMapEntityId")
-			local mapRegistration =
-				assert(EntitySlotService.GetMapRegistration(mapEntityId), "flag base map registration is unavailable")
+			local mapRegistration = assert(
+				EntitySlotService.GetMapRegistration(mapEntityId),
+				"flag base map registration is unavailable"
+			)
 			assert(
 				mapRegistration.kind == "TeamFlag"
 					and mapRegistration.registration.kind == "World"
@@ -1870,9 +2076,11 @@ function FlagService.Start(worldFolder: Folder, serviceDependencies: any, runtim
 	match.OnModeChanged(function(_modeId: unknown, _rules: unknown)
 		queueFlowReconcile("ModeChanged")
 	end)
-	match.OnEliminationRecorded(function(victim: Player, attacker: Player?, means: string, _result: unknown)
-		onElimination(victim, attacker, means)
-	end)
+	match.OnEliminationRecorded(
+		function(victim: Player, attacker: Player?, means: string, _result: unknown)
+			onElimination(victim, attacker, means)
+		end
+	)
 	serviceDependencies.CombatService.OnPlayerDamaged(onPlayerDamaged)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	Players.PlayerAdded:Connect(function(player: Player)

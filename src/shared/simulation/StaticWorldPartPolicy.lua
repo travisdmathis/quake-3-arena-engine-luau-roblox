@@ -9,9 +9,9 @@ local StaticWorldPartPolicy = {}
 
 local LARGE_MAP_CHUNK_THRESHOLD = 4096
 local LARGE_MAP_MINIMUM_SHADOW_FACE_AREA = 128
-local MANAGED_TEXTURE_ATTRIBUTE = "ArenaManagedStaticTexture"
-local MANAGED_TEXTURE_FACE_ATTRIBUTE = "ArenaManagedTextureFace"
-local MANAGED_TEXTURE_NAME_PREFIX = "ArenaMaterialTexture_"
+local MANAGED_TEXTURE_ATTRIBUTE = "Q3EngineManagedStaticTexture"
+local MANAGED_TEXTURE_FACE_ATTRIBUTE = "Q3EngineManagedTextureFace"
+local MANAGED_TEXTURE_NAME_PREFIX = "Q3EngineMaterialTexture_"
 
 local TEXTURE_STUDS_PER_TILE: { [string]: number } = table.freeze({
 	Wall = 8,
@@ -39,14 +39,14 @@ function StaticWorldPartPolicy.IsManagedTexture(value: Instance): boolean
 	end
 	local texture = value :: Texture
 	local face = texture.Face.Name
-	local role = texture:GetAttribute("ArenaMaterialRole")
+	local role = texture:GetAttribute("Q3EngineMaterialRole")
 	if
 		VALID_TEXTURE_FACES[face] ~= true
 		or type(role) ~= "string"
 		or texture.Name ~= MANAGED_TEXTURE_NAME_PREFIX .. face
 		or texture:GetAttribute(MANAGED_TEXTURE_FACE_ATTRIBUTE) ~= face
-		or texture:GetAttribute("ArenaVisualOnly") ~= true
-		or type(texture:GetAttribute("ArenaTextureAssetKey")) ~= "string"
+		or texture:GetAttribute("Q3EngineVisualOnly") ~= true
+		or type(texture:GetAttribute("Q3EngineTextureAssetKey")) ~= "string"
 		or texture.Texture == ""
 		or texture.Color3 ~= Color3.new(1, 1, 1)
 		or texture.Transparency ~= 0

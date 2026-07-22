@@ -77,7 +77,10 @@ function MovementNormalToDeadPreparedRegistry.new(): Registry
 
 	function registry:SetPreparedCapability(prepared: unknown, capability: unknown?)
 		assert(type(prepared) == "table", "prepared capability key must be opaque")
-		assert(capability == nil or type(capability) == "table", "prepared capability must be table")
+		assert(
+			capability == nil or type(capability) == "table",
+			"prepared capability must be table"
+		)
 		preparedCapabilities[prepared :: table] = capability
 	end
 
@@ -87,7 +90,10 @@ function MovementNormalToDeadPreparedRegistry.new(): Registry
 
 	function registry:SetPreparedForSummary(summary: unknown, prepared: unknown?)
 		assert(type(summary) == "table", "prepared summary key must be table")
-		assert(prepared == nil or type(prepared) == "table", "prepared summary value must be opaque")
+		assert(
+			prepared == nil or type(prepared) == "table",
+			"prepared summary value must be opaque"
+		)
 		preparedBySummary[summary :: table] = prepared
 	end
 
@@ -127,7 +133,10 @@ function MovementNormalToDeadPreparedRegistry.new(): Registry
 
 	function registry:SetBatchReceiptCapability(receipt: unknown, capability: unknown?)
 		assert(type(receipt) == "table", "batch receipt key must be opaque")
-		assert(capability == nil or type(capability) == "table", "batch receipt capability must be table")
+		assert(
+			capability == nil or type(capability) == "table",
+			"batch receipt capability must be table"
+		)
 		batchReceiptCapabilities[receipt :: table] = capability
 	end
 

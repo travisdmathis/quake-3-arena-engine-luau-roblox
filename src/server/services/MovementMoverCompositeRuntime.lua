@@ -37,7 +37,11 @@ export type Host = {
 	getDamageToken: (prepared: unknown) -> unknown?,
 	getParticipantPrepared: (prepared: unknown) -> unknown?,
 	getBodyQueuePrepared: (prepared: unknown) -> unknown?,
-	bindCombatDependency: (prepared: unknown, combatPrepared: unknown, summary: unknown) -> (boolean, string?),
+	bindCombatDependency: (
+		prepared: unknown,
+		combatPrepared: unknown,
+		summary: unknown
+	) -> (boolean, string?),
 	canApplyMovement: (prepared: unknown) -> (boolean, string?),
 	applyMovement: (prepared: unknown) -> unknown,
 	abortMovement: (prepared: unknown) -> boolean,
@@ -49,7 +53,11 @@ export type Host = {
 
 local MovementMoverCompositeRuntime = {}
 
-local function abortPreparedMoverComposite(host: Host, prepared: unknown, damageToken: unknown?): boolean
+local function abortPreparedMoverComposite(
+	host: Host,
+	prepared: unknown,
+	damageToken: unknown?
+): boolean
 	local participantPrepared = host.getParticipantPrepared(prepared)
 	local bodyQueuePrepared = host.getBodyQueuePrepared(prepared)
 	local movementAborted = host.abortMovement(prepared)
@@ -63,20 +71,25 @@ local function abortPreparedMoverComposite(host: Host, prepared: unknown, damage
 	end
 	local participantAborted = true
 	if participantPrepared ~= nil then
-		participantAborted = (assert(host.participantAdapter, "prepared mover participant adapter disappeared")).Abort(
-			participantPrepared
-		)
+		participantAborted = (assert(
+			host.participantAdapter,
+			"prepared mover participant adapter disappeared"
+		)).Abort(participantPrepared)
 	end
 	local bodyQueueAborted = true
 	if bodyQueuePrepared ~= nil then
-		bodyQueueAborted = (assert(host.bodyQueueAdapter, "prepared BodyQueue mover adapter disappeared")).Abort(
-			bodyQueuePrepared
-		)
+		bodyQueueAborted = (assert(
+			host.bodyQueueAdapter,
+			"prepared BodyQueue mover adapter disappeared"
+		)).Abort(bodyQueuePrepared)
 	end
 	return movementAborted and damageAborted and participantAborted and bodyQueueAborted
 end
 
-function MovementMoverCompositeRuntime.Run(stepServerTime: number, host: Host): (unknown, unknown?, unknown?, unknown?)
+function MovementMoverCompositeRuntime.Run(
+	stepServerTime: number,
+	host: Host
+): (unknown, unknown?, unknown?, unknown?)
 	local prepared, prepareError = host.prepareMovement(stepServerTime)
 	assert(prepared, prepareError or "authoritative mover step could not prepare")
 	local damageToken = host.getDamageToken(prepared)
@@ -88,7 +101,8 @@ function MovementMoverCompositeRuntime.Run(stepServerTime: number, host: Host): 
 	local bodyQueueAdapter = host.bodyQueueAdapter
 	if damageToken ~= nil then
 		local requiredAdapter = assert(adapter, "prepared mover damage adapter disappeared")
-		local preparedCombat, _matchSummary, combatPrepareError = requiredAdapter.Prepare(damageToken)
+		local preparedCombat, _matchSummary, combatPrepareError =
+			requiredAdapter.Prepare(damageToken)
 		if not preparedCombat then
 			abortPreparedMoverComposite(host, prepared, damageToken)
 			error(combatPrepareError or "mover Combat participant could not prepare")
@@ -99,7 +113,8 @@ function MovementMoverCompositeRuntime.Run(stepServerTime: number, host: Host): 
 			abortPreparedMoverComposite(host, prepared, damageToken)
 			error("mover Combat participant omitted its Movement dependency")
 		end
-		local bound, bindError = host.bindCombatDependency(prepared, preparedCombat, movementSummary)
+		local bound, bindError =
+			host.bindCombatDependency(prepared, preparedCombat, movementSummary)
 		if not bound then
 			abortPreparedMoverComposite(host, prepared, damageToken)
 			error(bindError or "mover Combat-Movement dependency could not bind")
@@ -116,7 +131,8 @@ function MovementMoverCompositeRuntime.Run(stepServerTime: number, host: Host): 
 		end
 		if combatPrepared ~= nil then
 			local requiredAdapter = assert(adapter, "prepared mover damage adapter disappeared")
-			local combatCanApply, combatCanApplyError = requiredAdapter.CanApplyPrepared(combatPrepared)
+			local combatCanApply, combatCanApplyError =
+				requiredAdapter.CanApplyPrepared(combatPrepared)
 			if not combatCanApply then
 				abortPreparedMoverComposite(host, prepared, damageToken)
 				error(combatCanApplyError or "mover Combat participant failed preflight")
@@ -133,8 +149,10 @@ function MovementMoverCompositeRuntime.Run(stepServerTime: number, host: Host): 
 			end
 		end
 		if bodyQueuePrepared ~= nil then
-			local requiredBodyQueueAdapter = assert(bodyQueueAdapter, "prepared BodyQueue mover adapter disappeared")
-			local bodyQueueCanApply, bodyQueueCanApplyError = requiredBodyQueueAdapter.CanApply(bodyQueuePrepared)
+			local requiredBodyQueueAdapter =
+				assert(bodyQueueAdapter, "prepared BodyQueue mover adapter disappeared")
+			local bodyQueueCanApply, bodyQueueCanApplyError =
+				requiredBodyQueueAdapter.CanApply(bodyQueuePrepared)
 			if not bodyQueueCanApply then
 				abortPreparedMoverComposite(host, prepared, damageToken)
 				error(bodyQueueCanApplyError or "mover BodyQueue participant failed preflight")
@@ -145,20 +163,23 @@ function MovementMoverCompositeRuntime.Run(stepServerTime: number, host: Host): 
 	local movementReceipt = host.applyMovement(prepared)
 	local combatReceipt: unknown? = nil
 	if combatPrepared ~= nil then
-		combatReceipt = (assert(adapter, "prepared mover damage adapter disappeared")).ApplyPrepared(combatPrepared)
+		combatReceipt = (assert(adapter, "prepared mover damage adapter disappeared")).ApplyPrepared(
+			combatPrepared
+		)
 		host.clearActiveDamageToken()
 	end
 	local participantReceipt: unknown? = nil
 	if participantPrepared ~= nil then
-		participantReceipt = (assert(participantAdapter, "prepared mover participant adapter disappeared")).Apply(
-			participantPrepared
-		)
+		participantReceipt = (assert(
+			participantAdapter,
+			"prepared mover participant adapter disappeared"
+		)).Apply(participantPrepared)
 	end
 	local bodyQueueReceipt: unknown? = nil
 	if bodyQueuePrepared ~= nil then
-		bodyQueueReceipt = (assert(bodyQueueAdapter, "prepared BodyQueue mover adapter disappeared")).Apply(
-			bodyQueuePrepared
-		)
+		bodyQueueReceipt = (
+			assert(bodyQueueAdapter, "prepared BodyQueue mover adapter disappeared")
+		).Apply(bodyQueuePrepared)
 	end
 	return movementReceipt, combatReceipt, participantReceipt, bodyQueueReceipt
 end

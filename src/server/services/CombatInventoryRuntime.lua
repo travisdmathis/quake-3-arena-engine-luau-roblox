@@ -102,7 +102,9 @@ function CombatInventoryRuntime.BuildSnapshot(record: Record): Snapshot
 	}
 end
 
-function CombatInventoryRuntime.SerializeAmmo(ammoByWeapon: { [number]: number }): ({ [string]: number }, { AmmoEntry })
+function CombatInventoryRuntime.SerializeAmmo(
+	ammoByWeapon: { [number]: number }
+): ({ [string]: number }, { AmmoEntry })
 	local byWeaponId: { [string]: number } = {}
 	local entries: { AmmoEntry } = {}
 	for weaponId, ammo in ammoByWeapon do
@@ -132,7 +134,9 @@ function CombatInventoryRuntime.Reset(
 	record.holdableId = HoldableRules.HoldableId.None
 	record.holdableUseHeld = false
 	record.powerupExpiries = {}
-	record.infiniteAmmo = if infiniteAmmoOverride ~= nil then infiniteAmmoOverride else rules.InfiniteAmmo
+	record.infiniteAmmo = if infiniteAmmoOverride ~= nil
+		then infiniteAmmoOverride
+		else rules.InfiniteAmmo
 
 	local gauntletId = WeaponDefinitions.WeaponId.Gauntlet
 	record.ownedWeapons[gauntletId] = true
@@ -142,7 +146,8 @@ function CombatInventoryRuntime.Reset(
 		local definition = WeaponDefinitions.ById[weaponId]
 		if definition and WeaponDefinitions.LiveAllowed[weaponId] then
 			record.ownedWeapons[weaponId] = true
-			record.ammoByWeapon[weaponId] = rules.SpawnAmmoByWeaponId[weaponId] or definition.SpawnAmmo
+			record.ammoByWeapon[weaponId] = rules.SpawnAmmoByWeaponId[weaponId]
+				or definition.SpawnAmmo
 		end
 	end
 

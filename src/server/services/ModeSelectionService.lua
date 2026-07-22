@@ -7,7 +7,8 @@ local Workspace = game:GetService("Workspace")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
 local RemoteNames = require(sharedRoot:WaitForChild("RemoteNames"))
-local ModeSelectionProtocol = require(sharedRoot:WaitForChild("match"):WaitForChild("ModeSelectionProtocol"))
+local ModeSelectionProtocol =
+	require(sharedRoot:WaitForChild("match"):WaitForChild("ModeSelectionProtocol"))
 local MatchRulesCore = require(sharedRoot:WaitForChild("match"):WaitForChild("MatchRulesCore"))
 local MatchService = require(script.Parent.MatchService)
 
@@ -67,7 +68,10 @@ local function ensureRemoteFunction(folder: Folder, name: string): RemoteFunctio
 end
 
 local function isFiniteInteger(value: unknown): boolean
-	return type(value) == "number" and value == value and math.abs(value) < math.huge and value % 1 == 0
+	return type(value) == "number"
+		and value == value
+		and math.abs(value) < math.huge
+		and value % 1 == 0
 end
 
 local function hasExactRequestKeys(value: unknown): boolean
@@ -148,7 +152,8 @@ local function consumeRateLimit(player: Player, now: number): (boolean, number)
 		record.windowCount = 0
 	end
 
-	local intervalRemaining = ModeSelectionProtocol.MinimumRequestIntervalSeconds - (now - record.lastRequestAt)
+	local intervalRemaining = ModeSelectionProtocol.MinimumRequestIntervalSeconds
+		- (now - record.lastRequestAt)
 	if intervalRemaining > 0 then
 		return false, intervalRemaining
 	end
@@ -264,7 +269,8 @@ local function handleRequest(player: Player, payload: unknown): Response
 		)
 	end
 
-	local globalRemaining = ModeSelectionProtocol.GlobalChangeCooldownSeconds - (now - lastGlobalChangeAt)
+	local globalRemaining = ModeSelectionProtocol.GlobalChangeCooldownSeconds
+		- (now - lastGlobalChangeAt)
 	if globalRemaining > 0 then
 		return authoritativeResponse(
 			requestSequence,
@@ -287,7 +293,12 @@ local function handleRequest(player: Player, payload: unknown): Response
 				true,
 				false,
 				ModeSelectionProtocol.ResponseCodes.VoteRecorded,
-				string.format("Vote recorded for %s (%d/%d).", requestedModeId, voteCount, votesRequired)
+				string.format(
+					"Vote recorded for %s (%d/%d).",
+					requestedModeId,
+					voteCount,
+					votesRequired
+				)
 			)
 		end
 	end

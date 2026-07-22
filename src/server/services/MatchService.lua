@@ -6,7 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
-local MapRuntimeContract = require(sharedRoot:WaitForChild("maps"):WaitForChild("MapRuntimeContract"))
+local MapRuntimeContract =
+	require(sharedRoot:WaitForChild("maps"):WaitForChild("MapRuntimeContract"))
 local MatchConfig = require(sharedRoot:WaitForChild("match"):WaitForChild("MatchConfig"))
 local MatchEliminationShadowRules =
 	require(sharedRoot:WaitForChild("match"):WaitForChild("MatchEliminationShadowRules"))
@@ -459,7 +460,12 @@ local function notifyAuthorityMode(modeId: ModeId, nextRules: Rules)
 	end
 end
 
-local function notifyAuthorityElimination(victim: Player, attacker: Player?, means: string, result: EliminationResult)
+local function notifyAuthorityElimination(
+	victim: Player,
+	attacker: Player?,
+	means: string,
+	result: EliminationResult
+)
 	for _, callback in authorityEliminationCallbacks do
 		callback(victim, attacker, means, result)
 	end
@@ -469,7 +475,12 @@ local function notifyLoadingPresentationFailure(cause: LoadingPresentationFailur
 	for _, callback in loadingPresentationFailureCallbacks do
 		local succeeded, callbackError = pcall(callback, cause)
 		if not succeeded then
-			warn(string.format("Loading-presentation failure callback failed: %s", tostring(callbackError)))
+			warn(
+				string.format(
+					"Loading-presentation failure callback failed: %s",
+					tostring(callbackError)
+				)
+			)
 		end
 	end
 end
@@ -499,7 +510,10 @@ local function isNonnegativeInteger(value: unknown): boolean
 end
 
 local function activeLevelTimeMilliseconds(): number
-	local summary = assert(activeAuthoritativeFrameSummary, "Match authority requires an open authoritative frame")
+	local summary = assert(
+		activeAuthoritativeFrameSummary,
+		"Match authority requires an open authoritative frame"
+	)
 	return summary.currentTimeMilliseconds
 end
 
@@ -514,7 +528,11 @@ end
 local function presentationTimeForLevel(levelTimeMilliseconds: number): number
 	local basisLevelTime, basisServerTime = currentPresentationBasis()
 	return assert(
-		MatchFrameRules.PresentationTimeForLevel(basisLevelTime, basisServerTime, levelTimeMilliseconds),
+		MatchFrameRules.PresentationTimeForLevel(
+			basisLevelTime,
+			basisServerTime,
+			levelTimeMilliseconds
+		),
 		"Match level time could not map to presentation time"
 	)
 end
@@ -553,7 +571,10 @@ local function terminalLatchEqual(
 		and left.winnerTeamId == right.winnerTeamId
 end
 
-local function eliminationShadowEqual(left: MoverEliminationShadow, right: MoverEliminationShadow): boolean
+local function eliminationShadowEqual(
+	left: MoverEliminationShadow,
+	right: MoverEliminationShadow
+): boolean
 	if
 		left.scoreKind ~= right.scoreKind
 		or left.scoreLimit ~= right.scoreLimit
@@ -613,7 +634,9 @@ local function ensureRemote(folder: Folder, name: string): RemoteEvent
 end
 
 local function isSoloDevelopmentActive(): boolean
-	return rules.AllowSoloInStudio and RunService:IsStudio() and MatchRosterRuntime.GetActivePlayerCount(records) == 1
+	return rules.AllowSoloInStudio
+		and RunService:IsStudio()
+		and MatchRosterRuntime.GetActivePlayerCount(records) == 1
 end
 
 local function hasEnoughPlayers(): boolean
@@ -626,17 +649,20 @@ local function hasEnoughPlayers(): boolean
 	end
 	if rules.TeamMode then
 		return MatchRosterRuntime.GetTeamPlayerCount(records, MatchConfig.TeamIds.Red, false) > 0
-			and MatchRosterRuntime.GetTeamPlayerCount(records, MatchConfig.TeamIds.Blue, false) > 0
+			and MatchRosterRuntime.GetTeamPlayerCount(records, MatchConfig.TeamIds.Blue, false)
+				> 0
 	end
 	return true
 end
 
 local function isCombatEnabled(): boolean
-	return MatchRulesCore.IsTerminalGameplayOpen(queuedIntermission) and rules.CombatStates[state] == true
+	return MatchRulesCore.IsTerminalGameplayOpen(queuedIntermission)
+		and rules.CombatStates[state] == true
 end
 
 local function isScoringEnabled(): boolean
-	return MatchRulesCore.IsTerminalGameplayOpen(queuedIntermission) and rules.ScoringStates[state] == true
+	return MatchRulesCore.IsTerminalGameplayOpen(queuedIntermission)
+		and rules.ScoringStates[state] == true
 end
 
 local function getRecordRoundWins(record: PlayerMatchRecord): number
@@ -661,14 +687,14 @@ local function syncPlayerAttributes(player: Player)
 	local deaths = record.deaths
 	local roundWins = getRecordRoundWins(record)
 	publishOutward(function()
-		player:SetAttribute("ArenaMatchParticipant", isActive)
-		player:SetAttribute("ArenaMatchParticipation", participation)
-		player:SetAttribute("ArenaMatchSpectator", not isActive)
-		player:SetAttribute("ArenaMatchTeam", teamId)
-		player:SetAttribute("ArenaMatchRoundEligible", roundEligible)
-		player:SetAttribute("ArenaMatchScore", score)
-		player:SetAttribute("ArenaMatchDeaths", deaths)
-		player:SetAttribute("ArenaMatchRoundWins", roundWins)
+		player:SetAttribute("Q3EngineMatchParticipant", isActive)
+		player:SetAttribute("Q3EngineMatchParticipation", participation)
+		player:SetAttribute("Q3EngineMatchSpectator", not isActive)
+		player:SetAttribute("Q3EngineMatchTeam", teamId)
+		player:SetAttribute("Q3EngineMatchRoundEligible", roundEligible)
+		player:SetAttribute("Q3EngineMatchScore", score)
+		player:SetAttribute("Q3EngineMatchDeaths", deaths)
+		player:SetAttribute("Q3EngineMatchRoundWins", roundWins)
 	end)
 end
 
@@ -808,12 +834,12 @@ local function activeRoundBodiesReady(): boolean
 			continue
 		end
 		local character = player.Character
-		local lifeSequence = player:GetAttribute("ArenaLifeSequence")
+		local lifeSequence = player:GetAttribute("Q3EngineLifeSequence")
 		if
 			player.Parent ~= Players
 			or not character
 			or not character.Parent
-			or player:GetAttribute("ArenaAlive") ~= true
+			or player:GetAttribute("Q3EngineAlive") ~= true
 			or type(lifeSequence) ~= "number"
 			or lifeSequence <= 0
 		then
@@ -834,7 +860,7 @@ local function allActiveLoadingPresentationsReady(): boolean
 			continue
 		end
 		if
-			player:GetAttribute("ArenaAdmissionState") ~= "Admitted"
+			player:GetAttribute("Q3EngineAdmissionState") ~= "Admitted"
 			or loadingPresentationReadyPlayers[player] ~= true
 		then
 			return false
@@ -844,7 +870,9 @@ local function allActiveLoadingPresentationsReady(): boolean
 end
 
 local function activePlayersReadyForInitialCountdown(): boolean
-	return loadingPresentationFailureCause == nil and allActiveLoadingPresentationsReady() and activeRoundBodiesReady()
+	return loadingPresentationFailureCause == nil
+		and allActiveLoadingPresentationsReady()
+		and activeRoundBodiesReady()
 end
 
 local function markLoadingPresentationReady(player: Player, payload: unknown)
@@ -852,12 +880,12 @@ local function markLoadingPresentationReady(player: Player, payload: unknown)
 		payload ~= nil
 		or loadingPresentationFailureCause ~= nil
 		or player.Parent ~= Players
-		or player:GetAttribute("ArenaAdmissionState") ~= "Admitted"
+		or player:GetAttribute("Q3EngineAdmissionState") ~= "Admitted"
 	then
 		return
 	end
 	loadingPresentationReadyPlayers[player] = true
-	player:SetAttribute("ArenaLoadingPresentationState", "Ready")
+	player:SetAttribute("Q3EngineLoadingPresentationState", "Ready")
 end
 
 local function latchLoadingPresentationFailure(cause: LoadingPresentationFailureCause): boolean
@@ -868,8 +896,8 @@ local function latchLoadingPresentationFailure(cause: LoadingPresentationFailure
 	loadingPresentationDeadlineAtClock = nil
 	game:SetAttribute("Q3EngineLoadingPresentationFailure", cause)
 	for _, player in Players:GetPlayers() do
-		if player:GetAttribute("ArenaAdmissionState") == "Admitted" then
-			player:SetAttribute("ArenaLoadingPresentationState", "Failed")
+		if player:GetAttribute("Q3EngineAdmissionState") == "Admitted" then
+			player:SetAttribute("Q3EngineLoadingPresentationState", "Failed")
 		end
 	end
 	notifyLoadingPresentationFailure(cause)
@@ -880,7 +908,7 @@ local function markLoadingPresentationFailed(player: Player, payload: unknown)
 	if
 		payload ~= nil
 		or player.Parent ~= Players
-		or player:GetAttribute("ArenaAdmissionState") ~= "Admitted"
+		or player:GetAttribute("Q3EngineAdmissionState") ~= "Admitted"
 		or (
 			state ~= MatchConfig.States.Waiting
 			and state ~= MatchConfig.States.Warmup
@@ -920,7 +948,9 @@ local function requestRespawn(player: Player, delaySeconds: number)
 end
 
 local function requestActiveRespawns(delaySeconds: number)
-	for _, player in MatchRosterRuntime.GetSourceOrderedPlayers(records, EntitySlotService.GetPlayerSourceOrder) do
+	for _, player in
+		MatchRosterRuntime.GetSourceOrderedPlayers(records, EntitySlotService.GetPlayerSourceOrder)
+	do
 		local record = records[player]
 		if
 			record.participation == ACTIVE
@@ -933,7 +963,12 @@ end
 
 local function canPlayerFightInternal(player: Player): boolean
 	local record = records[player]
-	if not record or record.participation ~= ACTIVE or record.eliminatedCurrentLife or not isCombatEnabled() then
+	if
+		not record
+		or record.participation ~= ACTIVE
+		or record.eliminatedCurrentLife
+		or not isCombatEnabled()
+	then
 		return false
 	end
 	return not rules.RoundBased or state ~= MatchConfig.States.Live or record.roundEligible
@@ -1025,7 +1060,10 @@ local function collectScoreLimitValues(): { number }
 		for _, player in MatchRosterRuntime.GetOrderedPlayers(records) do
 			local record = records[player]
 			if record.participation == ACTIVE then
-				table.insert(values, if rules.ScoreType == "RoundWins" then record.roundWins else record.score)
+				table.insert(
+					values,
+					if rules.ScoreType == "RoundWins" then record.roundWins else record.score
+				)
 			end
 		end
 	end
@@ -1046,10 +1084,14 @@ local function rotateDuelRosterAfterMatch()
 	end
 
 	local winningUserId = winnerUserIds[1]
-	local loserUserId, promotedUserId =
-		MatchRulesCore.ResolveDuelRotation(MatchRosterRuntime.BuildRulesRoster(records), winningUserId)
+	local loserUserId, promotedUserId = MatchRulesCore.ResolveDuelRotation(
+		MatchRosterRuntime.BuildRulesRoster(records),
+		winningUserId
+	)
 	local loser = if loserUserId then Players:GetPlayerByUserId(loserUserId) else nil
-	local oldestSpectator = if promotedUserId then Players:GetPlayerByUserId(promotedUserId) else nil
+	local oldestSpectator = if promotedUserId
+		then Players:GetPlayerByUserId(promotedUserId)
+		else nil
 
 	-- With no waiting spectator, the current pair rematches. A forfeit can also leave no
 	-- connected loser; normal roster preparation fills that vacancy on the next match.
@@ -1073,11 +1115,15 @@ end
 local function buildSnapshot(): MatchSnapshot
 	local currentLevelTimeMilliseconds, serverTime = currentPresentationBasis()
 	local remainingSeconds = if stateEndsAtMilliseconds
-		then assert(MatchFrameRules.RemainingSeconds(stateEndsAtMilliseconds, currentLevelTimeMilliseconds))
+		then assert(
+			MatchFrameRules.RemainingSeconds(stateEndsAtMilliseconds, currentLevelTimeMilliseconds)
+		)
 		else nil
 	local orderedPlayers = MatchRosterRuntime.GetOrderedPlayers(records)
-	local activeUserIds = MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, ACTIVE)
-	local spectatorUserIds = MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, SPECTATOR)
+	local activeUserIds =
+		MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, ACTIVE)
+	local spectatorUserIds =
+		MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, SPECTATOR)
 
 	return {
 		sequence = sequence,
@@ -1093,7 +1139,9 @@ local function buildSnapshot(): MatchSnapshot
 		roundStatus = roundStatus,
 		serverTime = serverTime,
 		stateStartedAt = presentationTimeForLevel(stateStartedAtMilliseconds),
-		stateEndsAt = if stateEndsAtMilliseconds then presentationTimeForLevel(stateEndsAtMilliseconds) else nil,
+		stateEndsAt = if stateEndsAtMilliseconds
+			then presentationTimeForLevel(stateEndsAtMilliseconds)
+			else nil,
 		remainingSeconds = remainingSeconds,
 		intermissionQueued = queuedIntermission ~= nil,
 		intermissionQualifiedAt = if queuedIntermission
@@ -1123,7 +1171,9 @@ local function buildSnapshot(): MatchSnapshot
 		winnerTeamId = if #winnerTeamIds == 1 then winnerTeamIds[1] else nil,
 		winnerTeamIds = table.clone(winnerTeamIds),
 		lastRoundWinnerUserIds = table.clone(lastRoundWinnerUserIds),
-		lastRoundWinnerTeamId = if #lastRoundWinnerTeamIds == 1 then lastRoundWinnerTeamIds[1] else nil,
+		lastRoundWinnerTeamId = if #lastRoundWinnerTeamIds == 1
+			then lastRoundWinnerTeamIds[1]
+			else nil,
 		lastRoundWinnerTeamIds = table.clone(lastRoundWinnerTeamIds),
 		activePlayerUserIds = activeUserIds,
 		spectatorUserIds = spectatorUserIds,
@@ -1137,7 +1187,13 @@ local function buildSnapshot(): MatchSnapshot
 			teamRoundWins,
 			ACTIVE
 		),
-		scores = MatchStandingsRuntime.BuildScoreRows(orderedPlayers, records :: any, rules, teamRoundWins, ACTIVE),
+		scores = MatchStandingsRuntime.BuildScoreRows(
+			orderedPlayers,
+			records :: any,
+			rules,
+			teamRoundWins,
+			ACTIVE
+		),
 		rules = {
 			oneShot = rules.OneShot,
 			deathmatch = rules.Deathmatch,
@@ -1166,30 +1222,41 @@ local function publishSnapshot(): MatchSnapshot
 	snapshotDirty = false
 
 	publishOutward(function()
-		sharedRoot:SetAttribute("ArenaMatchState", snapshot.state)
-		sharedRoot:SetAttribute("ArenaMatchId", snapshot.matchId)
-		sharedRoot:SetAttribute("ArenaMatchSequence", snapshot.sequence)
-		sharedRoot:SetAttribute("ArenaMatchMode", snapshot.modeId)
-		sharedRoot:SetAttribute("ArenaMatchRuleset", snapshot.rulesetId)
-		sharedRoot:SetAttribute("ArenaMatchNumber", snapshot.matchNumber)
-		sharedRoot:SetAttribute("ArenaMatchRound", snapshot.round)
-		sharedRoot:SetAttribute("ArenaMatchRoundStatus", snapshot.roundStatus)
-		sharedRoot:SetAttribute("ArenaMatchSuddenDeath", snapshot.suddenDeath)
-		sharedRoot:SetAttribute("ArenaMatchStateEndsAt", snapshot.stateEndsAt)
-		sharedRoot:SetAttribute("ArenaMatchIntermissionQueued", snapshot.intermissionQueued)
-		sharedRoot:SetAttribute("ArenaMatchIntermissionStartsAt", snapshot.intermissionStartsAt)
-		sharedRoot:SetAttribute("ArenaMatchWinnerTeam", snapshot.winnerTeamId)
-		sharedRoot:SetAttribute("ArenaMatchRedScore", teamScores[MatchConfig.TeamIds.Red] or 0)
-		sharedRoot:SetAttribute("ArenaMatchBlueScore", teamScores[MatchConfig.TeamIds.Blue] or 0)
-		sharedRoot:SetAttribute("ArenaMatchRedRoundWins", teamRoundWins[MatchConfig.TeamIds.Red] or 0)
-		sharedRoot:SetAttribute("ArenaMatchBlueRoundWins", teamRoundWins[MatchConfig.TeamIds.Blue] or 0)
+		sharedRoot:SetAttribute("Q3EngineMatchState", snapshot.state)
+		sharedRoot:SetAttribute("Q3EngineMatchId", snapshot.matchId)
+		sharedRoot:SetAttribute("Q3EngineMatchSequence", snapshot.sequence)
+		sharedRoot:SetAttribute("Q3EngineMatchMode", snapshot.modeId)
+		sharedRoot:SetAttribute("Q3EngineMatchRuleset", snapshot.rulesetId)
+		sharedRoot:SetAttribute("Q3EngineMatchNumber", snapshot.matchNumber)
+		sharedRoot:SetAttribute("Q3EngineMatchRound", snapshot.round)
+		sharedRoot:SetAttribute("Q3EngineMatchRoundStatus", snapshot.roundStatus)
+		sharedRoot:SetAttribute("Q3EngineMatchSuddenDeath", snapshot.suddenDeath)
+		sharedRoot:SetAttribute("Q3EngineMatchStateEndsAt", snapshot.stateEndsAt)
+		sharedRoot:SetAttribute("Q3EngineMatchIntermissionQueued", snapshot.intermissionQueued)
+		sharedRoot:SetAttribute("Q3EngineMatchIntermissionStartsAt", snapshot.intermissionStartsAt)
+		sharedRoot:SetAttribute("Q3EngineMatchWinnerTeam", snapshot.winnerTeamId)
+		sharedRoot:SetAttribute("Q3EngineMatchRedScore", teamScores[MatchConfig.TeamIds.Red] or 0)
+		sharedRoot:SetAttribute("Q3EngineMatchBlueScore", teamScores[MatchConfig.TeamIds.Blue] or 0)
+		sharedRoot:SetAttribute(
+			"Q3EngineMatchRedRoundWins",
+			teamRoundWins[MatchConfig.TeamIds.Red] or 0
+		)
+		sharedRoot:SetAttribute(
+			"Q3EngineMatchBlueRoundWins",
+			teamRoundWins[MatchConfig.TeamIds.Blue] or 0
+		)
 		snapshotRemote:FireAllClients(snapshot)
 		snapshotChangedBindable:Fire(snapshot)
 	end)
 	return snapshot
 end
 
-local function transition(nextState: State, durationSeconds: number?, reason: string?, beforePublish: (() -> ())?)
+local function transition(
+	nextState: State,
+	durationSeconds: number?,
+	reason: string?,
+	beforePublish: (() -> ())?
+)
 	invalidatePendingRoundResolution()
 	queuedIntermission = nil
 	state = nextState
@@ -1263,8 +1330,10 @@ local function enterCountdown(nextRound: boolean, advanceRound: boolean?)
 	)
 	transition(MatchConfig.States.Countdown, duration, nil, function()
 		if rules.RoundBased then
-			roundSetupDeadlineMilliseconds =
-				deadlineMilliseconds(stateStartedAtMilliseconds, duration + ROUND_SETUP_GRACE_SECONDS)
+			roundSetupDeadlineMilliseconds = deadlineMilliseconds(
+				stateStartedAtMilliseconds,
+				duration + ROUND_SETUP_GRACE_SECONDS
+			)
 			liveSetupInProgress = true
 			requestActiveRespawns(0)
 			liveSetupInProgress = false
@@ -1305,7 +1374,11 @@ local function enterLive()
 	end)
 end
 
-local function enterIntermission(reason: string, explicitWinnerUserIds: { number }?, explicitWinnerTeamIds: { TeamId }?)
+local function enterIntermission(
+	reason: string,
+	explicitWinnerUserIds: { number }?,
+	explicitWinnerTeamIds: { TeamId }?
+)
 	suddenDeath = false
 	suddenDeathBasis = nil
 	roundSetupDeadlineMilliseconds = nil
@@ -1535,7 +1608,11 @@ local function advanceLifecycle()
 	local terminal = queuedIntermission
 	if terminal then
 		if MatchFrameRules.IsIntermissionLatchDue(terminal, nowMilliseconds) then
-			enterIntermission(terminal.reason, terminal.winnerUserIds, terminal.winnerTeamIds :: any)
+			enterIntermission(
+				terminal.reason,
+				terminal.winnerUserIds,
+				terminal.winnerTeamIds :: any
+			)
 		end
 		return
 	end
@@ -1547,7 +1624,10 @@ local function advanceLifecycle()
 		return
 	end
 
-	if (state == MatchConfig.States.Warmup or state == MatchConfig.States.Countdown) and not hasEnoughPlayers() then
+	if
+		(state == MatchConfig.States.Warmup or state == MatchConfig.States.Countdown)
+		and not hasEnoughPlayers()
+	then
 		enterWaiting("NotEnoughPlayers")
 		return
 	end
@@ -1584,13 +1664,19 @@ local function advanceLifecycle()
 			else
 				enterCountdown(
 					true,
-					RocketArenaRoundTimingRules.ShouldAdvanceRound(#lastRoundWinnerTeamIds, #lastRoundWinnerUserIds)
+					RocketArenaRoundTimingRules.ShouldAdvanceRound(
+						#lastRoundWinnerTeamIds,
+						#lastRoundWinnerUserIds
+					)
 				)
 			end
 			return
 		end
 		if rules.RoundBased and not activeRoundBodiesReady() then
-			if roundSetupDeadlineMilliseconds and nowMilliseconds >= roundSetupDeadlineMilliseconds then
+			if
+				roundSetupDeadlineMilliseconds
+				and nowMilliseconds >= roundSetupDeadlineMilliseconds
+			then
 				enterWaiting("RoundSetupFailed")
 			end
 			return
@@ -1647,7 +1733,8 @@ local function addPlayer(player: Player)
 	if rules.TeamMode and participation == ACTIVE then
 		teamId = MatchRosterRuntime.ChooseBalancedTeam(records)
 	end
-	local roundEligible = participation == ACTIVE and (not rules.RoundBased or state ~= MatchConfig.States.Live)
+	local roundEligible = participation == ACTIVE
+		and (not rules.RoundBased or state ~= MatchConfig.States.Live)
 	local record: PlayerMatchRecord = {
 		score = 0,
 		deaths = 0,
@@ -1660,7 +1747,7 @@ local function addPlayer(player: Player)
 	}
 	records[player] = record
 	player:SetAttribute(
-		"ArenaLoadingPresentationState",
+		"Q3EngineLoadingPresentationState",
 		if loadingPresentationFailureCause == nil then "Waiting" else "Failed"
 	)
 	syncPlayerAttributes(player)
@@ -1688,17 +1775,18 @@ local function removePlayer(player: Player)
 		return
 	end
 	records[player] = nil
-	player:SetAttribute("ArenaMatchParticipant", nil)
-	player:SetAttribute("ArenaMatchParticipation", nil)
-	player:SetAttribute("ArenaMatchSpectator", nil)
-	player:SetAttribute("ArenaMatchTeam", nil)
-	player:SetAttribute("ArenaMatchRoundEligible", nil)
-	player:SetAttribute("ArenaMatchScore", nil)
-	player:SetAttribute("ArenaMatchDeaths", nil)
-	player:SetAttribute("ArenaMatchRoundWins", nil)
-	player:SetAttribute("ArenaLoadingPresentationState", nil)
+	player:SetAttribute("Q3EngineMatchParticipant", nil)
+	player:SetAttribute("Q3EngineMatchParticipation", nil)
+	player:SetAttribute("Q3EngineMatchSpectator", nil)
+	player:SetAttribute("Q3EngineMatchTeam", nil)
+	player:SetAttribute("Q3EngineMatchRoundEligible", nil)
+	player:SetAttribute("Q3EngineMatchScore", nil)
+	player:SetAttribute("Q3EngineMatchDeaths", nil)
+	player:SetAttribute("Q3EngineMatchRoundWins", nil)
+	player:SetAttribute("Q3EngineLoadingPresentationState", nil)
 	if state == MatchConfig.States.Live and rules.Deathmatch then
-		local promoted = MatchRosterRuntime.ApplyDeathmatchActiveLimit(records, rules.ActivePlayerLimit)
+		local promoted =
+			MatchRosterRuntime.ApplyDeathmatchActiveLimit(records, rules.ActivePlayerLimit)
 		syncAllPlayerAttributes()
 		for _, promotedPlayer in promoted do
 			requestRespawn(promotedPlayer, 0)
@@ -1741,6 +1829,10 @@ function MatchService.GetLoadingPresentationFailureCause(): LoadingPresentationF
 	return loadingPresentationFailureCause
 end
 
+function MatchService.IsSimulationFaulted(): boolean
+	return publicationQuarantined
+end
+
 function MatchService.OnLoadingPresentationFailed(callback: LoadingPresentationFailureCallback)
 	assert(type(callback) == "function", "loading-presentation failure callback must be a function")
 	table.insert(loadingPresentationFailureCallbacks, callback)
@@ -1748,7 +1840,12 @@ function MatchService.OnLoadingPresentationFailed(callback: LoadingPresentationF
 	if cause then
 		local succeeded, callbackError = pcall(callback, cause)
 		if not succeeded then
-			warn(string.format("Late loading-presentation failure callback failed: %s", tostring(callbackError)))
+			warn(
+				string.format(
+					"Late loading-presentation failure callback failed: %s",
+					tostring(callbackError)
+				)
+			)
 		end
 	end
 end
@@ -1868,7 +1965,10 @@ function MatchService.CreateMoverEliminationShadow(
 	end
 	table.sort(
 		players,
-		function(left: MatchEliminationShadowRules.PlayerSeed, right: MatchEliminationShadowRules.PlayerSeed): boolean
+		function(
+			left: MatchEliminationShadowRules.PlayerSeed,
+			right: MatchEliminationShadowRules.PlayerSeed
+		): boolean
 			return left.sourceOrder < right.sourceOrder
 		end
 	)
@@ -1896,8 +1996,10 @@ function MatchService.CreateMoverEliminationShadow(
 		and not suddenDeath
 		and queuedIntermission == nil
 	then
-		timeLimitAtMilliseconds =
-			assert(stateEndsAtMilliseconds, "live timed Match is missing its integer level-time deadline")
+		timeLimitAtMilliseconds = assert(
+			stateEndsAtMilliseconds,
+			"live timed Match is missing its integer level-time deadline"
+		)
 	end
 
 	local redScore = 0
@@ -1982,7 +2084,10 @@ local function captureEliminationBatchBase(): (EliminationBatchBase?, string?)
 	return base, nil
 end
 
-local function eliminationBatchBaseCurrentError(base: EliminationBatchBase, checkEntitySlots: boolean): string?
+local function eliminationBatchBaseCurrentError(
+	base: EliminationBatchBase,
+	checkEntitySlots: boolean
+): string?
 	if
 		rules ~= base.rules
 		or records ~= base.records
@@ -2040,7 +2145,10 @@ local function eliminationBatchBaseCurrentError(base: EliminationBatchBase, chec
 		then
 			return "stale-elimination-batch-player-record"
 		end
-		if checkEntitySlots and EntitySlotService.GetPlayerSourceOrder(snapshot.player) ~= snapshot.sourceOrder then
+		if
+			checkEntitySlots
+			and EntitySlotService.GetPlayerSourceOrder(snapshot.player) ~= snapshot.sourceOrder
+		then
 			return "stale-elimination-batch-entity-slot"
 		end
 	end
@@ -2061,7 +2169,10 @@ local function getEliminationBatch(
 	if
 		transaction.frame ~= activeAuthoritativeFrame
 		or transaction.frameSummary ~= activeAuthoritativeFrameSummary
-		or not AuthoritativeFrameService.ValidateFrameDependency(transaction.frame, transaction.frameSummary)
+		or not AuthoritativeFrameService.ValidateFrameDependency(
+			transaction.frame,
+			transaction.frameSummary
+		)
 	then
 		return nil, "stale-elimination-batch-frame"
 	end
@@ -2089,12 +2200,18 @@ end
 -- MatchEliminationShadowRules owns a terminal latch created inside this batch.
 -- The already-queued level latch is an owner root captured separately in the
 -- base, and Q3 G_Damage rejects both live clients and corpses while it exists.
-local function eliminationBatchDamageOpen(transaction: EliminationBatch, shadow: MoverEliminationShadow?): boolean
+local function eliminationBatchDamageOpen(
+	transaction: EliminationBatch,
+	shadow: MoverEliminationShadow?
+): boolean
 	return transaction.base.queuedIntermission == nil
 		and MatchEliminationShadowRules.IsDamageOpen(shadow or transaction.shadow)
 end
 
-local function rejectedEliminationResult(victimRecord: PlayerMatchRecord?, friendlyFire: boolean): EliminationResult
+local function rejectedEliminationResult(
+	victimRecord: PlayerMatchRecord?,
+	friendlyFire: boolean
+): EliminationResult
 	return table.freeze({
 		accepted = false,
 		scored = false,
@@ -2108,7 +2225,10 @@ local function rejectedEliminationResult(victimRecord: PlayerMatchRecord?, frien
 	})
 end
 
-local function findBasePlayerRecord(base: EliminationBatchBase, player: Player): PlayerRecordSnapshot?
+local function findBasePlayerRecord(
+	base: EliminationBatchBase,
+	player: Player
+): PlayerRecordSnapshot?
 	for _, snapshot in base.playerRecords do
 		if snapshot.player == player then
 			return snapshot
@@ -2117,7 +2237,9 @@ local function findBasePlayerRecord(base: EliminationBatchBase, player: Player):
 	return nil
 end
 
-function MatchService.BeginEliminationBatch(levelTimeMillisecondsValue: number?): (EliminationBatchToken?, string?)
+function MatchService.BeginEliminationBatch(
+	levelTimeMillisecondsValue: number?
+): (EliminationBatchToken?, string?)
 	if not started then
 		return nil, "match-service-not-started"
 	end
@@ -2128,7 +2250,10 @@ function MatchService.BeginEliminationBatch(levelTimeMillisecondsValue: number?)
 		return nil, "elimination-batch-outside-authoritative-frame"
 	end
 	local levelTimeMilliseconds = activeLevelTimeMilliseconds()
-	if levelTimeMillisecondsValue ~= nil and levelTimeMillisecondsValue ~= levelTimeMilliseconds then
+	if
+		levelTimeMillisecondsValue ~= nil
+		and levelTimeMillisecondsValue ~= levelTimeMilliseconds
+	then
 		return nil, "elimination-batch-time-mismatch"
 	end
 	if not isNonnegativeInteger(levelTimeMilliseconds) then
@@ -2139,14 +2264,17 @@ function MatchService.BeginEliminationBatch(levelTimeMillisecondsValue: number?)
 	if not base then
 		return nil, baseError
 	end
-	local shadow, shadowError =
-		MatchService.CreateMoverEliminationShadow(EntitySlotService.GetPlayerSourceOrder, levelTimeMilliseconds)
+	local shadow, shadowError = MatchService.CreateMoverEliminationShadow(
+		EntitySlotService.GetPlayerSourceOrder,
+		levelTimeMilliseconds
+	)
 	if not shadow then
 		return nil, shadowError or "elimination-shadow-unavailable"
 	end
 	local token: EliminationBatchToken = table.freeze({})
 	local frame = assert(activeAuthoritativeFrame, "active Match frame disappeared")
-	local frameSummary = assert(activeAuthoritativeFrameSummary, "active Match frame summary disappeared")
+	local frameSummary =
+		assert(activeAuthoritativeFrameSummary, "active Match frame summary disappeared")
 	local transaction: EliminationBatch = {
 		token = token,
 		status = "Open",
@@ -2184,8 +2312,12 @@ function MatchService.StageElimination(
 		return nil, baseError
 	end
 	local victimSnapshot = findBasePlayerRecord(transaction.base, victim)
-	local attackerSnapshot = if attacker then findBasePlayerRecord(transaction.base, attacker) else nil
-	local means = if type(meansValue) == "string" and meansValue ~= "" then meansValue else "Unknown"
+	local attackerSnapshot = if attacker
+		then findBasePlayerRecord(transaction.base, attacker)
+		else nil
+	local means = if type(meansValue) == "string" and meansValue ~= ""
+		then meansValue
+		else "Unknown"
 	local friendlyFire = attacker ~= nil
 		and attacker ~= victim
 		and rules.TeamMode
@@ -2204,7 +2336,10 @@ function MatchService.StageElimination(
 		and not shadowVictim.eliminatedCurrentLife
 		and (if forcedTelefrag then true else canPlayerFightInternal(victim))
 	if not eligible then
-		local result = rejectedEliminationResult(if victimSnapshot then victimSnapshot.record else nil, friendlyFire)
+		local result = rejectedEliminationResult(
+			if victimSnapshot then victimSnapshot.record else nil,
+			friendlyFire
+		)
 		return table.freeze({
 			result = result,
 			outcome = nil,
@@ -2215,18 +2350,20 @@ function MatchService.StageElimination(
 
 	local attackerUserId = 0
 	if attacker and attackerSnapshot and attackerSnapshot.participation == ACTIVE then
-		local shadowAttacker = MatchEliminationShadowRules.GetPlayer(transaction.shadow, attacker.UserId)
+		local shadowAttacker =
+			MatchEliminationShadowRules.GetPlayer(transaction.shadow, attacker.UserId)
 		if shadowAttacker then
 			attackerUserId = attacker.UserId
 		end
 	end
-	local nextShadow, outcome, stageError = MatchEliminationShadowRules.StageElimination(transaction.shadow, {
-		operationOrder = transaction.shadow.lastOperationOrder + 1,
-		levelTimeMilliseconds = transaction.levelTimeMilliseconds,
-		victimUserId = victim.UserId,
-		attackerUserId = attackerUserId,
-		bypassTeamProtection = means == "Telefrag",
-	})
+	local nextShadow, outcome, stageError =
+		MatchEliminationShadowRules.StageElimination(transaction.shadow, {
+			operationOrder = transaction.shadow.lastOperationOrder + 1,
+			levelTimeMilliseconds = transaction.levelTimeMilliseconds,
+			victimUserId = victim.UserId,
+			attackerUserId = attackerUserId,
+			bypassTeamProtection = means == "Telefrag",
+		})
 	if not nextShadow or not outcome then
 		return nil, stageError or "elimination-shadow-stage-failed"
 	end
@@ -2252,7 +2389,10 @@ function MatchService.StageElimination(
 		accepted = true,
 		scored = outcome.scored,
 		shouldRespawn = not matchEnded
-			and (state == MatchConfig.States.Warmup or (state == MatchConfig.States.Live and rules.RespawnDuringLive)),
+			and (
+				state == MatchConfig.States.Warmup
+				or (state == MatchConfig.States.Live and rules.RespawnDuringLive)
+			),
 		respawnDelaySeconds = rules.RespawnDelaySeconds,
 		attackerScore = if finalAttacker then finalAttacker.score else nil,
 		victimScore = finalVictim.score,
@@ -2279,7 +2419,10 @@ function MatchService.StageElimination(
 	return receipt, nil
 end
 
-function MatchService.SealEliminationBatch(tokenValue: unknown, expectedFinalShadowValue: unknown?): (boolean, string?)
+function MatchService.SealEliminationBatch(
+	tokenValue: unknown,
+	expectedFinalShadowValue: unknown?
+): (boolean, string?)
 	local transaction, transactionError = getEliminationBatch(tokenValue, "Open")
 	if not transaction then
 		return false, transactionError
@@ -2297,7 +2440,10 @@ function MatchService.SealEliminationBatch(tokenValue: unknown, expectedFinalSha
 	if expectedFinalShadowValue ~= nil then
 		if
 			type(expectedFinalShadowValue) ~= "table"
-			or not eliminationShadowEqual(transaction.shadow, expectedFinalShadowValue :: MoverEliminationShadow)
+			or not eliminationShadowEqual(
+				transaction.shadow,
+				expectedFinalShadowValue :: MoverEliminationShadow
+			)
 		then
 			return false, "expected-final-elimination-shadow-diverged"
 		end
@@ -2307,7 +2453,10 @@ function MatchService.SealEliminationBatch(tokenValue: unknown, expectedFinalSha
 	return true, nil
 end
 
-local function getPlannedRecordValues(player: Player, mutations: { PlayerRecordMutation }): (number, number, boolean)
+local function getPlannedRecordValues(
+	player: Player,
+	mutations: { PlayerRecordMutation }
+): (number, number, boolean)
 	local record = records[player]
 	for _, mutation in mutations do
 		if mutation.player == player then
@@ -2321,7 +2470,8 @@ local function buildPreparedScoreRows(mutations: { PlayerRecordMutation }): { Sc
 	local rows: { ScoreRow } = {}
 	for _, player in MatchRosterRuntime.GetOrderedPlayers(records) do
 		local record = records[player]
-		local plannedScore, plannedDeaths, plannedRoundEligible = getPlannedRecordValues(player, mutations)
+		local plannedScore, plannedDeaths, plannedRoundEligible =
+			getPlannedRecordValues(player, mutations)
 		local row: ScoreRow = {
 			userId = player.UserId,
 			name = player.Name,
@@ -2410,10 +2560,12 @@ local function buildPreparedEliminationSnapshot(
 	snapshotLevelTimeMilliseconds: number
 ): MatchSnapshot
 	local orderedPlayers = MatchRosterRuntime.GetOrderedPlayers(records)
-	local activeUserIds =
-		freezeArray(MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, ACTIVE))
-	local spectatorUserIds =
-		freezeArray(MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, SPECTATOR))
+	local activeUserIds = freezeArray(
+		MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, ACTIVE)
+	)
+	local spectatorUserIds = freezeArray(
+		MatchStandingsRuntime.BuildParticipationUserIds(orderedPlayers, records :: any, SPECTATOR)
+	)
 	local snapshotWinnerUserIds = freezeArray(table.clone(winnerUserIds))
 	local snapshotWinnerTeamIds = freezeArray(table.clone(winnerTeamIds))
 	local snapshotLastRoundWinnerUserIds = freezeArray(table.clone(lastRoundWinnerUserIds))
@@ -2446,7 +2598,9 @@ local function buildPreparedEliminationSnapshot(
 	table.freeze(snapshotRules)
 	local serverTime = presentationTimeForLevel(snapshotLevelTimeMilliseconds)
 	local remainingSeconds = if nextStateEndsAt
-		then assert(MatchFrameRules.RemainingSeconds(nextStateEndsAt, snapshotLevelTimeMilliseconds))
+		then assert(
+			MatchFrameRules.RemainingSeconds(nextStateEndsAt, snapshotLevelTimeMilliseconds)
+		)
 		else nil
 	local snapshot: MatchSnapshot = {
 		sequence = nextSequence,
@@ -2492,7 +2646,9 @@ local function buildPreparedEliminationSnapshot(
 		winnerTeamId = if #snapshotWinnerTeamIds == 1 then snapshotWinnerTeamIds[1] else nil,
 		winnerTeamIds = snapshotWinnerTeamIds,
 		lastRoundWinnerUserIds = snapshotLastRoundWinnerUserIds,
-		lastRoundWinnerTeamId = if #snapshotLastRoundWinnerTeamIds == 1 then snapshotLastRoundWinnerTeamIds[1] else nil,
+		lastRoundWinnerTeamId = if #snapshotLastRoundWinnerTeamIds == 1
+			then snapshotLastRoundWinnerTeamIds[1]
+			else nil,
 		lastRoundWinnerTeamIds = snapshotLastRoundWinnerTeamIds,
 		activePlayerUserIds = activeUserIds,
 		spectatorUserIds = spectatorUserIds,
@@ -2518,7 +2674,10 @@ local function preparedEliminationCurrentError(
 		or transaction.status ~= "Prepared"
 		or transaction.prepared ~= preparedValue
 		or MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, preparedValue) ~= capability
-		or MatchEliminationPreparedRegistry.GetPreparedForSummary(eliminationPreparedRegistry, capability.summary) ~= preparedValue :: PreparedEliminationBatch
+		or MatchEliminationPreparedRegistry.GetPreparedForSummary(
+			eliminationPreparedRegistry,
+			capability.summary
+		) ~= preparedValue :: PreparedEliminationBatch
 		or not table.isfrozen(preparedValue :: any)
 		or not table.isfrozen(capability.mutations)
 		or not table.isfrozen(capability.envelope)
@@ -2545,7 +2704,10 @@ local function preparedEliminationCurrentError(
 		or capability.appliedCapability.status ~= "Pending"
 		or capability.appliedCapability.commitSerial ~= capability.nextCommitSerial
 		or capability.appliedCapability.envelope ~= capability.envelope
-		or MatchEliminationPreparedRegistry.GetApplied(eliminationPreparedRegistry, capability.commitReceipt)
+		or MatchEliminationPreparedRegistry.GetApplied(
+				eliminationPreparedRegistry,
+				capability.commitReceipt
+			)
 			~= capability.appliedCapability
 	then
 		return "stale-prepared-elimination-batch"
@@ -2566,7 +2728,9 @@ local function preparedEliminationCurrentError(
 	return nil
 end
 
-function MatchService.PrepareEliminationBatch(tokenValue: unknown): (PreparedEliminationBatch?, string?)
+function MatchService.PrepareEliminationBatch(
+	tokenValue: unknown
+): (PreparedEliminationBatch?, string?)
 	local transaction, transactionError = getEliminationBatch(tokenValue, "Sealed")
 	if not transaction then
 		return nil, transactionError
@@ -2574,7 +2738,8 @@ function MatchService.PrepareEliminationBatch(tokenValue: unknown): (PreparedEli
 	if transaction.prepared ~= nil then
 		return nil, "elimination-batch-already-prepared"
 	end
-	local commitSerial = MatchEliminationPreparedRegistry.GetCommitSerial(eliminationPreparedRegistry)
+	local commitSerial =
+		MatchEliminationPreparedRegistry.GetCommitSerial(eliminationPreparedRegistry)
 	if commitSerial >= 9_007_199_254_740_991 then
 		return nil, "elimination-commit-serial-exhausted"
 	end
@@ -2588,12 +2753,17 @@ function MatchService.PrepareEliminationBatch(tokenValue: unknown): (PreparedEli
 		if snapshot.participation ~= ACTIVE then
 			continue
 		end
-		local finalPlayer = MatchEliminationShadowRules.GetPlayer(transaction.shadow, snapshot.player.UserId)
+		local finalPlayer =
+			MatchEliminationShadowRules.GetPlayer(transaction.shadow, snapshot.player.UserId)
 		if not finalPlayer or finalPlayer.sourceOrder ~= snapshot.sourceOrder then
 			return nil, "prepared-elimination-player-shadow-diverged"
 		end
 		local nextRoundEligible = snapshot.roundEligible
-		if rules.RoundBased and state == MatchConfig.States.Live and finalPlayer.eliminatedCurrentLife then
+		if
+			rules.RoundBased
+			and state == MatchConfig.States.Live
+			and finalPlayer.eliminatedCurrentLife
+		then
 			nextRoundEligible = false
 		end
 		if
@@ -2787,18 +2957,29 @@ function MatchService.PrepareEliminationBatch(tokenValue: unknown): (PreparedEli
 		applyValidated = false,
 	}
 	MatchEliminationPreparedRegistry.SetPrepared(eliminationPreparedRegistry, prepared, capability)
-	MatchEliminationPreparedRegistry.SetPreparedForSummary(eliminationPreparedRegistry, summary, prepared)
-	MatchEliminationPreparedRegistry.SetApplied(eliminationPreparedRegistry, commitReceipt, appliedCapability)
+	MatchEliminationPreparedRegistry.SetPreparedForSummary(
+		eliminationPreparedRegistry,
+		summary,
+		prepared
+	)
+	MatchEliminationPreparedRegistry.SetApplied(
+		eliminationPreparedRegistry,
+		commitReceipt,
+		appliedCapability
+	)
 	transaction.prepared = prepared
 	transaction.status = "Prepared"
 	return prepared, nil
 end
 
-function MatchService.InspectPreparedEliminationBatch(preparedValue: unknown): PreparedEliminationBatchSummary?
+function MatchService.InspectPreparedEliminationBatch(
+	preparedValue: unknown
+): PreparedEliminationBatchSummary?
 	if type(preparedValue) ~= "table" then
 		return nil
 	end
-	local capability = MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, preparedValue)
+	local capability =
+		MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, preparedValue)
 	if not capability or capability.status ~= "Prepared" then
 		return nil
 	end
@@ -2808,11 +2989,14 @@ function MatchService.InspectPreparedEliminationBatch(preparedValue: unknown): P
 	return capability.summary
 end
 
-function MatchService.InspectPreparedEliminationBatchReceipt(preparedValue: unknown): EliminationBatchCommitReceipt?
+function MatchService.InspectPreparedEliminationBatchReceipt(
+	preparedValue: unknown
+): EliminationBatchCommitReceipt?
 	if type(preparedValue) ~= "table" then
 		return nil
 	end
-	local capability = MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, preparedValue)
+	local capability =
+		MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, preparedValue)
 	if not capability or capability.status ~= "Prepared" then
 		return nil
 	end
@@ -2831,12 +3015,16 @@ function MatchService.ValidatePreparedEliminationBatchDependency(
 	end
 	local prepared = preparedValue :: PreparedEliminationBatch
 	local summary = summaryValue :: PreparedEliminationBatchSummary
-	local capability = MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
+	local capability =
+		MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
 	if
 		not capability
 		or capability.status ~= "Prepared"
 		or capability.summary ~= summary
-		or MatchEliminationPreparedRegistry.GetPreparedForSummary(eliminationPreparedRegistry, summary)
+		or MatchEliminationPreparedRegistry.GetPreparedForSummary(
+				eliminationPreparedRegistry,
+				summary
+			)
 			~= prepared
 	then
 		return false, "forged-prepared-elimination-dependency"
@@ -2853,7 +3041,8 @@ function MatchService.CanApplyPreparedEliminationBatch(preparedValue: unknown): 
 		return false, "invalid-prepared-elimination-batch"
 	end
 	local prepared = preparedValue :: PreparedEliminationBatch
-	local capability = MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
+	local capability =
+		MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
 	if not capability then
 		return false, "stale-prepared-elimination-batch"
 	end
@@ -2871,10 +3060,13 @@ end
 -- preflight, Apply repeats only fixed identity/scalar checks and swaps Match
 -- authority by assignment. It invokes no Instance method, callback, remote,
 -- task scheduler, clock, resolver, or yielding API and has no failure return.
-function MatchService.ApplyPreparedEliminationBatch(preparedValue: unknown): EliminationBatchCommitReceipt
+function MatchService.ApplyPreparedEliminationBatch(
+	preparedValue: unknown
+): EliminationBatchCommitReceipt
 	assert(type(preparedValue) == "table", "invalid-prepared-elimination-batch")
 	local prepared = preparedValue :: PreparedEliminationBatch
-	local capability = MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
+	local capability =
+		MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
 	assert(capability, "stale-prepared-elimination-batch")
 	assert(capability.applyValidated, "prepared-elimination-batch-not-validated")
 	local currentError = preparedEliminationCurrentError(prepared, capability, false)
@@ -2898,7 +3090,10 @@ function MatchService.ApplyPreparedEliminationBatch(preparedValue: unknown): Eli
 	roundResolutionScheduled = capability.nextRoundResolutionScheduled
 	sequence = capability.nextSequence
 	lastSnapshotAtMilliseconds = capability.nextLastSnapshotAt
-	MatchEliminationPreparedRegistry.SetCommitSerial(eliminationPreparedRegistry, capability.nextCommitSerial)
+	MatchEliminationPreparedRegistry.SetCommitSerial(
+		eliminationPreparedRegistry,
+		capability.nextCommitSerial
+	)
 
 	local transaction = capability.transaction
 	local receipt = capability.commitReceipt
@@ -2908,7 +3103,11 @@ function MatchService.ApplyPreparedEliminationBatch(preparedValue: unknown): Eli
 	capability.status = "Applied"
 	capability.applyValidated = false
 	MatchEliminationPreparedRegistry.SetPrepared(eliminationPreparedRegistry, prepared, nil)
-	MatchEliminationPreparedRegistry.SetPreparedForSummary(eliminationPreparedRegistry, capability.summary, nil)
+	MatchEliminationPreparedRegistry.SetPreparedForSummary(
+		eliminationPreparedRegistry,
+		capability.summary,
+		nil
+	)
 	capability.appliedCapability.status = "Applied"
 	return receipt
 end
@@ -2918,17 +3117,30 @@ function MatchService.AbortEliminationBatch(tokenValue: unknown): boolean
 	if not transaction then
 		return false
 	end
-	if transaction.status ~= "Open" and transaction.status ~= "Sealed" and transaction.status ~= "Prepared" then
+	if
+		transaction.status ~= "Open"
+		and transaction.status ~= "Sealed"
+		and transaction.status ~= "Prepared"
+	then
 		return false
 	end
 	local prepared = transaction.prepared
 	if prepared then
-		local capability = MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
+		local capability =
+			MatchEliminationPreparedRegistry.GetPrepared(eliminationPreparedRegistry, prepared)
 		if capability then
 			capability.status = "Aborted"
 			capability.applyValidated = false
-			MatchEliminationPreparedRegistry.SetPreparedForSummary(eliminationPreparedRegistry, capability.summary, nil)
-			MatchEliminationPreparedRegistry.SetApplied(eliminationPreparedRegistry, capability.commitReceipt, nil)
+			MatchEliminationPreparedRegistry.SetPreparedForSummary(
+				eliminationPreparedRegistry,
+				capability.summary,
+				nil
+			)
+			MatchEliminationPreparedRegistry.SetApplied(
+				eliminationPreparedRegistry,
+				capability.commitReceipt,
+				nil
+			)
 		end
 		MatchEliminationPreparedRegistry.SetPrepared(eliminationPreparedRegistry, prepared, nil)
 		transaction.prepared = nil
@@ -2939,23 +3151,32 @@ function MatchService.AbortEliminationBatch(tokenValue: unknown): boolean
 end
 
 local function publishPreparedSnapshot(snapshot: MatchSnapshot)
-	sharedRoot:SetAttribute("ArenaMatchState", snapshot.state)
-	sharedRoot:SetAttribute("ArenaMatchId", snapshot.matchId)
-	sharedRoot:SetAttribute("ArenaMatchSequence", snapshot.sequence)
-	sharedRoot:SetAttribute("ArenaMatchMode", snapshot.modeId)
-	sharedRoot:SetAttribute("ArenaMatchRuleset", snapshot.rulesetId)
-	sharedRoot:SetAttribute("ArenaMatchNumber", snapshot.matchNumber)
-	sharedRoot:SetAttribute("ArenaMatchRound", snapshot.round)
-	sharedRoot:SetAttribute("ArenaMatchRoundStatus", snapshot.roundStatus)
-	sharedRoot:SetAttribute("ArenaMatchSuddenDeath", snapshot.suddenDeath)
-	sharedRoot:SetAttribute("ArenaMatchStateEndsAt", snapshot.stateEndsAt)
-	sharedRoot:SetAttribute("ArenaMatchIntermissionQueued", snapshot.intermissionQueued)
-	sharedRoot:SetAttribute("ArenaMatchIntermissionStartsAt", snapshot.intermissionStartsAt)
-	sharedRoot:SetAttribute("ArenaMatchWinnerTeam", snapshot.winnerTeamId)
-	sharedRoot:SetAttribute("ArenaMatchRedScore", snapshot.teamScores[MatchConfig.TeamIds.Red] or 0)
-	sharedRoot:SetAttribute("ArenaMatchBlueScore", snapshot.teamScores[MatchConfig.TeamIds.Blue] or 0)
-	sharedRoot:SetAttribute("ArenaMatchRedRoundWins", snapshot.roundWins[MatchConfig.TeamIds.Red] or 0)
-	sharedRoot:SetAttribute("ArenaMatchBlueRoundWins", snapshot.roundWins[MatchConfig.TeamIds.Blue] or 0)
+	sharedRoot:SetAttribute("Q3EngineMatchState", snapshot.state)
+	sharedRoot:SetAttribute("Q3EngineMatchId", snapshot.matchId)
+	sharedRoot:SetAttribute("Q3EngineMatchSequence", snapshot.sequence)
+	sharedRoot:SetAttribute("Q3EngineMatchMode", snapshot.modeId)
+	sharedRoot:SetAttribute("Q3EngineMatchRuleset", snapshot.rulesetId)
+	sharedRoot:SetAttribute("Q3EngineMatchNumber", snapshot.matchNumber)
+	sharedRoot:SetAttribute("Q3EngineMatchRound", snapshot.round)
+	sharedRoot:SetAttribute("Q3EngineMatchRoundStatus", snapshot.roundStatus)
+	sharedRoot:SetAttribute("Q3EngineMatchSuddenDeath", snapshot.suddenDeath)
+	sharedRoot:SetAttribute("Q3EngineMatchStateEndsAt", snapshot.stateEndsAt)
+	sharedRoot:SetAttribute("Q3EngineMatchIntermissionQueued", snapshot.intermissionQueued)
+	sharedRoot:SetAttribute("Q3EngineMatchIntermissionStartsAt", snapshot.intermissionStartsAt)
+	sharedRoot:SetAttribute("Q3EngineMatchWinnerTeam", snapshot.winnerTeamId)
+	sharedRoot:SetAttribute("Q3EngineMatchRedScore", snapshot.teamScores[MatchConfig.TeamIds.Red] or 0)
+	sharedRoot:SetAttribute(
+		"Q3EngineMatchBlueScore",
+		snapshot.teamScores[MatchConfig.TeamIds.Blue] or 0
+	)
+	sharedRoot:SetAttribute(
+		"Q3EngineMatchRedRoundWins",
+		snapshot.roundWins[MatchConfig.TeamIds.Red] or 0
+	)
+	sharedRoot:SetAttribute(
+		"Q3EngineMatchBlueRoundWins",
+		snapshot.roundWins[MatchConfig.TeamIds.Blue] or 0
+	)
 end
 
 local function makeEliminationPublicationReport(
@@ -2977,14 +3198,17 @@ local function makeEliminationPublicationReport(
 	return report
 end
 
-local function getAppliedEliminationCapability(
-	receiptValue: unknown
-): (EliminationBatchCommitReceipt?, AppliedEliminationCapability?, string?)
+local function getAppliedEliminationCapability(receiptValue: unknown): (
+	EliminationBatchCommitReceipt?,
+	AppliedEliminationCapability?,
+	string?
+)
 	if type(receiptValue) ~= "table" or not table.isfrozen(receiptValue :: any) then
 		return nil, nil, "invalid-elimination-batch-commit-receipt"
 	end
 	local receipt = receiptValue :: EliminationBatchCommitReceipt
-	local capability = MatchEliminationPreparedRegistry.GetApplied(eliminationPreparedRegistry, receipt)
+	local capability =
+		MatchEliminationPreparedRegistry.GetApplied(eliminationPreparedRegistry, receipt)
 	if not capability then
 		return nil, nil, "stale-elimination-batch-commit-receipt"
 	end
@@ -3025,7 +3249,13 @@ function MatchService.FlushPreparedEliminationAttributes(
 			syncPlayerAttributes(mutation.player)
 		end)
 	end
-	return makeEliminationPublicationReport(capability, "Attributes", attemptedPublicationCount, faults), nil
+	return makeEliminationPublicationReport(
+		capability,
+		"Attributes",
+		attemptedPublicationCount,
+		faults
+	),
+		nil
 end
 
 -- The second phase consumes the receipt after every owner has published its
@@ -3058,26 +3288,42 @@ local function flushPreparedEliminationObservers(
 	end
 	local envelope = capability.envelope
 	for _, operation in envelope.operations do
-		notifyAuthorityElimination(operation.victim, operation.attacker, operation.means, operation.result)
+		notifyAuthorityElimination(
+			operation.victim,
+			operation.attacker,
+			operation.means,
+			operation.result
+		)
 		attempt("EliminationObserver:" .. tostring(operation.victim.UserId), function()
 			publishOutward(function()
-				eliminationBindable:Fire(operation.victim, operation.attacker, operation.means, operation.result)
+				eliminationBindable:Fire(
+					operation.victim,
+					operation.attacker,
+					operation.means,
+					operation.result
+				)
 			end)
 		end)
 		if operation.result.shouldRespawn then
 			if invokeCompatibilityRespawnHandler and synchronousRespawnHandler then
-				attempt("CompatibilityRespawnAuthority:" .. tostring(operation.victim.UserId), function()
-					(synchronousRespawnHandler :: RespawnCallback)(
-						operation.victim,
-						operation.result.respawnDelaySeconds
-					)
-				end)
+				attempt(
+					"CompatibilityRespawnAuthority:" .. tostring(operation.victim.UserId),
+					function()
+						(synchronousRespawnHandler :: RespawnCallback)(
+							operation.victim,
+							operation.result.respawnDelaySeconds
+						)
+					end
+				)
 			end
 			-- The synchronous handler is Combat authority and therefore belongs to
 			-- Combat's prepared participant. Match emits only the observer intent.
 			attempt("RespawnObserver:" .. tostring(operation.victim.UserId), function()
 				publishOutward(function()
-					respawnRequestedBindable:Fire(operation.victim, operation.result.respawnDelaySeconds)
+					respawnRequestedBindable:Fire(
+						operation.victim,
+						operation.result.respawnDelaySeconds
+					)
 				end)
 			end)
 		end
@@ -3110,17 +3356,28 @@ local function flushPreparedEliminationObservers(
 			pendingRoundResolution = resolution
 		end)
 	end
-	return makeEliminationPublicationReport(capability, "Observers", attemptedPublicationCount, faults), nil
+	return makeEliminationPublicationReport(
+		capability,
+		"Observers",
+		attemptedPublicationCount,
+		faults
+	),
+		nil
 end
 
-function MatchService.FlushPreparedEliminationObservers(receiptValue: unknown): (EliminationPublicationReport?, string?)
+function MatchService.FlushPreparedEliminationObservers(
+	receiptValue: unknown
+): (EliminationPublicationReport?, string?)
 	return flushPreparedEliminationObservers(receiptValue, false)
 end
 
 -- Compatibility convenience for callers that do not participate in the
 -- Combat/Corpse/Movement composite publication coordinator.
-function MatchService.FlushPreparedEliminationBatch(receiptValue: unknown): (EliminationPublicationReport?, string?)
-	local attributesReport, attributesError = MatchService.FlushPreparedEliminationAttributes(receiptValue)
+function MatchService.FlushPreparedEliminationBatch(
+	receiptValue: unknown
+): (EliminationPublicationReport?, string?)
+	local attributesReport, attributesError =
+		MatchService.FlushPreparedEliminationAttributes(receiptValue)
 	if not attributesReport then
 		return nil, attributesError
 	end
@@ -3132,7 +3389,8 @@ function MatchService.FlushPreparedEliminationBatch(receiptValue: unknown): (Eli
 	for _, fault in observersReport.faults do
 		table.insert(faults, fault)
 	end
-	local capability = MatchEliminationPreparedRegistry.GetApplied(eliminationPreparedRegistry, receiptValue)
+	local capability =
+		MatchEliminationPreparedRegistry.GetApplied(eliminationPreparedRegistry, receiptValue)
 	assert(capability, "applied elimination capability disappeared during flush")
 	return makeEliminationPublicationReport(
 		capability,
@@ -3155,8 +3413,10 @@ function MatchService.IsModeAvailable(modeId: string): (boolean, string?)
 	if not MapRuntimeContract.AllowsMode(currentRuntimeMap, candidateRules.ModeId) then
 		return false, string.format("ModeUnavailable:NotDeclared:%s", candidateRules.ModeId)
 	end
-	local supported, missing =
-		MapRuntimeContract.Supports(currentRuntimeMap.capabilities, candidateRules.RequiredMapCapabilities)
+	local supported, missing = MapRuntimeContract.Supports(
+		currentRuntimeMap.capabilities,
+		candidateRules.RequiredMapCapabilities
+	)
 	if supported then
 		return true, nil
 	end
@@ -3245,7 +3505,11 @@ function MatchService.CanDamage(attacker: Player?, target: Player): boolean
 	)
 end
 
-function MatchService.CanAuthorizedAttackDamage(attacker: Player, target: Player, shotMatchId: string?): boolean
+function MatchService.CanAuthorizedAttackDamage(
+	attacker: Player,
+	target: Player,
+	shotMatchId: string?
+): boolean
 	if
 		type(shotMatchId) ~= "string"
 		or shotMatchId == ""
@@ -3274,12 +3538,25 @@ end
 -- its owner died also remains authorized against the current match. Preserve
 -- team protection and the queued-intermission gate without requiring either
 -- dead participant to pass the live-player eligibility predicate.
-function MatchService.CanAuthorizedAttackDamageCorpse(attacker: Player?, target: Player, shotMatchId: string?): boolean
-	if type(shotMatchId) ~= "string" or shotMatchId == "" or shotMatchId ~= currentMatchId or not isCombatEnabled() then
+function MatchService.CanAuthorizedAttackDamageCorpse(
+	attacker: Player?,
+	target: Player,
+	shotMatchId: string?
+): boolean
+	if
+		type(shotMatchId) ~= "string"
+		or shotMatchId == ""
+		or shotMatchId ~= currentMatchId
+		or not isCombatEnabled()
+	then
 		return false
 	end
 	local targetRecord = records[target]
-	if not targetRecord or targetRecord.participation ~= ACTIVE or not targetRecord.eliminatedCurrentLife then
+	if
+		not targetRecord
+		or targetRecord.participation ~= ACTIVE
+		or not targetRecord.eliminatedCurrentLife
+	then
 		return false
 	end
 	if not attacker then
@@ -3301,8 +3578,16 @@ end
 -- A CopyToBodyQue entity has no client/team pointer in Q3. G_Damage therefore
 -- retains only the current-level/intermission gate and attacker's client
 -- participation; team protection and self-damage scaling do not apply.
-function MatchService.CanAuthorizedAttackDamageBodyQueue(attacker: Player?, shotMatchId: string?): boolean
-	if type(shotMatchId) ~= "string" or shotMatchId == "" or shotMatchId ~= currentMatchId or not isCombatEnabled() then
+function MatchService.CanAuthorizedAttackDamageBodyQueue(
+	attacker: Player?,
+	shotMatchId: string?
+): boolean
+	if
+		type(shotMatchId) ~= "string"
+		or shotMatchId == ""
+		or shotMatchId ~= currentMatchId
+		or not isCombatEnabled()
+	then
 		return false
 	end
 	if not attacker then
@@ -3339,7 +3624,9 @@ end
 
 function MatchService.CanSelectWeapon(player: Player, weaponId: number): boolean
 	local record = records[player]
-	return record ~= nil and record.participation == ACTIVE and rules.AllowedWeaponIds[weaponId] == true
+	return record ~= nil
+		and record.participation == ACTIVE
+		and rules.AllowedWeaponIds[weaponId] == true
 end
 
 function MatchService.CanUsePickups(player: Player): boolean
@@ -3387,7 +3674,8 @@ function MatchService.ReportElimination(
 	if not token then
 		error(beginError or "unable to begin elimination batch")
 	end
-	local staged, stageError = MatchService.StageElimination(token, victim, attacker, means, bypassCombatEligibility)
+	local staged, stageError =
+		MatchService.StageElimination(token, victim, attacker, means, bypassCombatEligibility)
 	if not staged then
 		MatchService.AbortEliminationBatch(token)
 		error(stageError or "unable to stage elimination")
@@ -3413,7 +3701,8 @@ function MatchService.ReportElimination(
 		error(canApplyError or "unable to preflight elimination batch")
 	end
 	local receipt = MatchService.ApplyPreparedEliminationBatch(prepared)
-	local attributesReport, attributesError = MatchService.FlushPreparedEliminationAttributes(receipt)
+	local attributesReport, attributesError =
+		MatchService.FlushPreparedEliminationAttributes(receipt)
 	if not attributesReport then
 		warn(attributesError or "prepared Match attribute publication failed")
 		return staged.result
@@ -3456,7 +3745,10 @@ function MatchService.ReportTeamObjective(
 	end
 
 	local actorRecord = if actor then records[actor] else nil
-	if actor and (not actorRecord or actorRecord.participation ~= ACTIVE or actorRecord.teamId ~= teamId) then
+	if
+		actor
+		and (not actorRecord or actorRecord.participation ~= ACTIVE or actorRecord.teamId ~= teamId)
+	then
 		return {
 			accepted = false,
 			matchEnded = false,
@@ -3483,7 +3775,11 @@ function MatchService.ReportTeamObjective(
 		end
 	end
 	if matchEnded then
-		queueIntermission(if suddenDeath then "SuddenDeath" else reason or "CaptureLimit", endingUsers, endingTeams)
+		queueIntermission(
+			if suddenDeath then "SuddenDeath" else reason or "CaptureLimit",
+			endingUsers,
+			endingTeams
+		)
 	elseif scoreLimitTie then
 		enterSuddenDeath(MatchRulesCore.SuddenDeathBases.ScoreLimit)
 	else
@@ -3622,7 +3918,10 @@ function MatchService.OnRespawnRequested(callback: RespawnCallback): RBXScriptCo
 end
 
 function MatchService.SetRespawnHandler(callback: RespawnCallback)
-	assert(synchronousRespawnHandler == nil, "MatchService synchronous respawn handler is already configured")
+	assert(
+		synchronousRespawnHandler == nil,
+		"MatchService synchronous respawn handler is already configured"
+	)
 	synchronousRespawnHandler = callback
 end
 
@@ -3630,8 +3929,10 @@ local function applyPendingControlIntents()
 	local modeIntent = pendingModeIntent
 	pendingModeIntent = nil
 	if modeIntent then
-		local nextRules =
-			assert(MatchConfig.GetMode(modeIntent.modeId), "queued Match mode disappeared from immutable configuration")
+		local nextRules = assert(
+			MatchConfig.GetMode(modeIntent.modeId),
+			"queued Match mode disappeared from immutable configuration"
+		)
 		applyModeRules(nextRules, modeIntent.reason, true)
 	end
 	local restartReason = pendingRestartReason
@@ -3651,7 +3952,10 @@ function MatchService.BeginAuthoritativeFrame(frameValue: unknown)
 	local summary = AuthoritativeFrameService.InspectFrame(frameValue)
 	assert(summary, "MatchService received a stale authoritative frame")
 	assert(
-		MatchFrameRules.ShouldRunFrame(lastProcessedFrameLevelTimeMilliseconds, summary.currentTimeMilliseconds),
+		MatchFrameRules.ShouldRunFrame(
+			lastProcessedFrameLevelTimeMilliseconds,
+			summary.currentTimeMilliseconds
+		),
 		"MatchService authoritative frame ran twice"
 	)
 	activeAuthoritativeFrame = frameValue :: AuthoritativeFrameService.Frame
@@ -3681,7 +3985,12 @@ function MatchService.EndAuthoritativeFrame(frameValue: unknown)
 	local resolution = pendingRoundResolution
 	pendingRoundResolution = nil
 	if resolution then
-		runEliminationRoundResolution(resolution.generation, resolution.round, resolution.modeId, resolution.reason)
+		runEliminationRoundResolution(
+			resolution.generation,
+			resolution.round,
+			resolution.modeId,
+			resolution.reason
+		)
 	end
 
 	if not lifecycleBootstrapped then
@@ -3701,7 +4010,8 @@ function MatchService.EndAuthoritativeFrame(frameValue: unknown)
 	local snapshotIntervalMilliseconds = durationMilliseconds(rules.SnapshotIntervalSeconds)
 	if
 		snapshotDirty
-		or summary.currentTimeMilliseconds - lastSnapshotAtMilliseconds >= snapshotIntervalMilliseconds
+		or summary.currentTimeMilliseconds - lastSnapshotAtMilliseconds
+			>= snapshotIntervalMilliseconds
 	then
 		local snapshot = publishSnapshot()
 		if stateChangedDirty then
@@ -3773,7 +4083,9 @@ function MatchService.GetIntegerClockDebugSnapshot(): IntegerClockDebugSnapshot
 		intermissionQualifiedAtMilliseconds = if queuedIntermission
 			then queuedIntermission.qualifiedAtMilliseconds
 			else nil,
-		intermissionStartsAtMilliseconds = if queuedIntermission then queuedIntermission.startsAtMilliseconds else nil,
+		intermissionStartsAtMilliseconds = if queuedIntermission
+			then queuedIntermission.startsAtMilliseconds
+			else nil,
 	})
 end
 
@@ -3808,16 +4120,19 @@ function MatchService.Start(initialModeId: string?, runtimeMapData: RuntimeMap)
 				fallbackModeId
 			)
 		)
-		local fallbackSelected, fallbackError = MatchService.SelectMode(fallbackModeId, "InitialModeFallback")
+		local fallbackSelected, fallbackError =
+			MatchService.SelectMode(fallbackModeId, "InitialModeFallback")
 		assert(fallbackSelected, fallbackError or "Unable to select fallback match mode")
 	end
 	started = true
 
 	local network = ensureNetworkFolder()
 	snapshotRemote = ensureRemote(network, RemoteNames.MatchSnapshot)
-	local loadingPresentationReadyRemote = ensureRemote(network, RemoteNames.LoadingPresentationReady)
+	local loadingPresentationReadyRemote =
+		ensureRemote(network, RemoteNames.LoadingPresentationReady)
 	loadingPresentationReadyRemote.OnServerEvent:Connect(markLoadingPresentationReady)
-	local loadingPresentationFailedRemote = ensureRemote(network, RemoteNames.LoadingPresentationFailed)
+	local loadingPresentationFailedRemote =
+		ensureRemote(network, RemoteNames.LoadingPresentationFailed)
 	loadingPresentationFailedRemote.OnServerEvent:Connect(markLoadingPresentationFailed)
 	startLoadingPresentationWatchdog()
 	Players.RespawnTime = rules.ForcedRespawnSeconds

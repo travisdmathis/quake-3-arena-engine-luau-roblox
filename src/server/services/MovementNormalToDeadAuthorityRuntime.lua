@@ -116,10 +116,18 @@ function MovementNormalToDeadAuthorityRuntime.new(registry: any): Runtime
 		local prepared = registry:GetActiveForRecord(record)
 		if prepared then
 			local capability = registry:GetPreparedCapability(prepared)
-			if capability and capability.prepared == prepared and capability.status == "Prepared" then
+			if
+				capability
+				and capability.prepared == prepared
+				and capability.status == "Prepared"
+			then
 				local batch = capability.batchOwner
 				local batchCapability = if batch then registry:GetBatchCapability(batch) else nil
-				if batchCapability and batchCapability.prepared == batch and batchCapability.status == "Prepared" then
+				if
+					batchCapability
+					and batchCapability.prepared == batch
+					and batchCapability.status == "Prepared"
+				then
 					runtime.RetirePreparedBatch(batchCapability)
 				else
 					runtime.RetirePrepared(capability)

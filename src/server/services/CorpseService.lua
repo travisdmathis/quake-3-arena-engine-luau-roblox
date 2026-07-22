@@ -28,8 +28,10 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
-local EntitySourceOrderRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("EntitySourceOrderRules"))
-local MoverConsequenceRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverConsequenceRules"))
+local EntitySourceOrderRules =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("EntitySourceOrderRules"))
+local MoverConsequenceRules =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverConsequenceRules"))
 local MoverPushRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverPushRules"))
 local EntitySlotService = require(script.Parent.EntitySlotService)
 local MatchService = require(script.Parent.MatchService)
@@ -335,7 +337,10 @@ local function makeTombstoneData(
 		assert(source.matchLineage == matchLineage, "tombstone match lineage drifted")
 		assert(source.playerBodyId == playerBodyId, "tombstone body identity drifted")
 		assert(source.playerSourceOrder == playerSourceOrder, "tombstone source order drifted")
-		assert(source.playerLeaseGeneration == playerLeaseGeneration, "tombstone lease generation drifted")
+		assert(
+			source.playerLeaseGeneration == playerLeaseGeneration,
+			"tombstone lease generation drifted"
+		)
 		assert(source.playerUserId == playerUserId, "tombstone player identity drifted")
 		assert(source.lifeSequence == lifeSequence, "tombstone life lineage drifted")
 	end
@@ -370,7 +375,11 @@ local function validateTombstoneData(data: RespawnCopyTombstoneData, player: Pla
 		or not isFiniteInteger(data.playerSourceOrder, 1, EntitySourceOrderRules.MaximumClients)
 		or not isFiniteInteger(data.playerLeaseGeneration, 1, MAXIMUM_GENERATION)
 		or not isFiniteInteger(data.lifeSequence, 1, MAXIMUM_GENERATION)
-		or not isFiniteInteger(data.sourceHealth, MoverConsequenceRules.MinimumRawPostDamageHealth, 0)
+		or not isFiniteInteger(
+			data.sourceHealth,
+			MoverConsequenceRules.MinimumRawPostDamageHealth,
+			0
+		)
 		or data.visible ~= (data.entityType == "Player")
 		or data.sourceLinked ~= true
 		or data.exactGroundStateAvailable ~= false
@@ -424,7 +433,11 @@ local function tombstoneDataCurrentError(
 		or not isFiniteInteger(data.playerSourceOrder, 1, EntitySourceOrderRules.MaximumClients)
 		or not isFiniteInteger(data.playerLeaseGeneration, 1, MAXIMUM_GENERATION)
 		or not isFiniteInteger(data.lifeSequence, 1, MAXIMUM_GENERATION)
-		or not isFiniteInteger(data.sourceHealth, MoverConsequenceRules.MinimumRawPostDamageHealth, 0)
+		or not isFiniteInteger(
+			data.sourceHealth,
+			MoverConsequenceRules.MinimumRawPostDamageHealth,
+			0
+		)
 		or data.visible ~= (data.entityType == "Player")
 		or data.sourceLinked ~= true
 		or data.exactGroundStateAvailable ~= false
@@ -446,7 +459,8 @@ local function tombstoneCapabilityCurrentError(
 	tombstone: TombstoneCapability,
 	validateExternalDependencies: boolean?
 ): string?
-	local dataError = tombstoneDataCurrentError(tombstone.data, tombstone.player, validateExternalDependencies)
+	local dataError =
+		tombstoneDataCurrentError(tombstone.data, tombstone.player, validateExternalDependencies)
 	if dataError then
 		return dataError
 	end
@@ -532,12 +546,20 @@ local function prepareCommittedTombstones(transaction: Transaction): (
 			return nil, nil, nil, dataError or "unresolved-respawn-copy-tombstone"
 		end
 		if draft.isNew then
-			if capability.current or capability.consumed or tombstoneCapabilities[capability.handle] ~= capability then
+			if
+				capability.current
+				or capability.consumed
+				or tombstoneCapabilities[capability.handle] ~= capability
+			then
 				return nil, nil, nil, "stale-pending-respawn-copy-tombstone"
 			end
 			local previous = draft.previousCapability
 			if previous then
-				if nextTombstones[player] ~= previous or not previous.current or previous.consumed then
+				if
+					nextTombstones[player] ~= previous
+					or not previous.current
+					or previous.consumed
+				then
 					return nil, nil, nil, "stale-replaced-respawn-copy-tombstone"
 				end
 				local deactivate: TombstoneMutation = {
@@ -567,7 +589,11 @@ local function prepareCommittedTombstones(transaction: Transaction): (
 			table.insert(mutations, activate)
 			nextTombstones[player] = capability
 		else
-			if nextTombstones[player] ~= capability or not capability.current or capability.consumed then
+			if
+				nextTombstones[player] ~= capability
+				or not capability.current
+				or capability.consumed
+			then
 				return nil, nil, nil, "stale-updated-respawn-copy-tombstone"
 			end
 			local update: TombstoneMutation = {
@@ -603,8 +629,13 @@ local function prepareCommittedTombstones(transaction: Transaction): (
 	return nextTombstones, mutations, tombstoneCount, nil
 end
 
-local function prepareCommittedEntries(transaction: Transaction): ({ [Player]: Entry }?, number?, string?)
-	if transaction.baseRevision ~= revision or transaction.baseEntries ~= committedEntriesByPlayer then
+local function prepareCommittedEntries(
+	transaction: Transaction
+): ({ [Player]: Entry }?, number?, string?)
+	if
+		transaction.baseRevision ~= revision
+		or transaction.baseEntries ~= committedEntriesByPlayer
+	then
 		return nil, nil, "stale-corpse-transaction-base"
 	end
 	local preparedEntries: { [Player]: Entry } = {}
@@ -642,7 +673,9 @@ local function prepareCommittedEntries(transaction: Transaction): ({ [Player]: E
 		then
 			return nil, nil, "invalid-prepared-corpse-lineage"
 		end
-		if not isFiniteInteger(entry.health, MoverConsequenceRules.MinimumRawPostDamageHealth, 0) then
+		if
+			not isFiniteInteger(entry.health, MoverConsequenceRules.MinimumRawPostDamageHealth, 0)
+		then
 			return nil, nil, "invalid-prepared-corpse-health"
 		end
 		seenBodyIds[body.id] = true
@@ -720,7 +753,11 @@ local function preparedCommitCurrentError(
 			or body.centerOffset ~= MoverConsequenceRules.ClientCorpseCenterOffset
 			or body.contents ~= MoverPushRules.Contents.Corpse
 			or body.clipMask ~= MoverPushRules.Masks.PlayerSolid
-			or not isFiniteInteger(entry.health, MoverConsequenceRules.MinimumRawPostDamageHealth, 0)
+			or not isFiniteInteger(
+				entry.health,
+				MoverConsequenceRules.MinimumRawPostDamageHealth,
+				0
+			)
 		then
 			return "stale-corpse-prepared-lineage"
 		end
@@ -781,10 +818,15 @@ local function preparedCommitCurrentError(
 			or tombstone.data ~= mutation.beforeData
 			or tombstoneCapabilities[tombstone.handle] ~= tombstone
 			or not table.isfrozen(mutation.afterData)
-			or tombstoneDataCurrentError(mutation.afterData, tombstone.player, validateExternalDependencies) ~= nil
+			or tombstoneDataCurrentError(
+				mutation.afterData,
+				tombstone.player,
+				validateExternalDependencies
+			) ~= nil
 			or (
 				validateExternalDependencies
-				and EntitySlotService.GetPlayerRegistration(tombstone.player) ~= tombstone.registration
+				and EntitySlotService.GetPlayerRegistration(tombstone.player)
+					~= tombstone.registration
 			)
 		then
 			return "stale-corpse-prepared-tombstone-mutation"
@@ -820,7 +862,11 @@ local function validatePlayerBinding(
 	if not binding then
 		return nil, nil, bindingError or "invalid-corpse-binding"
 	end
-	if binding.kind ~= expectedKind or binding.playerUserId ~= player.UserId or binding.lifeSequence < 1 then
+	if
+		binding.kind ~= expectedKind
+		or binding.playerUserId ~= player.UserId
+		or binding.lifeSequence < 1
+	then
 		return nil, nil, "stale-corpse-player-binding"
 	end
 	return player, binding :: PlayerBinding, nil
@@ -924,7 +970,11 @@ function CorpseService.Collect(tokenValue: unknown): (Collection?, string?)
 	return collectionFromEntries(transaction.entriesByPlayer), nil
 end
 
-function CorpseService.GetBinding(tokenValue: unknown, playerValue: unknown, bodyIdValue: unknown): PlayerBinding?
+function CorpseService.GetBinding(
+	tokenValue: unknown,
+	playerValue: unknown,
+	bodyIdValue: unknown
+): PlayerBinding?
 	local transaction = select(1, getTransaction(tokenValue, "Open"))
 	if not transaction or not isPlayer(playerValue) or type(bodyIdValue) ~= "string" then
 		return nil
@@ -936,7 +986,11 @@ function CorpseService.GetBinding(tokenValue: unknown, playerValue: unknown, bod
 	return entry.binding
 end
 
-function CorpseService.GetHealth(tokenValue: unknown, playerValue: unknown, bodyIdValue: unknown): number?
+function CorpseService.GetHealth(
+	tokenValue: unknown,
+	playerValue: unknown,
+	bodyIdValue: unknown
+): number?
 	local transaction = select(1, getTransaction(tokenValue, "Open"))
 	if not transaction or not isPlayer(playerValue) or type(bodyIdValue) ~= "string" then
 		return nil
@@ -1034,7 +1088,12 @@ function CorpseService.StagePostPmoveCorpsePose(
 		or committedTombstone.consumed
 		or tombstoneCapabilities[committedTombstone.handle] ~= committedTombstone
 		or tombstoneCapabilityCurrentError(committedTombstone) ~= nil
-		or not tombstoneMatchesPlayerBinding(committedTombstone.data, player, existing.binding, existing.body)
+		or not tombstoneMatchesPlayerBinding(
+			committedTombstone.data,
+			player,
+			existing.binding,
+			existing.body
+		)
 	then
 		return nil, "post-pmove-corpse-tombstone-not-current"
 	end
@@ -1284,8 +1343,11 @@ function CorpseService.StageCollision(
 	if requestedKind ~= "LivePlayer" and requestedKind ~= "ClientCorpse" then
 		return nil, nil, "unsupported-corpse-binding-kind"
 	end
-	local player, binding, bindingError =
-		validatePlayerBinding(playerValue, bindingValue, requestedKind :: "LivePlayer" | "ClientCorpse")
+	local player, binding, bindingError = validatePlayerBinding(
+		playerValue,
+		bindingValue,
+		requestedKind :: "LivePlayer" | "ClientCorpse"
+	)
 	if not player or not binding then
 		return nil, nil, bindingError
 	end
@@ -1310,7 +1372,9 @@ function CorpseService.StageCollision(
 			if not bodies then
 				return nil, nil, bodyError or "invalid-live-player-tombstone-body"
 			end
-			if not tombstoneMatchesPlayerBinding(tombstoneDraft.data, player, binding, bodies[1]) then
+			if
+				not tombstoneMatchesPlayerBinding(tombstoneDraft.data, player, binding, bodies[1])
+			then
 				return nil, nil, "stale-live-player-tombstone-lineage"
 			end
 		end
@@ -1338,7 +1402,8 @@ function CorpseService.StageCollision(
 		local tombstoneBody: MoverPushRules.Body?
 		if resolution.disposition == "Remove" then
 			if requestedKind == "LivePlayer" then
-				local builtBody, builtBodyError = MoverConsequenceRules.BuildClientCorpseBody(bodyValue)
+				local builtBody, builtBodyError =
+					MoverConsequenceRules.BuildClientCorpseBody(bodyValue)
 				if not builtBody then
 					return nil, nil, builtBodyError or "removed-live-player-tombstone-body-invalid"
 				end
@@ -1402,7 +1467,10 @@ function CorpseService.StageCollision(
 	return makeEffect(resolution), resolution.resolvedHealth, nil
 end
 
-function CorpseService.ApplyMoverBodies(tokenValue: unknown, bodiesValue: unknown): (boolean, string?)
+function CorpseService.ApplyMoverBodies(
+	tokenValue: unknown,
+	bodiesValue: unknown
+): (boolean, string?)
 	local transaction, transactionError = getTransaction(tokenValue, "Open")
 	if not transaction then
 		return false, transactionError
@@ -1521,7 +1589,8 @@ function CorpseService.Prepare(tokenValue: unknown): (PreparedCommit?, string?)
 	end
 	local tombstoneSummariesByHandle: {
 		[RespawnCopyTombstone]: PreparedRespawnCopyTombstoneSummary,
-	} = {}
+	} =
+		{}
 	for player, tombstone in preparedTombstones do
 		local summary: PreparedRespawnCopyTombstoneSummary = {
 			corpseBaseRevision = revision,
@@ -1587,7 +1656,11 @@ function CorpseService.ValidatePreparedRespawnCopyTombstoneDependency(
 	tombstoneValue: unknown,
 	summaryValue: unknown
 ): (boolean, string?)
-	if type(preparedValue) ~= "table" or type(tombstoneValue) ~= "table" or type(summaryValue) ~= "table" then
+	if
+		type(preparedValue) ~= "table"
+		or type(tombstoneValue) ~= "table"
+		or type(summaryValue) ~= "table"
+	then
 		return false, "invalid-prepared-respawn-copy-tombstone-dependency"
 	end
 	local prepared = preparedValue :: PreparedCommit
@@ -1679,7 +1752,11 @@ function CorpseService.Abort(tokenValue: unknown): boolean
 	if not transaction then
 		return false
 	end
-	if transaction.status ~= "Open" and transaction.status ~= "Sealed" and transaction.status ~= "Prepared" then
+	if
+		transaction.status ~= "Open"
+		and transaction.status ~= "Sealed"
+		and transaction.status ~= "Prepared"
+	then
 		return false
 	end
 	local prepared = transaction.prepared
@@ -1722,7 +1799,9 @@ function CorpseService.IsCurrentInvisibleClient(playerValue: unknown): boolean
 		and committedEntriesByPlayer[player] == nil
 end
 
-local function getCurrentTombstoneCapability(tombstoneValue: unknown): (TombstoneCapability?, string?)
+local function getCurrentTombstoneCapability(
+	tombstoneValue: unknown
+): (TombstoneCapability?, string?)
 	if type(tombstoneValue) ~= "table" then
 		return nil, "invalid-respawn-copy-tombstone"
 	end
@@ -1745,7 +1824,9 @@ end
 -- The opaque handle never exposes a mutable owner/root. Consumers receive the
 -- exact frozen data record only; it is intentionally insufficient to fabricate
 -- BodyQueueRules.CopySource until Movement contributes its three missing fields.
-function CorpseService.InspectRespawnCopyTombstone(tombstoneValue: unknown): (RespawnCopyTombstoneData?, string?)
+function CorpseService.InspectRespawnCopyTombstone(
+	tombstoneValue: unknown
+): (RespawnCopyTombstoneData?, string?)
 	local tombstone, tombstoneError = getCurrentTombstoneCapability(tombstoneValue)
 	if not tombstone then
 		return nil, tombstoneError
@@ -1757,7 +1838,10 @@ function CorpseService.InspectRespawnCopyTombstone(tombstoneValue: unknown): (Re
 	return tombstone.data, nil
 end
 
-local function validateTombstoneLineageRequest(value: unknown, data: RespawnCopyTombstoneData): string?
+local function validateTombstoneLineageRequest(
+	value: unknown,
+	data: RespawnCopyTombstoneData
+): string?
 	if type(value) ~= "table" then
 		return "respawn-copy-tombstone-lineage-not-table"
 	end
@@ -1863,7 +1947,10 @@ end
 function CorpseService.PrepareRespawnCopyTombstoneConsume(
 	tombstoneValue: unknown,
 	lineageValue: unknown
-): (PreparedRespawnCopyTombstoneConsume?, string?)
+): (
+	PreparedRespawnCopyTombstoneConsume?,
+	string?
+)
 	if activeTransaction then
 		return nil, "corpse-transaction-active"
 	end
@@ -1955,7 +2042,8 @@ function CorpseService.InspectPreparedRespawnCopyTombstoneConsumeSource(
 	if type(preparedValue) ~= "table" then
 		return nil
 	end
-	local capability = preparedTombstoneConsumeCapabilities[preparedValue :: PreparedRespawnCopyTombstoneConsume]
+	local capability =
+		preparedTombstoneConsumeCapabilities[preparedValue :: PreparedRespawnCopyTombstoneConsume]
 	if not capability or preparedTombstoneConsumeCurrentError(preparedValue, capability) then
 		return nil
 	end
@@ -1976,11 +2064,14 @@ function CorpseService.ValidatePreparedRespawnCopyTombstoneConsumeDependency(
 	return true, nil
 end
 
-function CorpseService.CanApplyPreparedRespawnCopyTombstoneConsume(preparedValue: unknown): (boolean, string?)
+function CorpseService.CanApplyPreparedRespawnCopyTombstoneConsume(
+	preparedValue: unknown
+): (boolean, string?)
 	if type(preparedValue) ~= "table" then
 		return false, "invalid-prepared-respawn-copy-tombstone-consume"
 	end
-	local capability = preparedTombstoneConsumeCapabilities[preparedValue :: PreparedRespawnCopyTombstoneConsume]
+	local capability =
+		preparedTombstoneConsumeCapabilities[preparedValue :: PreparedRespawnCopyTombstoneConsume]
 	if not capability then
 		return false, "invalid-prepared-respawn-copy-tombstone-consume"
 	end
@@ -2023,7 +2114,11 @@ function CorpseService.AbortPreparedRespawnCopyTombstoneConsume(preparedValue: u
 	end
 	local prepared = preparedValue :: PreparedRespawnCopyTombstoneConsume
 	local capability = preparedTombstoneConsumeCapabilities[prepared]
-	if not capability or capability.status ~= "Prepared" or activeTombstoneConsume ~= capability then
+	if
+		not capability
+		or capability.status ~= "Prepared"
+		or activeTombstoneConsume ~= capability
+	then
 		return false
 	end
 	capability.status = "Aborted"
@@ -2090,7 +2185,11 @@ function CorpseService.ClaimDepartureCleanupOwner(): (DepartureCleanupOwner?, st
 end
 
 function CorpseService.ClearDepartingPlayer(playerValue: unknown, ownerValue: unknown): boolean
-	if not isPlayer(playerValue) or type(ownerValue) ~= "table" or ownerValue ~= departureCleanupOwner then
+	if
+		not isPlayer(playerValue)
+		or type(ownerValue) ~= "table"
+		or ownerValue ~= departureCleanupOwner
+	then
 		return false
 	end
 	return clearPlayerAuthority(playerValue :: Player, true)
@@ -2194,9 +2293,15 @@ function CorpseService.GetDebugSnapshot(): DebugSnapshot
 		transactionActive = transaction ~= nil,
 		transactionStatus = if transaction then transaction.status else nil,
 		transactionCorpseCount = transactionCount,
-		transactionFinalBodiesApplied = if transaction then transaction.finalBodiesApplied else false,
-		transactionApplyValidated = if preparedCapability then preparedCapability.applyValidated else false,
-		transactionPreparedRevision = if preparedCapability then preparedCapability.receipt.revision else nil,
+		transactionFinalBodiesApplied = if transaction
+			then transaction.finalBodiesApplied
+			else false,
+		transactionApplyValidated = if preparedCapability
+			then preparedCapability.applyValidated
+			else false,
+		transactionPreparedRevision = if preparedCapability
+			then preparedCapability.receipt.revision
+			else nil,
 		committedTombstoneCount = committedTombstoneCount,
 		transactionTombstoneCount = transactionTombstoneCount,
 		tombstoneConsumeActive = activeTombstoneConsume ~= nil,

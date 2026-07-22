@@ -74,7 +74,11 @@ local function isFiniteNonnegative(value: unknown): boolean
 end
 
 local function exactClock(value: unknown): MoverClock.Snapshot?
-	if type(value) ~= "table" or getmetatable(value) ~= nil or not table.isfrozen(value :: table) then
+	if
+		type(value) ~= "table"
+		or getmetatable(value) ~= nil
+		or not table.isfrozen(value :: table)
+	then
 		return nil
 	end
 	local supplied = value :: { [unknown]: unknown }
@@ -89,7 +93,11 @@ local function exactClock(value: unknown): MoverClock.Snapshot?
 		return nil
 	end
 	local validated = MoverClock.ValidateSnapshot(value)
-	if not validated or validated.revision ~= supplied.revision or validated.step ~= supplied.step then
+	if
+		not validated
+		or validated.revision ~= supplied.revision
+		or validated.step ~= supplied.step
+	then
 		return nil
 	end
 	return value :: MoverClock.Snapshot
@@ -220,8 +228,9 @@ function AuthoritativeFrameService.BeginNext(
 		if not firstWindow then
 			return nil, windowError
 		end
-		local frameDurationSeconds = (firstWindow.toTimeMilliseconds - firstWindow.fromTimeMilliseconds)
-			/ MoverClock.MillisecondsPerSecond
+		local frameDurationSeconds = (
+			firstWindow.toTimeMilliseconds - firstWindow.fromTimeMilliseconds
+		) / MoverClock.MillisecondsPerSecond
 		local serverTimeAtFromStep = (stepServerTimeValue :: number) - frameDurationSeconds
 		if not isFiniteNonnegative(serverTimeAtFromStep) then
 			return nil, "invalid-authoritative-frame-bootstrap-server-time"
@@ -336,11 +345,13 @@ function AuthoritativeFrameService.CommitNext(
 	committedClockValue: unknown,
 	stepServerTimeValue: unknown
 ): (Frame?, string?)
-	local frame, beginError = AuthoritativeFrameService.BeginNext(ownerValue, committedClockValue, stepServerTimeValue)
+	local frame, beginError =
+		AuthoritativeFrameService.BeginNext(ownerValue, committedClockValue, stepServerTimeValue)
 	if not frame then
 		return nil, beginError
 	end
-	local committed, commitError = AuthoritativeFrameService.CommitOpen(ownerValue, frame, committedClockValue)
+	local committed, commitError =
+		AuthoritativeFrameService.CommitOpen(ownerValue, frame, committedClockValue)
 	if not committed then
 		AuthoritativeFrameService.AbortOpen(ownerValue, frame)
 		return nil, commitError
@@ -376,7 +387,10 @@ function AuthoritativeFrameService.InspectFrameStepServerTime(frameValue: unknow
 	return if capability then capability.stepServerTime else nil
 end
 
-function AuthoritativeFrameService.ValidateFrameDependency(frameValue: unknown, summaryValue: unknown): boolean
+function AuthoritativeFrameService.ValidateFrameDependency(
+	frameValue: unknown,
+	summaryValue: unknown
+): boolean
 	local capability = inspectableCapability(frameValue)
 	return capability ~= nil and capability.summary == summaryValue
 end
@@ -392,7 +406,9 @@ function AuthoritativeFrameService.GetDebugSnapshot(): DebugSnapshot
 		previousTimeMilliseconds = if summary then summary.previousTimeMilliseconds else 0,
 		currentTimeMilliseconds = if summary then summary.currentTimeMilliseconds else 0,
 		currentServerTimeSeconds = if summary then summary.currentServerTimeSeconds else 0,
-		stepServerTime = if currentFrameCapability then currentFrameCapability.stepServerTime else 0,
+		stepServerTime = if currentFrameCapability
+			then currentFrameCapability.stepServerTime
+			else 0,
 	})
 end
 

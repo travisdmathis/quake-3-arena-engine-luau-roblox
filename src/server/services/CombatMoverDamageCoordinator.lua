@@ -367,7 +367,9 @@ type MoverDamageTransaction = {
 
 export type MoverDamageAdapter = {
 	read Begin: (stepServerTime: number) -> (unknown?, string?),
-	read CollectBodies: (token: unknown) -> ({ MoverPushRules.Body }?, { [string]: Player }?, string?),
+	read CollectBodies: (
+		token: unknown
+	) -> ({ MoverPushRules.Body }?, { [string]: Player }?, string?),
 	read StageSineCrush: (
 		token: unknown,
 		player: Player,
@@ -392,16 +394,26 @@ export type MoverDamageAdapter = {
 		moverDeathSourceSummary: unknown
 	) -> (boolean, string?),
 	read IsAlive: (token: unknown, player: Player) -> boolean?,
-	read ApplyMoverBodies: (token: unknown, bodies: { MoverPushRules.Body }) -> (boolean, string?),
+	read ApplyMoverBodies: (
+		token: unknown,
+		bodies: { MoverPushRules.Body }
+	) -> (boolean, string?),
 	read Seal: (token: unknown) -> (boolean, string?),
-	read Prepare: (token: unknown) -> (MoverDamagePrepared?, MoverDamageMatchDependencySummary?, string?),
+	read Prepare: (
+		token: unknown
+	) -> (MoverDamagePrepared?, MoverDamageMatchDependencySummary?, string?),
 	read BindMatchPreparedDependency: (
 		prepared: unknown,
 		matchPrepared: unknown,
 		matchSummary: unknown
 	) -> (boolean, string?),
-	read InspectPreparedMovementDependency: (prepared: unknown) -> MoverDamageMovementDependencySummary?,
-	read ValidatePreparedMovementDependency: (prepared: unknown, summary: unknown) -> (boolean, string?),
+	read InspectPreparedMovementDependency: (
+		prepared: unknown
+	) -> MoverDamageMovementDependencySummary?,
+	read ValidatePreparedMovementDependency: (
+		prepared: unknown,
+		summary: unknown
+	) -> (boolean, string?),
 	read CanApplyPrepared: (prepared: unknown) -> (boolean, string?),
 	read ApplyPrepared: (prepared: unknown) -> MoverDamageApplyReceipt,
 	read FlushPrepared: (receipt: unknown) -> MoverDamagePublicationReport,
@@ -499,7 +511,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		end
 	end
 
-	local function finishMoverDamageTransaction(transaction: MoverDamageTransaction, status: MoverDamageStatus)
+	local function finishMoverDamageTransaction(
+		transaction: MoverDamageTransaction,
+		status: MoverDamageStatus
+	)
 		MovementService.RetireMoverDeathSourcesForDamageToken(transaction.token)
 		moverDeathSourceOwner.retireStageReceipts(transaction)
 		transaction.status = status
@@ -569,7 +584,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		operationKind: string,
 		operationIndex: number
 	): MoverDamageContext
-		local context = makeEnvironmentContext(shadow.player, shadow.record, transaction.levelTimeMilliseconds)
+		local context =
+			makeEnvironmentContext(shadow.player, shadow.record, transaction.levelTimeMilliseconds)
 		return table.freeze({
 			id = string.format(
 				"mover-%s:%s:%d:%d:%d:%d:%.6f",
@@ -655,8 +671,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		}
 		moverDeathSourceOwner.stageReceiptCapabilities[receipt] = capability
 		table.insert(transaction.stageReceipts, receipt)
-		local claimed, claimError =
-			MovementService.ClaimMoverDeathSource(moverDeathSource, moverDeathSourceSummary, receipt)
+		local claimed, claimError = MovementService.ClaimMoverDeathSource(
+			moverDeathSource,
+			moverDeathSourceSummary,
+			receipt
+		)
 		if not claimed then
 			moverDeathSourceOwner.stageReceiptCapabilities[receipt] = nil
 			table.remove(transaction.stageReceipts, #transaction.stageReceipts)
@@ -754,7 +773,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		})
 	end
 
-	local function moverMatchExpectationEqual(left: MoverMatchExpectation, right: MoverMatchExpectation): boolean
+	local function moverMatchExpectationEqual(
+		left: MoverMatchExpectation,
+		right: MoverMatchExpectation
+	): boolean
 		return moverMatchOutcomeEqual(left.outcome, right.outcome)
 			and left.scoreKind == right.scoreKind
 			and left.levelTimeMilliseconds == right.levelTimeMilliseconds
@@ -842,7 +864,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				armor: number,
 				alive: boolean,
 			},
-		} = {}
+		} =
+			{}
 		local replaySuddenDeath = transaction.startingSuddenDeath
 		for operationIndex, operation in transaction.operations do
 			if not MatchEliminationShadowRules.IsDamageOpen(replayMatchShadow) then
@@ -883,7 +906,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				WeaponDefinitions.ResolveDamage(operation.rawDamage, before.armor, false)
 			local healthDamage = if operation.kind == "LivePlayer"
 				then assert(
-					OneShotRules.ResolveCrushHealthDamage(transaction.oneShot, before.health, resolvedHealthDamage),
+					OneShotRules.ResolveCrushHealthDamage(
+						transaction.oneShot,
+						before.health,
+						resolvedHealthDamage
+					),
 					"One-Shot mover preflight damage input must be valid"
 				)
 				else resolvedHealthDamage
@@ -923,7 +950,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				}
 				continue
 			end
-			if operation.kind ~= "LivePlayer" or not before.alive or not shadow.startingCanFight then
+			if
+				operation.kind ~= "LivePlayer"
+				or not before.alive
+				or not shadow.startingCanFight
+			then
 				return "invalid-mover-damage-operation"
 			end
 			local moverDeathSource = operation.moverDeathSource
@@ -947,7 +978,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				or stageCapability.moverDeathSourceSummary ~= moverDeathSourceSummary
 				or moverDeathSourceSummary.victim ~= operation.player
 				or moverDeathSourceSummary.victimBody ~= operation.body
-				or not MovementService.ValidateMoverDeathSourceDependency(moverDeathSource, moverDeathSourceSummary)
+				or not MovementService.ValidateMoverDeathSourceDependency(
+					moverDeathSource,
+					moverDeathSourceSummary
+				)
 			then
 				return "invalid-mover-death-source-operation"
 			end
@@ -987,16 +1021,27 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 						attackerUserId = 0,
 						bypassTeamProtection = false,
 					})
-				if not nextMatchShadow or not matchOutcome or matchError or not matchOutcome.accepted then
+				if
+					not nextMatchShadow
+					or not matchOutcome
+					or matchError
+					or not matchOutcome.accepted
+				then
 					return "invalid-mover-match-elimination"
 				end
-				local matchPlayer = MatchEliminationShadowRules.GetPlayer(nextMatchShadow, operation.player.UserId)
+				local matchPlayer =
+					MatchEliminationShadowRules.GetPlayer(nextMatchShadow, operation.player.UserId)
 				if not matchPlayer or matchPlayer.sourceOrder ~= operation.sourceOrder then
 					return "invalid-mover-match-player-order"
 				end
 				replaySuddenDeath = replaySuddenDeath
-					or moverOutcomeEntersSuddenDeath(nextMatchShadow, matchOutcome, transaction.levelTimeMilliseconds)
-				local expectedMatch = makeMoverMatchExpectation(nextMatchShadow, matchOutcome, replaySuddenDeath)
+					or moverOutcomeEntersSuddenDeath(
+						nextMatchShadow,
+						matchOutcome,
+						transaction.levelTimeMilliseconds
+					)
+				local expectedMatch =
+					makeMoverMatchExpectation(nextMatchShadow, matchOutcome, replaySuddenDeath)
 				if
 					not operation.matchExpectation
 					or not moverMatchExpectationEqual(operation.matchExpectation, expectedMatch)
@@ -1011,7 +1056,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			local finalHealth = if final then final.health else shadow.startingHealth
 			local finalArmor = if final then final.armor else shadow.startingArmor
 			local finalAlive = if final then final.alive else shadow.startingAlive
-			if shadow.health ~= finalHealth or shadow.armor ~= finalArmor or shadow.alive ~= finalAlive then
+			if
+				shadow.health ~= finalHealth
+				or shadow.armor ~= finalArmor
+				or shadow.alive ~= finalAlive
+			then
 				return "invalid-mover-damage-shadow"
 			end
 		end
@@ -1024,7 +1073,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		return nil
 	end
 
-	local function beginMoverDamageTransaction(frameValue: unknown, stepServerTime: number): (unknown?, string?)
+	local function beginMoverDamageTransaction(
+		frameValue: unknown,
+		stepServerTime: number
+	): (unknown?, string?)
 		if not isStarted() then
 			return nil, "combat-service-not-started"
 		end
@@ -1041,18 +1093,24 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		end
 		local levelTimeMilliseconds = frameSummary.currentTimeMilliseconds
 		local matchSnapshot = MatchService.GetSnapshot()
-		local matchShadow, matchShadowError =
-			MatchService.CreateMoverEliminationShadow(MovementService.GetPlayerSourceOrder, levelTimeMilliseconds)
+		local matchShadow, matchShadowError = MatchService.CreateMoverEliminationShadow(
+			MovementService.GetPlayerSourceOrder,
+			levelTimeMilliseconds
+		)
 		if not matchShadow then
 			return nil, "mover-match-shadow-unavailable:" .. (matchShadowError or "unknown")
 		end
-		local matchToken, matchBatchError = MatchService.BeginEliminationBatch(levelTimeMilliseconds)
+		local matchToken, matchBatchError =
+			MatchService.BeginEliminationBatch(levelTimeMilliseconds)
 		if not matchToken then
 			return nil, "mover-match-batch-unavailable:" .. (matchBatchError or "unknown")
 		end
 		local corpseToken, corpseError = CorpseService.Begin()
 		if not corpseToken then
-			assert(MatchService.AbortEliminationBatch(matchToken), "failed mover begin leaked its Match batch")
+			assert(
+				MatchService.AbortEliminationBatch(matchToken),
+				"failed mover begin leaked its Match batch"
+			)
 			return nil, "mover-corpse-shadow-unavailable:" .. (corpseError or "unknown")
 		end
 
@@ -1111,13 +1169,15 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		if shadow.alive or shadow.health ~= 0 then
 			return nil, "client-corpse-retained-live-combat-state"
 		end
-		local adjustedDamage, armorSave, healthDamage = WeaponDefinitions.ResolveDamage(rawDamage, shadow.armor, false)
+		local adjustedDamage, armorSave, healthDamage =
+			WeaponDefinitions.ResolveDamage(rawDamage, shadow.armor, false)
 		if adjustedDamage <= 0 then
 			return RETAIN_MOVER_CRUSH_EFFECT, nil
 		end
 		local beforeArmor = shadow.armor
 		local afterArmor = beforeArmor - armorSave
-		local postDamageHealth = math.max(beforeHealth - healthDamage, MoverConsequenceRules.MinimumRawPostDamageHealth)
+		local postDamageHealth =
+			math.max(beforeHealth - healthDamage, MoverConsequenceRules.MinimumRawPostDamageHealth)
 		local effect, _resolvedHealth, corpseError = CorpseService.StageCollision(
 			transaction.corpseToken,
 			player,
@@ -1132,7 +1192,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			return nil, corpseError
 		end
 		local operationIndex = #transaction.operations + 1
-		local context = captureMoverDamageContext(transaction, shadow, moverId, "corpse", operationIndex)
+		local context =
+			captureMoverDamageContext(transaction, shadow, moverId, "corpse", operationIndex)
 		local operation: MoverDamageOperation = table.freeze({
 			kind = "ClientCorpse",
 			player = player,
@@ -1204,7 +1265,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				return nil, "mover-client-corpse-received-death-source"
 			end
 		elseif rawDamage > 0 then
-			if type(moverDeathSourceValue) ~= "table" or type(moverDeathSourceSummaryValue) ~= "table" then
+			if
+				type(moverDeathSourceValue) ~= "table"
+				or type(moverDeathSourceSummaryValue) ~= "table"
+			then
 				return nil, "mover-live-player-missing-death-source"
 			end
 		elseif moverDeathSourceValue ~= nil or moverDeathSourceSummaryValue ~= nil then
@@ -1222,14 +1286,19 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		if body.contents == MoverPushRules.Contents.Corpse then
 			return stageExistingCorpseDamage(transaction, player, body, rawDamage, moverId)
 		end
-		if body.contents ~= MoverPushRules.Contents.Body or body.id ~= MovementService.GetPlayerBodyId(player) then
+		if
+			body.contents ~= MoverPushRules.Contents.Body
+			or body.id ~= MovementService.GetPlayerBodyId(player)
+		then
 			return nil, "mover-live-player-body-identity-drifted"
 		end
 		local shadow, shadowError = captureMoverDamageShadow(transaction, player)
 		if not shadow then
 			return nil, shadowError
 		end
-		if MatchEliminationShadowRules.Inspect(transaction.matchShadow) ~= transaction.matchShadow then
+		if
+			MatchEliminationShadowRules.Inspect(transaction.matchShadow) ~= transaction.matchShadow
+		then
 			return nil, "invalid-mover-match-shadow"
 		end
 		if not shadow.alive then
@@ -1247,7 +1316,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 
 		local beforeHealth = shadow.health
 		local healthDamage = assert(
-			OneShotRules.ResolveCrushHealthDamage(transaction.oneShot, beforeHealth, resolvedHealthDamage),
+			OneShotRules.ResolveCrushHealthDamage(
+				transaction.oneShot,
+				beforeHealth,
+				resolvedHealthDamage
+			),
 			"One-Shot mover crush damage input must be valid"
 		)
 		local beforeArmor = shadow.armor
@@ -1274,9 +1347,12 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				return nil, "mover-match-elimination-failed:" .. (matchError or "unknown")
 			end
 			if not matchOutcome.accepted then
-				return nil, "mover-match-elimination-rejected:" .. (matchOutcome.rejectionReason or "unknown")
+				return nil,
+					"mover-match-elimination-rejected:"
+						.. (matchOutcome.rejectionReason or "unknown")
 			end
-			local matchPlayer = MatchEliminationShadowRules.GetPlayer(nextMatchShadow, player.UserId)
+			local matchPlayer =
+				MatchEliminationShadowRules.GetPlayer(nextMatchShadow, player.UserId)
 			if not matchPlayer or matchPlayer.sourceOrder ~= shadow.sourceOrder then
 				return nil, "mover-match-player-order-diverged"
 			end
@@ -1284,7 +1360,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			if matchToken == nil then
 				return nil, "mover-match-batch-missing"
 			end
-			local stagedMatch, stagedMatchError = MatchService.StageElimination(matchToken, player, nil, "Crush", nil)
+			local stagedMatch, stagedMatchError =
+				MatchService.StageElimination(matchToken, player, nil, "Crush", nil)
 			if
 				not stagedMatch
 				or not stagedMatch.result.accepted
@@ -1298,12 +1375,21 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				return nil, "mover-match-batch-stage-diverged:" .. (stagedMatchError or "unknown")
 			end
 			transaction.expectedSuddenDeath = transaction.expectedSuddenDeath
-				or moverOutcomeEntersSuddenDeath(nextMatchShadow, matchOutcome, transaction.levelTimeMilliseconds)
-			matchExpectation = makeMoverMatchExpectation(nextMatchShadow, matchOutcome, transaction.expectedSuddenDeath)
+				or moverOutcomeEntersSuddenDeath(
+					nextMatchShadow,
+					matchOutcome,
+					transaction.levelTimeMilliseconds
+				)
+			matchExpectation = makeMoverMatchExpectation(
+				nextMatchShadow,
+				matchOutcome,
+				transaction.expectedSuddenDeath
+			)
 			transaction.matchShadow = nextMatchShadow
 		end
 		local operationIndex = #transaction.operations + 1
-		local context = captureMoverDamageContext(transaction, shadow, moverId, operationKind, operationIndex)
+		local context =
+			captureMoverDamageContext(transaction, shadow, moverId, operationKind, operationIndex)
 		local deathWeaponDrop: DeathWeaponDropRequest? = nil
 		if not afterAlive then
 			deathWeaponDrop = buildDeathWeaponDrop(
@@ -1316,7 +1402,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			)
 		end
 		local moverDeathSource = moverDeathSourceValue :: MovementService.MoverDeathSource
-		local moverDeathSourceSummary = moverDeathSourceSummaryValue :: MovementService.MoverDeathSourceSummary
+		local moverDeathSourceSummary =
+			moverDeathSourceSummaryValue :: MovementService.MoverDeathSourceSummary
 		local moverDeathStageReceipt, sourceClaimError = moverDeathSourceOwner.claimOperationSource(
 			transaction,
 			player,
@@ -1382,7 +1469,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		end
 		local insertedBodies: { MoverPushRules.Body } = {}
 		if deathWeaponDrop then
-			local insertedBody, insertionError = stageSynchronousMoverDeathWeaponDrop(deathWeaponDrop, operationIndex)
+			local insertedBody, insertionError =
+				stageSynchronousMoverDeathWeaponDrop(deathWeaponDrop, operationIndex)
 			if not insertedBody then
 				return nil, insertionError or "mover-death-drop-synchronous-stage-failed"
 			end
@@ -1401,8 +1489,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		for _, powerupBody in powerupBodies do
 			table.insert(insertedBodies, powerupBody)
 		end
-		local flagBodies, flagError =
-			stageSynchronousMoverFlagDrops(player, body.position + body.centerOffset, operationIndex)
+		local flagBodies, flagError = stageSynchronousMoverFlagDrops(
+			player,
+			body.position + body.centerOffset,
+			operationIndex
+		)
 		if not flagBodies then
 			return nil, flagError or "mover-flag-drop-synchronous-stage-failed"
 		end
@@ -1480,7 +1571,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		)
 	end
 
-	local function collectMoverCorpseBodies(token: unknown): ({ MoverPushRules.Body }?, { [string]: Player }?, string?)
+	local function collectMoverCorpseBodies(token: unknown): (
+		{ MoverPushRules.Body }?,
+		{ [string]: Player }?,
+		string?
+	)
 		local transaction, transactionError = getActiveMoverDamageTransaction(token, "Open")
 		if not transaction then
 			return nil, nil, transactionError
@@ -1492,7 +1587,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		return collection.bodies, collection.playersByBodyId, nil
 	end
 
-	local function applyMoverCorpseBodies(token: unknown, bodies: { MoverPushRules.Body }): (boolean, string?)
+	local function applyMoverCorpseBodies(
+		token: unknown,
+		bodies: { MoverPushRules.Body }
+	): (boolean, string?)
 		local transaction, transactionError = getActiveMoverDamageTransaction(token, "Open")
 		if not transaction then
 			return false, transactionError
@@ -1508,7 +1606,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		local corpseCollection = select(1, CorpseService.Collect(transaction.corpseToken))
 		if corpseCollection then
 			for bodyId, corpsePlayer in corpseCollection.playersByBodyId do
-				if corpsePlayer == player and CorpseService.GetBinding(transaction.corpseToken, player, bodyId) then
+				if
+					corpsePlayer == player
+					and CorpseService.GetBinding(transaction.corpseToken, player, bodyId)
+				then
 					return false
 				end
 			end
@@ -1550,7 +1651,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			return faultMoverDamageTransaction(transaction, "mover-match-batch-missing-at-seal")
 		end
 		if lethalOperationCount > 0 then
-			local matchSealed, matchSealError = MatchService.SealEliminationBatch(matchToken, transaction.matchShadow)
+			local matchSealed, matchSealError =
+				MatchService.SealEliminationBatch(matchToken, transaction.matchShadow)
 			if not matchSealed then
 				return faultMoverDamageTransaction(
 					transaction,
@@ -1559,11 +1661,15 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			end
 		else
 			if not MatchService.AbortEliminationBatch(matchToken) then
-				return faultMoverDamageTransaction(transaction, "empty-mover-match-batch-abort-failed")
+				return faultMoverDamageTransaction(
+					transaction,
+					"empty-mover-match-batch-abort-failed"
+				)
 			end
 			transaction.matchToken = nil
 		end
-		local finalCorpseCollection, finalCorpseCollectionError = CorpseService.Collect(transaction.corpseToken)
+		local finalCorpseCollection, finalCorpseCollectionError =
+			CorpseService.Collect(transaction.corpseToken)
 		if not finalCorpseCollection then
 			return faultMoverDamageTransaction(
 				transaction,
@@ -1628,7 +1734,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		table.freeze(dependencySummary)
 
 		local matchSnapshot = MatchService.GetSnapshot()
-		if matchSnapshot.matchId ~= transaction.matchId or matchSnapshot.state ~= transaction.matchState then
+		if
+			matchSnapshot.matchId ~= transaction.matchId
+			or matchSnapshot.state ~= transaction.matchState
+		then
 			return nil, nil, nil, "stale-mover-damage-match-before-prepare"
 		end
 		local mutations: { MoverDamagePreparedMutation } = {}
@@ -1659,7 +1768,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				shouldRespawn = not expectation.outcome.terminalQualified
 					and (
 						transaction.matchState == "Warmup"
-						or (transaction.matchState == "Live" and matchSnapshot.rules.respawnDuringLive)
+						or (
+							transaction.matchState == "Live"
+							and matchSnapshot.rules.respawnDuringLive
+						)
 					)
 				respawnEligibleAtMilliseconds = if shouldRespawn
 					then assert(
@@ -1672,7 +1784,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				if shouldRespawn and matchSnapshot.forcedRespawnSeconds > 0 then
 					forcedRespawnAtMilliseconds = assert(
 						MatchFrameRules.DeadlineMilliseconds(
-							assert(respawnEligibleAtMilliseconds, "mover lethal respawn lost its eligibility deadline"),
+							assert(
+								respawnEligibleAtMilliseconds,
+								"mover lethal respawn lost its eligibility deadline"
+							),
 							matchSnapshot.forcedRespawnSeconds
 						)
 					)
@@ -1713,13 +1828,21 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				afterWeaponId = afterWeaponId,
 				afterCommandWeaponId = afterCommandWeaponId,
 				afterWeaponState = if lethal then "Ready" else shadow.record.weaponState,
-				afterWeaponTimeMilliseconds = if lethal then 0 else shadow.record.weaponTimeMilliseconds,
-				afterOverstackAccumulator = if lethal then 0 else shadow.record.overstackAccumulator,
-				afterPowerupExpiries = if lethal then table.freeze({}) else shadow.record.powerupExpiries,
+				afterWeaponTimeMilliseconds = if lethal
+					then 0
+					else shadow.record.weaponTimeMilliseconds,
+				afterOverstackAccumulator = if lethal
+					then 0
+					else shadow.record.overstackAccumulator,
+				afterPowerupExpiries = if lethal
+					then table.freeze({})
+					else shadow.record.powerupExpiries,
 				afterForcedRespawnAtMilliseconds = if lethal
 					then forcedRespawnAtMilliseconds
 					else shadow.record.forcedRespawnAtMilliseconds,
-				afterManualRespawnQueued = if lethal then false else shadow.record.manualRespawnQueued,
+				afterManualRespawnQueued = if lethal
+					then false
+					else shadow.record.manualRespawnQueued,
 				afterRespawnRequested = if lethal then false else shadow.record.respawnRequested,
 				afterScore = afterScore,
 				afterDeaths = afterDeaths,
@@ -1742,7 +1865,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			local elimination: EliminationEvent? = nil
 			if operation.kind == "LivePlayer" then
 				local adjustedDamage, armorSave, resolvedHealthDamage =
-					WeaponDefinitions.ResolveDamage(operation.rawDamage, operation.beforeArmor, false)
+					WeaponDefinitions.ResolveDamage(
+						operation.rawDamage,
+						operation.beforeArmor,
+						false
+					)
 				local healthDamage = assert(
 					OneShotRules.ResolveCrushHealthDamage(
 						transaction.oneShot,
@@ -1834,7 +1961,9 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		return capability, nil
 	end
 
-	local function getMoverDamageReceiptCapability(receiptValue: unknown): (MoverDamagePreparedCapability?, string?)
+	local function getMoverDamageReceiptCapability(
+		receiptValue: unknown
+	): (MoverDamagePreparedCapability?, string?)
 		if type(receiptValue) ~= "table" then
 			return nil, "invalid-mover-damage-receipt"
 		end
@@ -1881,7 +2010,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			or not table.isfrozen(movementDependencySummary.lifeBindings)
 			or not table.isfrozen(movementDependencySummary.lethalMoverSources)
 			or #movementDependencySummary.releaseSpawnPlayers ~= #movementDependencySummary.lifeBindings
-			or #movementDependencySummary.lethalMoverSources ~= #movementDependencySummary.releaseSpawnPlayers
+			or #movementDependencySummary.lethalMoverSources
+				~= #movementDependencySummary.releaseSpawnPlayers
 		then
 			return "stale-mover-damage-movement-life-dependency"
 		end
@@ -1903,7 +2033,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		local previousCallbackOrder = 0
 		local previousOperationIndex = 0
 		for _, dependency in movementDependencySummary.lethalMoverSources do
-			local stageCapability = moverDeathSourceOwner.stageReceiptCapabilities[dependency.stageReceipt]
+			local stageCapability =
+				moverDeathSourceOwner.stageReceiptCapabilities[dependency.stageReceipt]
 			if
 				not table.isfrozen(dependency)
 				or not stageCapability
@@ -1972,7 +2103,9 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			if
 				not table.isfrozen(publication)
 				or publication.record ~= records[publication.player]
-				or (publication.damagePayload ~= nil and not table.isfrozen(publication.damagePayload))
+				or (publication.damagePayload ~= nil and not table.isfrozen(
+					publication.damagePayload
+				))
 				or (publication.elimination ~= nil and not table.isfrozen(publication.elimination))
 			then
 				return "stale-mover-damage-publication-plan"
@@ -2016,15 +2149,23 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		return true
 	end
 
-	local function validateBoundMoverMatchDependency(capability: MoverDamagePreparedCapability): (boolean, string?)
+	local function validateBoundMoverMatchDependency(
+		capability: MoverDamagePreparedCapability
+	): (boolean, string?)
 		local dependency = capability.dependencySummary
 		if dependency.operationCount == 0 then
 			return capability.matchDependencySatisfied,
-				if capability.matchDependencySatisfied then nil else "empty-mover-match-dependency-not-satisfied"
+				if capability.matchDependencySatisfied
+					then nil
+					else "empty-mover-match-dependency-not-satisfied"
 		end
 		local matchPrepared = capability.boundMatchPrepared
 		local matchSummary = capability.boundMatchSummary
-		if not capability.matchDependencySatisfied or matchPrepared == nil or matchSummary == nil then
+		if
+			not capability.matchDependencySatisfied
+			or matchPrepared == nil
+			or matchSummary == nil
+		then
 			return false, "mover-match-prepared-dependency-unbound"
 		end
 		local matchApi = MatchService :: any
@@ -2039,11 +2180,13 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		end
 		if
 			type(matchApi.InspectPreparedEliminationBatchReceipt) ~= "function"
-			or matchApi.InspectPreparedEliminationBatchReceipt(matchPrepared) ~= capability.matchApplyReceipt
+			or matchApi.InspectPreparedEliminationBatchReceipt(matchPrepared)
+				~= capability.matchApplyReceipt
 		then
 			return false, "mover-match-prepared-receipt-drifted"
 		end
-		local valid, validationError = matchApi.ValidatePreparedEliminationBatchDependency(matchPrepared, matchSummary)
+		local valid, validationError =
+			matchApi.ValidatePreparedEliminationBatchDependency(matchPrepared, matchSummary)
 		if not valid then
 			return false, validationError or "mover-match-prepared-dependency-stale"
 		end
@@ -2053,9 +2196,11 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		return true, nil
 	end
 
-	local function prepareMoverDamageTransaction(
-		token: unknown
-	): (MoverDamagePrepared?, MoverDamageMatchDependencySummary?, string?)
+	local function prepareMoverDamageTransaction(token: unknown): (
+		MoverDamagePrepared?,
+		MoverDamageMatchDependencySummary?,
+		string?
+	)
 		local transaction, transactionError = getActiveMoverDamageTransaction(token, "Sealed")
 		if not transaction then
 			return nil, nil, transactionError
@@ -2073,7 +2218,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			faultMoverDamageTransaction(transaction, operationError)
 			return nil, nil, operationError
 		end
-		local mutations, publications, dependencySummary, planError = buildMoverDamagePreparedPlan(transaction)
+		local mutations, publications, dependencySummary, planError =
+			buildMoverDamagePreparedPlan(transaction)
 		if not mutations or not publications or not dependencySummary then
 			local errorCode = planError or "mover-damage-prepare-plan-failed"
 			faultMoverDamageTransaction(transaction, errorCode)
@@ -2089,16 +2235,21 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				faultMoverDamageTransaction(transaction, errorCode)
 				return nil, nil, errorCode
 			end
-			local matchPrepared, matchPrepareError = MatchService.PrepareEliminationBatch(matchToken)
+			local matchPrepared, matchPrepareError =
+				MatchService.PrepareEliminationBatch(matchToken)
 			if not matchPrepared then
-				local errorCode = "mover-match-batch-prepare-failed:" .. (matchPrepareError or "unknown")
+				local errorCode = "mover-match-batch-prepare-failed:"
+					.. (matchPrepareError or "unknown")
 				faultMoverDamageTransaction(transaction, errorCode)
 				return nil, nil, errorCode
 			end
 			local matchSummary = MatchService.InspectPreparedEliminationBatch(matchPrepared)
 			if
 				not matchSummary
-				or not MatchService.ValidatePreparedEliminationBatchDependency(matchPrepared, matchSummary)
+				or not MatchService.ValidatePreparedEliminationBatchDependency(
+					matchPrepared,
+					matchSummary
+				)
 				or not moverMatchPreparedSummaryMatches(dependencySummary, matchSummary)
 			then
 				local errorCode = "mover-match-batch-prepared-summary-diverged"
@@ -2107,7 +2258,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			end
 			boundMatchPrepared = matchPrepared
 			boundMatchSummary = matchSummary
-			boundMatchApplyReceipt = MatchService.InspectPreparedEliminationBatchReceipt(matchPrepared)
+			boundMatchApplyReceipt =
+				MatchService.InspectPreparedEliminationBatchReceipt(matchPrepared)
 			if boundMatchApplyReceipt == nil then
 				local errorCode = "mover-match-batch-prebuilt-receipt-missing"
 				faultMoverDamageTransaction(transaction, errorCode)
@@ -2142,9 +2294,12 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		-- by client source order. A later mover may legitimately kill a lower-slot
 		-- player after an earlier mover killed a higher-slot player.
 		table.sort(releaseSpawnPlayers, function(left: Player, right: Player): boolean
-			local leftSourceOrder = assert(releaseSourceOrderByPlayer[left], "left mover release lost its source order")
-			local rightSourceOrder =
-				assert(releaseSourceOrderByPlayer[right], "right mover release lost its source order")
+			local leftSourceOrder =
+				assert(releaseSourceOrderByPlayer[left], "left mover release lost its source order")
+			local rightSourceOrder = assert(
+				releaseSourceOrderByPlayer[right],
+				"right mover release lost its source order"
+			)
 			if leftSourceOrder ~= rightSourceOrder then
 				return leftSourceOrder < rightSourceOrder
 			end
@@ -2159,7 +2314,9 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		for _, player in releaseSpawnPlayers do
 			local mutation = mutationByPlayer[player]
 			local binding = mutation and mutation.beforeMovementLifeBinding
-			local summary = if binding then MovementService.InspectMovementLifeBinding(binding) else nil
+			local summary = if binding
+				then MovementService.InspectMovementLifeBinding(binding)
+				else nil
 			if
 				not mutation
 				or not mutation.lethal
@@ -2270,7 +2427,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		matchPrepared: unknown,
 		matchSummary: unknown
 	): (boolean, string?)
-		local capability, capabilityError = getMoverDamagePreparedCapability(preparedValue, "Prepared")
+		local capability, capabilityError =
+			getMoverDamagePreparedCapability(preparedValue, "Prepared")
 		if not capability then
 			return false, capabilityError
 		end
@@ -2278,7 +2436,10 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 			return false, "mover-match-prepared-dependency-empty"
 		end
 		if capability.boundMatchPrepared ~= nil or capability.boundMatchSummary ~= nil then
-			if matchPrepared == capability.boundMatchPrepared and matchSummary == capability.boundMatchSummary then
+			if
+				matchPrepared == capability.boundMatchPrepared
+				and matchSummary == capability.boundMatchSummary
+			then
 				return validateBoundMoverMatchDependency(capability)
 			end
 			return false, "mover-match-prepared-dependency-already-bound"
@@ -2293,7 +2454,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		if matchApi.InspectPreparedEliminationBatch(matchPrepared) ~= matchSummary then
 			return false, "invalid-mover-match-prepared-association"
 		end
-		local valid, validationError = matchApi.ValidatePreparedEliminationBatchDependency(matchPrepared, matchSummary)
+		local valid, validationError =
+			matchApi.ValidatePreparedEliminationBatchDependency(matchPrepared, matchSummary)
 		if not valid then
 			return false, validationError or "invalid-mover-match-prepared-dependency"
 		end
@@ -2307,7 +2469,9 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		return true, nil
 	end
 
-	local function inspectMoverPreparedMovementDependency(preparedValue: unknown): MoverDamageMovementDependencySummary?
+	local function inspectMoverPreparedMovementDependency(
+		preparedValue: unknown
+	): MoverDamageMovementDependencySummary?
 		local capability = select(1, getMoverDamagePreparedCapability(preparedValue, "Prepared"))
 		return if capability then capability.movementDependencySummary else nil
 	end
@@ -2316,7 +2480,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 		preparedValue: unknown,
 		summaryValue: unknown
 	): (boolean, string?)
-		local capability, capabilityError = getMoverDamagePreparedCapability(preparedValue, "Prepared")
+		local capability, capabilityError =
+			getMoverDamagePreparedCapability(preparedValue, "Prepared")
 		if not capability then
 			return false, capabilityError
 		end
@@ -2330,7 +2495,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 	end
 
 	local function canApplyPreparedMoverDamage(preparedValue: unknown): (boolean, string?)
-		local capability, capabilityError = getMoverDamagePreparedCapability(preparedValue, "Prepared")
+		local capability, capabilityError =
+			getMoverDamagePreparedCapability(preparedValue, "Prepared")
 		if not capability then
 			return false, capabilityError
 		end
@@ -2350,7 +2516,8 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 				return false, matchCanApplyError or "mover-match-prepared-preflight-failed"
 			end
 		end
-		local corpseCanApply, corpseCanApplyError = CorpseService.CanApplyPrepared(capability.corpsePrepared)
+		local corpseCanApply, corpseCanApplyError =
+			CorpseService.CanApplyPrepared(capability.corpsePrepared)
 		if not corpseCanApply then
 			return false, corpseCanApplyError or "mover-corpse-prepared-preflight-failed"
 		end
@@ -2359,10 +2526,14 @@ function CombatMoverDamageCoordinator.new(host: Host): MoverDamageAdapter
 	end
 
 	local function applyPreparedMoverDamage(preparedValue: unknown): MoverDamageApplyReceipt
-		local capability, capabilityError = getMoverDamagePreparedCapability(preparedValue, "Prepared")
+		local capability, capabilityError =
+			getMoverDamagePreparedCapability(preparedValue, "Prepared")
 		assert(capability, capabilityError or "invalid-mover-damage-prepared")
 		assert(capability.applyValidated, "mover-damage-prepared-not-validated")
-		assert(capability.matchDependencySatisfied, "mover-damage-match-prepared-dependency-not-satisfied")
+		assert(
+			capability.matchDependencySatisfied,
+			"mover-damage-match-prepared-dependency-not-satisfied"
+		)
 		-- Movement has already swapped its prepared frame root. All cross-owner life
 		-- capability validation ran in both adjacent preflight passes; this final
 		-- local check must not re-enter Movement/EntitySlot inside the apply gap.

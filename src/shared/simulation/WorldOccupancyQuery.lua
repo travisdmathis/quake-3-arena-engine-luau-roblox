@@ -80,7 +80,7 @@ function WorldOccupancyQuery.Create(staticSolidDomain: PersistentStaticSolidDoma
 	end
 	local queryBox, exactGeometryAvailable = createExactBoxQuery(
 		staticRoot,
-		"ArenaUnparentedOccupancyProbe",
+		"Q3EngineUnparentedOccupancyProbe",
 		function(): boolean
 			return PersistentStaticSolidDomain.IsCurrent(staticSolidDomain)
 		end
@@ -149,7 +149,7 @@ function WorldOccupancyQuery.CreateBody(
 	end
 	local queryBox, exactGeometryAvailable = createExactBoxQuery(
 		staticRoot,
-		"ArenaUnparentedBodyOccupancyProbe",
+		"Q3EngineUnparentedBodyOccupancyProbe",
 		function(): boolean
 			return PersistentStaticSolidDomain.IsCurrent(staticSolidDomain)
 		end
@@ -209,7 +209,7 @@ end
 -- completeness receipt. Their names prevent a local overlap capability probe
 -- from being mistaken for an authoritative complete-world proof.
 function WorldOccupancyQuery.CreateFixture(staticRoot: Instance): (QueryFunction, boolean)
-	local queryBox, exactGeometryAvailable = createExactBoxQuery(staticRoot, "ArenaUnparentedOccupancyProbe", nil)
+	local queryBox, exactGeometryAvailable = createExactBoxQuery(staticRoot, "Q3EngineUnparentedOccupancyProbe", nil)
 	local function query(origin: Vector3, crouched: boolean): { Occupant }
 		return queryBox(
 				origin + Constants.ColliderCenterOffsetFor(crouched),
@@ -220,7 +220,8 @@ function WorldOccupancyQuery.CreateFixture(staticRoot: Instance): (QueryFunction
 end
 
 function WorldOccupancyQuery.CreateBodyFixture(staticRoot: Instance): (BodyQueryFunction, boolean)
-	local queryBox, exactGeometryAvailable = createExactBoxQuery(staticRoot, "ArenaUnparentedBodyOccupancyProbe", nil)
+	local queryBox, exactGeometryAvailable =
+		createExactBoxQuery(staticRoot, "Q3EngineUnparentedBodyOccupancyProbe", nil)
 	local function query(
 		position: Vector3,
 		size: Vector3,

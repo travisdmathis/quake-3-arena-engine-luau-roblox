@@ -26,8 +26,10 @@ local RunService = game:GetService("RunService")
 assert(RunService:IsServer(), "EntitySlotService is server-only")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
-local EntitySourceOrderRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("EntitySourceOrderRules"))
-local EntitySpawnPlanRules = require(sharedRoot:WaitForChild("maps"):WaitForChild("EntitySpawnPlanRules"))
+local EntitySourceOrderRules =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("EntitySourceOrderRules"))
+local EntitySpawnPlanRules =
+	require(sharedRoot:WaitForChild("maps"):WaitForChild("EntitySpawnPlanRules"))
 
 local EntitySlotService = {}
 
@@ -339,7 +341,10 @@ local function inspectRegistration(
 	return registration, capability, nil
 end
 
-local function releaseRetainedWorldRegistration(registration: Registration, capability: RegistrationCapability)
+local function releaseRetainedWorldRegistration(
+	registration: Registration,
+	capability: RegistrationCapability
+)
 	if worldRegistrationsBySourceOrder[capability.lease.sourceOrder] == registration then
 		worldRegistrationsBySourceOrder[capability.lease.sourceOrder] = nil
 	end
@@ -370,17 +375,25 @@ local function samePlayerSet(left: { [Player]: boolean }, right: { [Player]: boo
 	return true
 end
 
-local function getTransaction(tokenValue: unknown, allowPrepared: boolean?): (ActiveTransaction?, string?)
+local function getTransaction(
+	tokenValue: unknown,
+	allowPrepared: boolean?
+): (ActiveTransaction?, string?)
 	local transaction = activeTransaction
 	if not transaction or type(tokenValue) ~= "table" or tokenValue ~= transaction.token then
 		return nil, "entity-slot-transaction-not-current"
 	end
 	if transaction.status == "Open" then
-		local inspected, inspectError = EntitySourceOrderRules.InspectTransaction(transaction.rulesTransaction)
+		local inspected, inspectError =
+			EntitySourceOrderRules.InspectTransaction(transaction.rulesTransaction)
 		if not inspected then
 			return nil, inspectError or "entity-slot-transaction-invalid"
 		end
-	elseif transaction.status ~= "Prepared" or allowPrepared ~= true or transaction.prepared == nil then
+	elseif
+		transaction.status ~= "Prepared"
+		or allowPrepared ~= true
+		or transaction.prepared == nil
+	then
 		return nil, "entity-slot-transaction-not-current"
 	end
 	return transaction, nil
@@ -398,13 +411,22 @@ local function getPreparedCapability(preparedValue: unknown): (PreparedCapabilit
 end
 
 local function denyPlayerAdmission(player: Player, reason: string)
-	warn(string.format("Authoritative entity-slot admission denied for user %d: %s", player.UserId, reason))
+	warn(
+		string.format(
+			"Authoritative entity-slot admission denied for user %d: %s",
+			player.UserId,
+			reason
+		)
+	)
 	if player.Parent == Players then
 		player:Kick("This arena server could not reserve an authoritative player slot.")
 	end
 end
 
-local function releasePlayerRegistrationNow(player: Player, allowMissing: boolean): (boolean, string?)
+local function releasePlayerRegistrationNow(
+	player: Player,
+	allowMissing: boolean
+): (boolean, string?)
 	local state, stateError = currentState()
 	if not state then
 		return false, stateError
@@ -476,7 +498,8 @@ function EntitySlotService.EnsurePlayerRegistration(player: Player): (Registrati
 			and capability.player == player
 			and capability.status == "Active"
 			and not capability.releaseStaged
-			and EntitySourceOrderRules.InspectLease(leaseOwner, capability.lease, "Client") ~= nil
+			and EntitySourceOrderRules.InspectLease(leaseOwner, capability.lease, "Client")
+				~= nil
 		then
 			return existing, nil
 		end
@@ -595,11 +618,15 @@ function EntitySlotService.InstallMapSpawnPlan(eventsValue: unknown): (boolean, 
 	if not state then
 		return false, stateError
 	end
-	if state.activeWorldCount ~= EntitySourceOrderRules.BodyQueueSize or countRegisteredWorldEntities() ~= 0 then
+	if
+		state.activeWorldCount ~= EntitySourceOrderRules.BodyQueueSize
+		or countRegisteredWorldEntities() ~= 0
+	then
 		return false, "map-plan-install-world-domain-not-pristine"
 	end
 
-	local reference, replayError = EntitySpawnPlanRules.Replay(EntitySourceOrderRules, eventsValue, 0)
+	local reference, replayError =
+		EntitySpawnPlanRules.Replay(EntitySourceOrderRules, eventsValue, 0)
 	if not reference then
 		return false, "map-spawn-plan-invalid:" .. (replayError or "unknown")
 	end
@@ -626,7 +653,8 @@ function EntitySlotService.InstallMapSpawnPlan(eventsValue: unknown): (boolean, 
 	if not token then
 		return false, beginError or "map-spawn-plan-transaction-begin-failed"
 	end
-	local staged: { { expected: EntitySpawnPlanRules.ActiveRegistration, registration: Registration } } = {}
+	local staged: { { expected: EntitySpawnPlanRules.ActiveRegistration, registration: Registration } } =
+		{}
 	local function abortInstall(message: string): (boolean, string?)
 		local aborted, abortError = EntitySlotService.Abort(token)
 		if not aborted then
@@ -642,7 +670,9 @@ function EntitySlotService.InstallMapSpawnPlan(eventsValue: unknown): (boolean, 
 		end
 		local registration, allocationError = EntitySlotService.AllocateWorld(token, prefix)
 		if not registration then
-			return abortInstall("map-spawn-plan-allocation-failed:" .. (allocationError or "unknown"))
+			return abortInstall(
+				"map-spawn-plan-allocation-failed:" .. (allocationError or "unknown")
+			)
 		end
 		if
 			registration.sourceOrder ~= expected.sourceOrder
@@ -813,7 +843,13 @@ function EntitySlotService.Begin(stepTimeMillisecondsValue: unknown): (Transacti
 	if activeTransaction then
 		return nil, "entity-slot-transaction-active"
 	end
-	if not isIntegerInRange(stepTimeMillisecondsValue, state.levelTimeMilliseconds, MAXIMUM_TIME_MILLISECONDS) then
+	if
+		not isIntegerInRange(
+			stepTimeMillisecondsValue,
+			state.levelTimeMilliseconds,
+			MAXIMUM_TIME_MILLISECONDS
+		)
+	then
 		return nil, "invalid-entity-slot-step-time"
 	end
 	local rulesTransaction, beginError = EntitySourceOrderRules.Begin(state)
@@ -840,7 +876,10 @@ function EntitySlotService.Begin(stepTimeMillisecondsValue: unknown): (Transacti
 	return token, nil
 end
 
-function EntitySlotService.NextBodyQueue(tokenValue: unknown, ownerValue: unknown): (Registration?, string?)
+function EntitySlotService.NextBodyQueue(
+	tokenValue: unknown,
+	ownerValue: unknown
+): (Registration?, string?)
 	if type(ownerValue) ~= "table" or ownerValue ~= bodyQueueCursorOwner then
 		return nil, "body-queue-cursor-owner-required"
 	end
@@ -855,7 +894,11 @@ function EntitySlotService.NextBodyQueue(tokenValue: unknown, ownerValue: unknow
 		not capability
 		or capability.status ~= "Active"
 		or capability.bodyQueueIndex ~= index
-		or EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, capability.lease, "World")
+		or EntitySourceOrderRules.InspectLease(
+				transaction.rulesTransaction,
+				capability.lease,
+				"World"
+			)
 			== nil
 	then
 		return nil, registrationError or "body-queue-registration-not-active"
@@ -864,7 +907,10 @@ function EntitySlotService.NextBodyQueue(tokenValue: unknown, ownerValue: unknow
 	return registration, nil
 end
 
-function EntitySlotService.AllocateWorld(tokenValue: unknown, prefixValue: unknown): (Registration?, string?)
+function EntitySlotService.AllocateWorld(
+	tokenValue: unknown,
+	prefixValue: unknown
+): (Registration?, string?)
 	local transaction, transactionError = getTransaction(tokenValue)
 	if not transaction then
 		return nil, transactionError
@@ -872,19 +918,22 @@ function EntitySlotService.AllocateWorld(tokenValue: unknown, prefixValue: unkno
 	if not isBodyPrefix(prefixValue) then
 		return nil, "body-prefix-invalid"
 	end
-	local nextRulesTransaction, lease, stageError = EntitySourceOrderRules.Stage(transaction.rulesTransaction, {
-		kind = "AllocateWorld",
-		nowMilliseconds = transaction.stepTimeMilliseconds,
-	})
+	local nextRulesTransaction, lease, stageError =
+		EntitySourceOrderRules.Stage(transaction.rulesTransaction, {
+			kind = "AllocateWorld",
+			nowMilliseconds = transaction.stepTimeMilliseconds,
+		})
 	if not nextRulesTransaction or not lease then
 		return nil, stageError or "world-slot-allocation-failed"
 	end
 	transaction.rulesTransaction = nextRulesTransaction
-	local bodyId, bodyIdError = EntitySourceOrderRules.MakeBodyId(prefixValue, nextRulesTransaction, lease)
+	local bodyId, bodyIdError =
+		EntitySourceOrderRules.MakeBodyId(prefixValue, nextRulesTransaction, lease)
 	if not bodyId then
 		return nil, bodyIdError or "world-body-identity-failed"
 	end
-	local registration, capability = makeRegistration("World", lease, bodyId, nil, nil, "Pending", transaction.identity)
+	local registration, capability =
+		makeRegistration("World", lease, bodyId, nil, nil, "Pending", transaction.identity)
 	table.insert(transaction.provisional, {
 		registration = registration,
 		capability = capability,
@@ -892,19 +941,26 @@ function EntitySlotService.AllocateWorld(tokenValue: unknown, prefixValue: unkno
 	return registration, nil
 end
 
-function EntitySlotService.ReleaseWorld(tokenValue: unknown, registrationValue: unknown): (boolean, string?)
+function EntitySlotService.ReleaseWorld(
+	tokenValue: unknown,
+	registrationValue: unknown
+): (boolean, string?)
 	local transaction, transactionError = getTransaction(tokenValue)
 	if not transaction then
 		return false, transactionError
 	end
-	local registration, capability, registrationError = inspectRegistration(registrationValue, "World")
+	local registration, capability, registrationError =
+		inspectRegistration(registrationValue, "World")
 	if not registration or not capability then
 		return false, registrationError
 	end
 	if capability.status ~= "Active" and capability.status ~= "Pending" then
 		return false, "world-registration-not-active"
 	end
-	if capability.status == "Pending" and capability.transactionIdentity ~= transaction.identity then
+	if
+		capability.status == "Pending"
+		and capability.transactionIdentity ~= transaction.identity
+	then
 		return false, "world-registration-transaction-mismatch"
 	end
 	if
@@ -919,15 +975,19 @@ function EntitySlotService.ReleaseWorld(tokenValue: unknown, registrationValue: 
 	if capability.releaseStaged then
 		return false, "world-registration-release-already-staged"
 	end
-	if EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, capability.lease, "World") == nil then
+	if
+		EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, capability.lease, "World")
+		== nil
+	then
 		return false, "world-registration-lease-not-current"
 	end
 
-	local nextRulesTransaction, _, stageError = EntitySourceOrderRules.Stage(transaction.rulesTransaction, {
-		kind = "ReleaseWorld",
-		lease = capability.lease,
-		nowMilliseconds = transaction.stepTimeMilliseconds,
-	})
+	local nextRulesTransaction, _, stageError =
+		EntitySourceOrderRules.Stage(transaction.rulesTransaction, {
+			kind = "ReleaseWorld",
+			lease = capability.lease,
+			nowMilliseconds = transaction.stepTimeMilliseconds,
+		})
 	if not nextRulesTransaction then
 		return false, stageError or "world-slot-release-failed"
 	end
@@ -944,7 +1004,10 @@ end
 -- are queued while a transaction is open and released after its outcome. The
 -- staged form exists for the later single mover-consequence composition, where
 -- removal of a player body and its client entity must share one commit.
-function EntitySlotService.StagePlayerRelease(tokenValue: unknown, player: Player): (boolean, string?)
+function EntitySlotService.StagePlayerRelease(
+	tokenValue: unknown,
+	player: Player
+): (boolean, string?)
 	local transaction, transactionError = getTransaction(tokenValue)
 	if not transaction then
 		return false, transactionError
@@ -966,14 +1029,21 @@ function EntitySlotService.StagePlayerRelease(tokenValue: unknown, player: Playe
 	if capability.releaseStaged then
 		return false, "player-registration-release-already-staged"
 	end
-	if EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, capability.lease, "Client") == nil then
+	if
+		EntitySourceOrderRules.InspectLease(
+			transaction.rulesTransaction,
+			capability.lease,
+			"Client"
+		) == nil
+	then
 		return false, "player-registration-lease-not-current"
 	end
 
-	local nextRulesTransaction, _, stageError = EntitySourceOrderRules.Stage(transaction.rulesTransaction, {
-		kind = "ReleaseClient",
-		lease = capability.lease,
-	})
+	local nextRulesTransaction, _, stageError =
+		EntitySourceOrderRules.Stage(transaction.rulesTransaction, {
+			kind = "ReleaseClient",
+			lease = capability.lease,
+		})
 	if not nextRulesTransaction then
 		return false, stageError or "client-slot-release-failed"
 	end
@@ -999,7 +1069,11 @@ function EntitySlotService.GetWorldLease(
 		if
 			not transaction
 			or capability.transactionIdentity ~= transaction.identity
-			or EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, capability.lease, "World")
+			or EntitySourceOrderRules.InspectLease(
+					transaction.rulesTransaction,
+					capability.lease,
+					"World"
+				)
 				== nil
 		then
 			return nil
@@ -1041,7 +1115,9 @@ local function trustedWorldRegistration(registration: Registration?): Registrati
 	return registration
 end
 
-function EntitySlotService.GetWorldRegistrationBySourceOrder(sourceOrderValue: unknown): Registration?
+function EntitySlotService.GetWorldRegistrationBySourceOrder(
+	sourceOrderValue: unknown
+): Registration?
 	if
 		not isIntegerInRange(
 			sourceOrderValue,
@@ -1073,7 +1149,8 @@ function EntitySlotService.GetMapRegistration(eventIdValue: unknown): MapRegistr
 	if
 		not mapRegistration
 		or mapRegistration.eventId ~= eventIdValue
-		or trustedWorldRegistration(mapRegistration.registration) ~= mapRegistration.registration
+		or trustedWorldRegistration(mapRegistration.registration)
+			~= mapRegistration.registration
 	then
 		return nil
 	end
@@ -1129,7 +1206,11 @@ function EntitySlotService.InspectSlot(sourceOrderValue: unknown): Registration?
 	local state = select(1, currentState())
 	if
 		not state
-		or not isIntegerInRange(sourceOrderValue, 1, EntitySourceOrderRules.MaximumNormalSourceOrder)
+		or not isIntegerInRange(
+			sourceOrderValue,
+			1,
+			EntitySourceOrderRules.MaximumNormalSourceOrder
+		)
 		or (sourceOrderValue :: number) > state.highestWorldSourceOrder
 	then
 		return nil
@@ -1201,7 +1282,10 @@ function EntitySlotService.GetMapRegistrationRevision(): number?
 	return mapRegistrationRevision
 end
 
-local function preparedCommitCurrentError(preparedValue: unknown, capability: PreparedCapability): string?
+local function preparedCommitCurrentError(
+	preparedValue: unknown,
+	capability: PreparedCapability
+): string?
 	local transaction = capability.transaction
 	local receiptCapability = capability.receiptCapability
 	if
@@ -1309,7 +1393,10 @@ function EntitySlotService.Prepare(tokenValue: unknown): (PreparedCommit?, strin
 	)
 		local existing = mutationsByCapability[registrationCapability]
 		if existing then
-			assert(existing.registration == registration, "registration capability identity drifted")
+			assert(
+				existing.registration == registration,
+				"registration capability identity drifted"
+			)
 			existing.nextStatus = nextStatus
 			return
 		end
@@ -1343,14 +1430,23 @@ function EntitySlotService.Prepare(tokenValue: unknown): (PreparedCommit?, strin
 	for _, entry in transaction.releases do
 		local registrationCapability = entry.capability
 		if
-			EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, registrationCapability.lease, "World")
-			== nil
+			EntitySourceOrderRules.InspectLease(
+				transaction.rulesTransaction,
+				registrationCapability.lease,
+				"World"
+			) == nil
 		then
 			removeMapIndex(entry.registration)
-			if nextWorldRegistrationsBySourceOrder[registrationCapability.lease.sourceOrder] == entry.registration then
+			if
+				nextWorldRegistrationsBySourceOrder[registrationCapability.lease.sourceOrder]
+				== entry.registration
+			then
 				nextWorldRegistrationsBySourceOrder[registrationCapability.lease.sourceOrder] = nil
 			end
-			if nextWorldRegistrationsByBodyId[registrationCapability.bodyId] == entry.registration then
+			if
+				nextWorldRegistrationsByBodyId[registrationCapability.bodyId]
+				== entry.registration
+			then
 				nextWorldRegistrationsByBodyId[registrationCapability.bodyId] = nil
 			end
 			planMutation(entry.registration, registrationCapability, "Released")
@@ -1361,8 +1457,11 @@ function EntitySlotService.Prepare(tokenValue: unknown): (PreparedCommit?, strin
 	for _, entry in transaction.playerReleases do
 		local registrationCapability = entry.capability
 		if
-			EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, registrationCapability.lease, "Client")
-			== nil
+			EntitySourceOrderRules.InspectLease(
+				transaction.rulesTransaction,
+				registrationCapability.lease,
+				"Client"
+			) == nil
 		then
 			local player = registrationCapability.player
 			if player and nextRegistrationsByPlayer[player] == entry.registration then
@@ -1375,7 +1474,13 @@ function EntitySlotService.Prepare(tokenValue: unknown): (PreparedCommit?, strin
 	end
 	for _, entry in transaction.provisional do
 		local registrationCapability = entry.capability
-		if EntitySourceOrderRules.InspectLease(transaction.rulesTransaction, registrationCapability.lease, "World") then
+		if
+			EntitySourceOrderRules.InspectLease(
+				transaction.rulesTransaction,
+				registrationCapability.lease,
+				"World"
+			)
+		then
 			local sourceOrder = registrationCapability.lease.sourceOrder
 			local existingBySourceOrder = nextWorldRegistrationsBySourceOrder[sourceOrder]
 			local existingByBodyId = nextWorldRegistrationsByBodyId[registrationCapability.bodyId]
@@ -1397,14 +1502,19 @@ function EntitySlotService.Prepare(tokenValue: unknown): (PreparedCommit?, strin
 	end
 	table.freeze(mutations)
 
-	local rulesPrepared, rulesPrepareError = EntitySourceOrderRules.Prepare(transaction.rulesTransaction)
+	local rulesPrepared, rulesPrepareError =
+		EntitySourceOrderRules.Prepare(transaction.rulesTransaction)
 	if not rulesPrepared then
 		return nil, rulesPrepareError or "entity-slot-rules-prepare-failed"
 	end
-	if mapRegistrationMembershipChanged and mapRegistrationRevision >= MAXIMUM_MAP_REGISTRATION_REVISION then
+	if
+		mapRegistrationMembershipChanged
+		and mapRegistrationRevision >= MAXIMUM_MAP_REGISTRATION_REVISION
+	then
 		return nil, "map-registration-revision-exhausted"
 	end
-	local nextMapRegistrationRevision = mapRegistrationRevision + (if mapRegistrationMembershipChanged then 1 else 0)
+	local nextMapRegistrationRevision = mapRegistrationRevision
+		+ (if mapRegistrationMembershipChanged then 1 else 0)
 	local pendingReleaseCount = 0
 	for _ in pendingPlayerReleaseSnapshot do
 		pendingReleaseCount += 1
@@ -1480,7 +1590,9 @@ function EntitySlotService.Prepare(tokenValue: unknown): (PreparedCommit?, strin
 	return prepared, nil
 end
 
-function EntitySlotService.InspectPreparedCommitSummary(preparedValue: unknown): PreparedCommitSummary?
+function EntitySlotService.InspectPreparedCommitSummary(
+	preparedValue: unknown
+): PreparedCommitSummary?
 	local capability = select(1, getPreparedCapability(preparedValue))
 	if not capability or preparedCommitCurrentError(preparedValue, capability) then
 		return nil
@@ -1594,7 +1706,8 @@ function EntitySlotService.CanApplyPrepared(preparedValue: unknown): (boolean, s
 	if currentError then
 		return false, currentError
 	end
-	local rulesCanApply, rulesCanApplyError = EntitySourceOrderRules.CanApplyPrepared(capability.rulesPrepared)
+	local rulesCanApply, rulesCanApplyError =
+		EntitySourceOrderRules.CanApplyPrepared(capability.rulesPrepared)
 	if not rulesCanApply then
 		return false, rulesCanApplyError or "entity-slot-rules-preflight-failed"
 	end
@@ -1733,14 +1846,22 @@ function EntitySlotService.GetDebugSnapshot(): DebugSnapshot
 		mapSpawnPlanInstalled = mapSpawnPlanInstalled,
 		mapRegistrationCount = countMapRegistrations(),
 		bodyQueueCount = #bodyQueueRegistrations,
-		nextBodyQueueIndex = if transaction then transaction.nextBodyQueueIndex else nextBodyQueueIndex,
+		nextBodyQueueIndex = if transaction
+			then transaction.nextBodyQueueIndex
+			else nextBodyQueueIndex,
 		bodyQueueCursorOwnerClaimed = bodyQueueCursorOwner ~= nil,
 		pendingPlayerReleaseCount = countPendingPlayerReleases(),
 		transactionOpen = transaction ~= nil,
 		transactionStatus = if transaction then transaction.status else nil,
-		transactionGeneration = if transaction then transaction.rulesTransaction.generation else nil,
-		transactionApplyValidated = if preparedCapability then preparedCapability.applyValidated else false,
-		transactionPreparedRevision = if preparedCapability then preparedCapability.receipt.revision else nil,
+		transactionGeneration = if transaction
+			then transaction.rulesTransaction.generation
+			else nil,
+		transactionApplyValidated = if preparedCapability
+			then preparedCapability.applyValidated
+			else false,
+		transactionPreparedRevision = if preparedCapability
+			then preparedCapability.receipt.revision
+			else nil,
 	}
 	return table.freeze(snapshot)
 end

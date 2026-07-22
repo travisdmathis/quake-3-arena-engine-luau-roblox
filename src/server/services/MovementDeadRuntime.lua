@@ -138,7 +138,8 @@ local function commitPostPmoveCorpsePose(player: Player, state: Movement.State)
 	if not stagedCollection then
 		abortWith(stagedCollectionError or "dead Pmove staged corpse collection unavailable")
 	end
-	local bodiesApplied, bodiesError = CorpseService.ApplyMoverBodies(token, stagedCollection.bodies)
+	local bodiesApplied, bodiesError =
+		CorpseService.ApplyMoverBodies(token, stagedCollection.bodies)
 	if not bodiesApplied then
 		abortWith(bodiesError or "dead Pmove corpse bodies did not apply")
 	end
@@ -167,23 +168,29 @@ function MovementDeadRuntime.Step(
 	local queries, queriesError =
 		DeadPmoveTraceComposition.Create(frame, runtime.deadWorldDomain, request.pointContents)
 	assert(queries, queriesError or "failed to bind dead Pmove trace")
-	local nextDeadState, effects =
-		Movement.stepDead(request.deadState, request.command, request.deltaTime, queries.trace, queries.pointContents)
+	local nextDeadState, effects = Movement.stepDead(
+		request.deadState,
+		request.command,
+		request.deltaTime,
+		queries.trace,
+		queries.pointContents
+	)
 	table.freeze(nextDeadState)
 	local state = nextDeadState.state
 	commitPostPmoveCorpsePose(player, state)
-	local capture, captureSummary, captureError = PostPmoveCorpseSourceService.CapturePostPmove(player, {
-		movementRevision = request.movementRevision,
-		commandSequence = request.commandSequence,
-		lifeSequence = request.lifeSequence,
-		moverClockRevision = request.moverClockRevision,
-		moverClockStep = request.moverClockStep,
-		moverTimeMilliseconds = request.moverTimeMilliseconds,
-		position = state.position,
-		entityTrajectoryDelta = state.velocity,
-		grounded = state.grounded,
-		groundMoverId = state.groundMoverId,
-	})
+	local capture, captureSummary, captureError =
+		PostPmoveCorpseSourceService.CapturePostPmove(player, {
+			movementRevision = request.movementRevision,
+			commandSequence = request.commandSequence,
+			lifeSequence = request.lifeSequence,
+			moverClockRevision = request.moverClockRevision,
+			moverClockStep = request.moverClockStep,
+			moverTimeMilliseconds = request.moverTimeMilliseconds,
+			position = state.position,
+			entityTrajectoryDelta = state.velocity,
+			grounded = state.grounded,
+			groundMoverId = state.groundMoverId,
+		})
 	assert(capture and captureSummary, captureError or "dead Pmove capture failed")
 	return nextDeadState, effects, capture, captureSummary
 end
@@ -194,9 +201,13 @@ function MovementDeadRuntime.TraceBodyQueue(
 	origin: Vector3,
 	displacement: Vector3
 ): Movement.TraceResult
-	local queries, queriesError = DeadPmoveTraceComposition.Create(frame, runtime.deadWorldDomain, function()
-		return 0
-	end)
+	local queries, queriesError = DeadPmoveTraceComposition.Create(
+		frame,
+		runtime.deadWorldDomain,
+		function()
+			return 0
+		end
+	)
 	assert(queries, queriesError or "failed to bind body-queue trace")
 	return queries.trace(origin, displacement, BODY_QUEUE_TRACE_QUERY)
 end

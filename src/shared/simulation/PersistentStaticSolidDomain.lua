@@ -8,7 +8,6 @@
 
 local Workspace = game:GetService("Workspace")
 
-local MapNativeStyles = require(script.Parent.Parent.maps.MapNativeStyles)
 local StaticWorldPartPolicy = require(script.Parent.StaticWorldPartPolicy)
 
 local PersistentStaticSolidDomain = {}
@@ -22,23 +21,23 @@ type DomainRecord = {
 	connections: { RBXScriptConnection },
 }
 
-local MODEL_NAME = "ArenaPersistentStaticSolidDomain"
+local MODEL_NAME = "Q3EnginePersistentStaticSolidDomain"
 local CFRAME_EPSILON = 1e-5
 
 local Attributes = table.freeze({
-	Marker = "ArenaPersistentStaticSolidDomain",
-	MapId = "ArenaStaticMapId",
-	MapRevision = "ArenaStaticMapRevision",
-	SchemaVersion = "ArenaStaticMapSchemaVersion",
-	ChunkCount = "ArenaStaticChunkCount",
+	Marker = "Q3EnginePersistentStaticSolidDomain",
+	MapId = "Q3EngineStaticMapId",
+	MapRevision = "Q3EngineStaticMapRevision",
+	SchemaVersion = "Q3EngineStaticMapSchemaVersion",
+	ChunkCount = "Q3EngineStaticChunkCount",
 })
 
 local PartAttributes = table.freeze({
-	EntityId = "ArenaMapEntityId",
-	SurfaceKind = "ArenaSurfaceKind",
-	SurfaceSlick = "ArenaSurfaceSlick",
-	SurfaceNoDamage = "ArenaSurfaceNoDamage",
-	SurfaceNoImpact = "ArenaSurfaceNoImpact",
+	EntityId = "Q3EngineMapEntityId",
+	SurfaceKind = "Q3EngineSurfaceKind",
+	SurfaceSlick = "Q3EngineSurfaceSlick",
+	SurfaceNoDamage = "Q3EngineSurfaceNoDamage",
+	SurfaceNoImpact = "Q3EngineSurfaceNoImpact",
 })
 
 local MODEL_ATTRIBUTE_SET: { [string]: boolean } = {}
@@ -52,27 +51,6 @@ for _, attributeName in PartAttributes do
 	PART_ATTRIBUTE_SET[attributeName] = true
 end
 table.freeze(PART_ATTRIBUTE_SET)
-
-local legacyChunkNames = table.freeze({
-	floor = "Floor",
-	north_wall = "NorthWall",
-	south_wall = "SouthWall",
-	west_wall = "WestWall",
-	east_wall = "EastWall",
-	central_dais = "CentralDais",
-	upper_bridge = "UpperBridge",
-	bridge_support_left = "BridgeSupportLeft",
-	bridge_support_right = "BridgeSupportRight",
-	movement_step_01 = "MovementStep01",
-	movement_step_02 = "MovementStep02",
-	movement_step_03 = "MovementStep03",
-	movement_step_04 = "MovementStep04",
-	movement_step_05 = "MovementStep05",
-	movement_step_06 = "MovementStep06",
-	strafe_ramp = "StrafeRamp",
-	red_zone_trim = "RedZoneTrim",
-	blue_zone_trim = "BlueZoneTrim",
-})
 
 local records: { [Domain]: DomainRecord } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -118,7 +96,7 @@ local function chunkCFrame(chunk: any): CFrame
 end
 
 function PersistentStaticSolidDomain.RuntimePartName(chunkId: string): string
-	return legacyChunkNames[chunkId] or chunkId
+	return chunkId
 end
 
 local function appendPartDiagnostics(diagnostics: { string }, part: BasePart, chunk: any, staticChunkCount: number)
@@ -165,10 +143,6 @@ local function appendPartDiagnostics(diagnostics: { string }, part: BasePart, ch
 		table.insert(diagnostics, prefix .. "PartShapeMismatch")
 	end
 
-	local style = MapNativeStyles.Get(chunk.styleId)
-	if not style or part.Material ~= style.material or part.Color ~= style.color then
-		table.insert(diagnostics, prefix .. "StyleMismatch")
-	end
 	local surface = chunk.surface
 	if part:GetAttribute(PartAttributes.SurfaceKind) ~= surface.kind then
 		table.insert(diagnostics, prefix .. "SurfaceKindMismatch")
@@ -241,13 +215,13 @@ function PersistentStaticSolidDomain.Verify(modelValue: unknown, trustedMapValue
 	if not world or not world:IsA("Folder") then
 		table.insert(diagnostics, "StaticSolidDomain:WorldParentMismatch")
 	else
-		if world:GetAttribute("ArenaMapId") ~= trustedMap.MapId then
+		if world:GetAttribute("Q3EngineMapId") ~= trustedMap.MapId then
 			table.insert(diagnostics, "StaticSolidDomain:WorldMapIdMismatch")
 		end
-		if world:GetAttribute("ArenaMapRevision") ~= trustedMap.Revision then
+		if world:GetAttribute("Q3EngineMapRevision") ~= trustedMap.Revision then
 			table.insert(diagnostics, "StaticSolidDomain:WorldMapRevisionMismatch")
 		end
-		if world:GetAttribute("ArenaMapSchemaVersion") ~= definition.schemaVersion then
+		if world:GetAttribute("Q3EngineMapSchemaVersion") ~= definition.schemaVersion then
 			table.insert(diagnostics, "StaticSolidDomain:WorldSchemaVersionMismatch")
 		end
 	end
@@ -394,9 +368,9 @@ function PersistentStaticSolidDomain.ValidatePublished(
 		connectInvalidation(record, child.Changed)
 		connectInvalidation(record, child.AttributeChanged)
 	end
-	connectInvalidation(record, world:GetAttributeChangedSignal("ArenaMapId"))
-	connectInvalidation(record, world:GetAttributeChangedSignal("ArenaMapRevision"))
-	connectInvalidation(record, world:GetAttributeChangedSignal("ArenaMapSchemaVersion"))
+	connectInvalidation(record, world:GetAttributeChangedSignal("Q3EngineMapId"))
+	connectInvalidation(record, world:GetAttributeChangedSignal("Q3EngineMapRevision"))
+	connectInvalidation(record, world:GetAttributeChangedSignal("Q3EngineMapSchemaVersion"))
 	connectInvalidation(record, world.AncestryChanged)
 
 	return token, diagnostics

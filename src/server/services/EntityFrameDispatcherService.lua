@@ -45,7 +45,8 @@ assert(RunService:IsServer(), "EntityFrameDispatcherService is server-only")
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
 local EntityFrameTraversalRules =
 	require(sharedRoot:WaitForChild("simulation"):WaitForChild("EntityFrameTraversalRules"))
-local EntitySpawnPlanRules = require(sharedRoot:WaitForChild("maps"):WaitForChild("EntitySpawnPlanRules"))
+local EntitySpawnPlanRules =
+	require(sharedRoot:WaitForChild("maps"):WaitForChild("EntitySpawnPlanRules"))
 
 local AuthoritativeFrameService = require(script.Parent.AuthoritativeFrameService)
 local EntitySlotService = require(script.Parent.EntitySlotService)
@@ -58,6 +59,8 @@ export type PreparedDynamicBatch = {}
 export type DynamicBatchReceipt = {}
 export type DynamicTailOwner = {}
 export type ExecutionMode = "Unclaimed" | "Full" | "DynamicTail"
+export type FaultPhase = "Full" | "PreMoverWorld" | "DynamicTail"
+export type FaultCheckpoint = "Traversal" | "Handler" | "Postconditions"
 
 export type ClientHandler = (
 	frame: AuthoritativeFrameService.Frame,
@@ -147,6 +150,12 @@ export type DebugSnapshot = {
 	read clientHandlerConfigured: boolean,
 	read bodyQueueHandlerConfigured: boolean,
 	read mapHandlerCount: number,
+	read faultPhase: FaultPhase?,
+	read faultCheckpoint: FaultCheckpoint?,
+	read faultKind: string?,
+	read faultSourceOrder: number?,
+	read faultGeneration: number?,
+	read faultFrameStep: number?,
 }
 
 type DynamicBindingStatus = "Pending" | "Active" | "Unbound" | "Aborted" | "Faulted"
@@ -214,7 +223,8 @@ local FIRST_WORLD_SOURCE_ORDER = 65
 local FIRST_MAP_SOURCE_ORDER = 73
 
 assert(
-	FIRST_MAP_SOURCE_ORDER == EntitySpawnPlanRules.FirstWorldSourceOrder + EntitySpawnPlanRules.BodyQueueSize,
+	FIRST_MAP_SOURCE_ORDER
+		== EntitySpawnPlanRules.FirstWorldSourceOrder + EntitySpawnPlanRules.BodyQueueSize,
 	"dynamic-tail first map source order drifted"
 )
 
@@ -230,6 +240,18 @@ local dynamicTailFirstSourceOrder: number? = nil
 local dynamicTailFirstMoverSourceOrder: number? = nil
 local dynamicTailValidatedMapRegistrationRevision: number? = nil
 local dynamicPrefixFrameSummary: AuthoritativeFrameService.Summary? = nil
+local activeTraversalPhase: FaultPhase? = nil
+local activeFaultCheckpoint: FaultCheckpoint? = nil
+local activeDispatchKind: string? = nil
+local activeDispatchSourceOrder: number? = nil
+local activeDispatchGeneration: number? = nil
+local activeFrameStep: number? = nil
+local faultPhase: FaultPhase? = nil
+local faultCheckpoint: FaultCheckpoint? = nil
+local faultKind: string? = nil
+local faultSourceOrder: number? = nil
+local faultGeneration: number? = nil
+local faultFrameStep: number? = nil
 
 local clientHandler: ClientHandler? = nil
 local bodyQueueHandler: BodyQueueHandler? = nil
@@ -316,7 +338,11 @@ local UNBIND_OPERATION_KEYS: { [string]: boolean } = table.freeze({
 	binding = true,
 })
 
-local function hasExactRawKeys(value: unknown, allowedKeys: { [string]: boolean }, expectedCount: number): boolean
+local function hasExactRawKeys(
+	value: unknown,
+	allowedKeys: { [string]: boolean },
+	expectedCount: number
+): boolean
 	if type(value) ~= "table" or getmetatable(value) ~= nil then
 		return false
 	end
@@ -342,7 +368,10 @@ local function denseOperationCount(value: unknown): number?
 		end
 		count += 1
 		maximumIndex = math.max(maximumIndex, key)
-		if count > MAXIMUM_DYNAMIC_BATCH_OPERATIONS or maximumIndex > MAXIMUM_DYNAMIC_BATCH_OPERATIONS then
+		if
+			count > MAXIMUM_DYNAMIC_BATCH_OPERATIONS
+			or maximumIndex > MAXIMUM_DYNAMIC_BATCH_OPERATIONS
+		then
 			return nil
 		end
 	end
@@ -350,7 +379,11 @@ local function denseOperationCount(value: unknown): number?
 end
 
 local function isFrozenWorldRegistration(value: unknown): boolean
-	if type(value) ~= "table" or getmetatable(value) ~= nil or not table.isfrozen(value :: table) then
+	if
+		type(value) ~= "table"
+		or getmetatable(value) ~= nil
+		or not table.isfrozen(value :: table)
+	then
 		return false
 	end
 	local registration = value :: any
@@ -369,7 +402,10 @@ local function isFrozenWorldRegistration(value: unknown): boolean
 end
 
 local function nextDynamicBindingRevision(): number
-	assert(dynamicBindingRevision < MAXIMUM_DYNAMIC_BINDING_REVISION, "dynamic binding revision exhausted")
+	assert(
+		dynamicBindingRevision < MAXIMUM_DYNAMIC_BINDING_REVISION,
+		"dynamic binding revision exhausted"
+	)
 	return dynamicBindingRevision + 1
 end
 
@@ -435,12 +471,17 @@ local function preparedCurrentError(
 		end
 	end
 	if validateEntitySlot then
-		local valid, dependencyError =
-			EntitySlotService.ValidatePreparedCommitDependency(capability.entityPrepared, capability.entitySummary)
+		local valid, dependencyError = EntitySlotService.ValidatePreparedCommitDependency(
+			capability.entityPrepared,
+			capability.entitySummary
+		)
 		if not valid then
 			return dependencyError or "stale-prepared-dynamic-entity-slot-dependency"
 		end
-		if EntitySlotService.InspectPreparedCommitReceipt(capability.entityPrepared) ~= capability.entityReceipt then
+		if
+			EntitySlotService.InspectPreparedCommitReceipt(capability.entityPrepared)
+			~= capability.entityReceipt
+		then
 			return "stale-prepared-dynamic-entity-slot-receipt"
 		end
 	end
@@ -491,7 +532,11 @@ local function mapRegistrationForExactWorld(
 	return found, nil
 end
 
-local function inspectInstalledContiguousMapPrefix(): ({ EntitySlotService.MapRegistration }?, number?, string?)
+local function inspectInstalledContiguousMapPrefix(): (
+	{ EntitySlotService.MapRegistration }?,
+	number?,
+	string?
+)
 	if not EntitySlotService.IsMapSpawnPlanInstalled() then
 		return nil, nil, "entity-slot-map-spawn-plan-not-installed"
 	end
@@ -596,7 +641,9 @@ local function assertDynamicTailPrefixCurrent()
 end
 
 local function isCurrentDynamicTailOwner(ownerValue: unknown): boolean
-	return isOpaqueEmptyCapability(ownerValue) and dynamicTailOwner ~= nil and ownerValue == dynamicTailOwner
+	return isOpaqueEmptyCapability(ownerValue)
+		and dynamicTailOwner ~= nil
+		and ownerValue == dynamicTailOwner
 end
 
 local function exactOpenFrameSummary(frameValue: unknown): AuthoritativeFrameService.Summary?
@@ -618,8 +665,14 @@ local function assertHandlerPostconditions(
 	summary: AuthoritativeFrameService.Summary
 )
 	assert(not faulted, "entity-frame dispatcher faulted inside an entity handler")
-	assert(activePreparedDynamicBatch == nil, "entity-frame handler left a prepared dynamic batch active")
-	assert(exactOpenFrameSummary(frame) == summary, "entity-frame handler invalidated the exact open frame")
+	assert(
+		activePreparedDynamicBatch == nil,
+		"entity-frame handler left a prepared dynamic batch active"
+	)
+	assert(
+		exactOpenFrameSummary(frame) == summary,
+		"entity-frame handler invalidated the exact open frame"
+	)
 	assert(
 		EntitySlotService.GetTraversalUpperBound() ~= nil,
 		"entity-frame handler left an EntitySlot transaction open"
@@ -630,6 +683,40 @@ local function discardCaughtDispatcherError(_errorValue: unknown)
 	-- Do not retain, stringify, trace, publish, or replicate a caught handler
 	-- value. The caller receives only the static terminal dispatcher signal.
 	return nil
+end
+
+local function beginVisitSite(registration: EntitySlotService.Registration)
+	assert(activeTraversalPhase ~= nil, "entity-frame dispatch site has no traversal phase")
+	assert(activeDispatchKind == nil, "entity-frame dispatch sites cannot nest")
+	assert(
+		activeDispatchSourceOrder == nil
+			or (
+				activeDispatchSourceOrder == registration.sourceOrder
+				and activeDispatchGeneration == registration.generation
+			),
+		"entity-frame visit sites cannot cross registrations"
+	)
+	activeFaultCheckpoint = "Traversal"
+	activeDispatchSourceOrder = registration.sourceOrder
+	activeDispatchGeneration = registration.generation
+end
+
+local function beginDispatchSite(kind: string, registration: EntitySlotService.Registration)
+	beginVisitSite(registration)
+	activeFaultCheckpoint = "Handler"
+	activeDispatchKind = kind
+end
+
+local function beginDispatchPostconditions()
+	assert(activeDispatchKind ~= nil, "entity-frame postconditions have no dispatch site")
+	activeFaultCheckpoint = "Postconditions"
+end
+
+local function endDispatchSite()
+	activeFaultCheckpoint = "Traversal"
+	activeDispatchKind = nil
+	activeDispatchSourceOrder = nil
+	activeDispatchGeneration = nil
 end
 
 local function quarantineDynamicBindings()
@@ -662,6 +749,25 @@ local function latchTerminalFault()
 		return
 	end
 	faulted = true
+	if activeTraversalPhase ~= nil then
+		faultPhase = activeTraversalPhase
+		faultCheckpoint = activeFaultCheckpoint
+		faultKind = activeDispatchKind
+		faultSourceOrder = activeDispatchSourceOrder
+		faultGeneration = activeDispatchGeneration
+		faultFrameStep = activeFrameStep
+		warn(
+			string.format(
+				"[Q3EngineEntityFrameFault] phase=%s checkpoint=%s kind=%s sourceOrder=%d generation=%d frameStep=%d",
+				faultPhase,
+				faultCheckpoint or "Traversal",
+				faultKind or "Traversal",
+				faultSourceOrder or 0,
+				faultGeneration or 0,
+				faultFrameStep or 0
+			)
+		)
+	end
 	quarantineDynamicBindings()
 end
 
@@ -688,6 +794,7 @@ local function dispatchRegistration(
 	registration: EntitySlotService.Registration,
 	counters: RunCounters
 )
+	beginVisitSite(registration)
 	local sourceOrder = registration.sourceOrder
 	assert(
 		EntitySlotService.InspectSlot(sourceOrder) == registration,
@@ -699,8 +806,11 @@ local function dispatchRegistration(
 		local handler = clientHandler
 		assert(player ~= nil, "entity-frame client registration has no exact active Player")
 		assert(handler ~= nil, "entity-frame client handler is missing")
+		beginDispatchSite("Player", registration)
 		handler(frame, summary, player, registration)
+		beginDispatchPostconditions()
 		assertHandlerPostconditions(frame, summary)
+		endDispatchSite()
 		counters.client += 1
 		return
 	end
@@ -714,8 +824,11 @@ local function dispatchRegistration(
 			"entity-frame body-queue registration is mismatched"
 		)
 		assert(handler ~= nil, "entity-frame body-queue handler is missing")
+		beginDispatchSite("BodyQueue", registration)
 		handler(frame, summary, registration)
+		beginDispatchPostconditions()
 		assertHandlerPostconditions(frame, summary)
+		endDispatchSite()
 		counters.bodyQueue += 1
 		return
 	end
@@ -726,8 +839,11 @@ local function dispatchRegistration(
 	if mapRegistration then
 		local handler = mapHandlers[mapRegistration.kind]
 		assert(handler ~= nil, "entity-frame retained map-kind handler is missing")
+		beginDispatchSite(mapRegistration.kind, registration)
 		handler(frame, summary, mapRegistration)
+		beginDispatchPostconditions()
 		assertHandlerPostconditions(frame, summary)
+		endDispatchSite()
 		counters.map += 1
 		return
 	end
@@ -743,8 +859,11 @@ local function dispatchRegistration(
 	)
 	local handler = capability.handler
 	assert(handler ~= nil, "active dynamic world registration handler is missing")
+	beginDispatchSite(capability.declaredKind, registration)
 	handler(frame, summary, registration, capability.binding, capability.declaredKind)
+	beginDispatchPostconditions()
 	assertHandlerPostconditions(frame, summary)
+	endDispatchSite()
 	counters.dynamic += 1
 end
 
@@ -754,7 +873,11 @@ local function dispatchDynamicTailRegistration(
 	registration: EntitySlotService.Registration,
 	counters: RunCounters
 )
-	assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active before a dynamic-tail handler")
+	beginVisitSite(registration)
+	assert(
+		activePreparedDynamicBatch == nil,
+		"prepared dynamic batch is active before a dynamic-tail handler"
+	)
 	assert(
 		registration.kind == "World"
 			and registration.domain == "World"
@@ -777,9 +900,15 @@ local function dispatchDynamicTailRegistration(
 	)
 	local handler = capability.handler
 	assert(handler ~= nil, "dynamic-tail registration handler is missing")
+	beginDispatchSite(capability.declaredKind, registration)
 	handler(frame, summary, registration, capability.binding, capability.declaredKind)
-	assert(activePreparedDynamicBatch == nil, "dynamic-tail handler left a prepared dynamic batch active")
+	beginDispatchPostconditions()
+	assert(
+		activePreparedDynamicBatch == nil,
+		"dynamic-tail handler left a prepared dynamic batch active"
+	)
 	assertHandlerPostconditions(frame, summary)
+	endDispatchSite()
 	counters.dynamic += 1
 end
 
@@ -1012,7 +1141,9 @@ function EntityFrameDispatcherService.PrepareDynamicBatch(
 	local observedUnbindSourceOrders: { [number]: boolean } = {}
 	local observedUnbindBindings: { [DynamicBinding]: boolean } = {}
 
-	local function fail(message: string): (PreparedDynamicBatch?, PreparedDynamicBatchSummary?, string?)
+	local function fail(
+		message: string
+	): (PreparedDynamicBatch?, PreparedDynamicBatchSummary?, string?)
 		for _, capability in newCapabilities do
 			capability.status = "Aborted"
 			capability.handler = nil
@@ -1061,7 +1192,9 @@ function EntityFrameDispatcherService.PrepareDynamicBatch(
 
 		if kind == "Bind" then
 			if not hasExactRawKeys(operationValue, BIND_OPERATION_KEYS, 4) then
-				return fail(string.format("dynamic-operation-%d:invalid-bind-shape", operationIndex))
+				return fail(
+					string.format("dynamic-operation-%d:invalid-bind-shape", operationIndex)
+				)
 			end
 			local declaredKindValue = rawget(operation, "declaredKind")
 			local handlerValue = rawget(operation, "handler")
@@ -1069,7 +1202,9 @@ function EntityFrameDispatcherService.PrepareDynamicBatch(
 				return fail(string.format("dynamic-operation-%d:invalid-bind", operationIndex))
 			end
 			if observedBindSourceOrders[sourceOrder] or nextBindings[sourceOrder] ~= nil then
-				return fail(string.format("dynamic-operation-%d:bind-source-collision", operationIndex))
+				return fail(
+					string.format("dynamic-operation-%d:bind-source-collision", operationIndex)
+				)
 			end
 			local retained, retainedError = validateWorldOutcome(registration, "Retained")
 			if not retained then
@@ -1114,7 +1249,9 @@ function EntityFrameDispatcherService.PrepareDynamicBatch(
 			table.insert(outcomes, outcome)
 		elseif kind == "Unbind" then
 			if not hasExactRawKeys(operationValue, UNBIND_OPERATION_KEYS, 3) then
-				return fail(string.format("dynamic-operation-%d:invalid-unbind-shape", operationIndex))
+				return fail(
+					string.format("dynamic-operation-%d:invalid-unbind-shape", operationIndex)
+				)
 			end
 			local bindingValue = rawget(operation, "binding")
 			local bindingCapability = currentDynamicBinding(bindingValue)
@@ -1215,17 +1352,27 @@ function EntityFrameDispatcherService.PrepareDynamicBatch(
 	return prepared, summary, nil
 end
 
-function EntityFrameDispatcherService.InspectPreparedDynamicBatch(preparedValue: unknown): PreparedDynamicBatchSummary?
+function EntityFrameDispatcherService.InspectPreparedDynamicBatch(
+	preparedValue: unknown
+): PreparedDynamicBatchSummary?
 	local capability = select(1, currentPreparedCapability(preparedValue))
-	if not capability or preparedCurrentError(preparedValue :: PreparedDynamicBatch, capability, true) then
+	if
+		not capability
+		or preparedCurrentError(preparedValue :: PreparedDynamicBatch, capability, true)
+	then
 		return nil
 	end
 	return capability.summary
 end
 
-function EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(preparedValue: unknown): DynamicBatchReceipt?
+function EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(
+	preparedValue: unknown
+): DynamicBatchReceipt?
 	local capability = select(1, currentPreparedCapability(preparedValue))
-	if not capability or preparedCurrentError(preparedValue :: PreparedDynamicBatch, capability, true) then
+	if
+		not capability
+		or preparedCurrentError(preparedValue :: PreparedDynamicBatch, capability, true)
+	then
 		return nil
 	end
 	return capability.receipt
@@ -1286,7 +1433,9 @@ function EntityFrameDispatcherService.ValidateAppliedDynamicBatchDependency(
 	return true, nil
 end
 
-function EntityFrameDispatcherService.CanApplyPreparedDynamicBatch(preparedValue: unknown): (boolean, string?)
+function EntityFrameDispatcherService.CanApplyPreparedDynamicBatch(
+	preparedValue: unknown
+): (boolean, string?)
 	local capability, capabilityError = currentPreparedCapability(preparedValue)
 	if not capability then
 		return false, capabilityError
@@ -1302,16 +1451,29 @@ function EntityFrameDispatcherService.CanApplyPreparedDynamicBatch(preparedValue
 	return true, nil
 end
 
-function EntityFrameDispatcherService.ApplyPreparedDynamicBatch(preparedValue: unknown): DynamicBatchReceipt
+function EntityFrameDispatcherService.ApplyPreparedDynamicBatch(
+	preparedValue: unknown
+): DynamicBatchReceipt
 	local capability, capabilityError = currentPreparedCapability(preparedValue)
 	assert(capability, capabilityError or "invalid-prepared-dynamic-batch")
 	assert(capability.applyValidated, "prepared dynamic batch was not preflighted")
-	assert(capability.preflightPassCount >= 2, "prepared dynamic batch requires two complete preflight passes")
+	assert(
+		capability.preflightPassCount >= 2,
+		"prepared dynamic batch requires two complete preflight passes"
+	)
 	local prepared = preparedValue :: PreparedDynamicBatch
-	assert(preparedCurrentError(prepared, capability, false) == nil, "stale prepared dynamic batch at apply")
-	local entityApplied, entityAppliedError =
-		EntitySlotService.ValidateAppliedCommitDependency(capability.entityReceipt, capability.entitySummary)
-	assert(entityApplied, entityAppliedError or "prepared dynamic batch EntitySlot dependency was not applied")
+	assert(
+		preparedCurrentError(prepared, capability, false) == nil,
+		"stale prepared dynamic batch at apply"
+	)
+	local entityApplied, entityAppliedError = EntitySlotService.ValidateAppliedCommitDependency(
+		capability.entityReceipt,
+		capability.entitySummary
+	)
+	assert(
+		entityApplied,
+		entityAppliedError or "prepared dynamic batch EntitySlot dependency was not applied"
+	)
 	local receiptCapability = assert(
 		dynamicBatchReceiptCapabilities[capability.receipt],
 		"prepared dynamic batch receipt capability disappeared"
@@ -1492,10 +1654,16 @@ function EntityFrameDispatcherService.Run(frameValue: unknown)
 
 	configurationSealed = true
 	running = true
+	activeTraversalPhase = "Full"
+	activeFaultCheckpoint = "Traversal"
 	local succeeded = xpcall(function()
-		assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active before Full traversal")
+		assert(
+			activePreparedDynamicBatch == nil,
+			"prepared dynamic batch is active before Full traversal"
+		)
 		local summary = exactOpenFrameSummary(frameValue)
 		assert(summary ~= nil, "entity-frame dispatcher requires the exact open frame")
+		activeFrameStep = summary.toStep
 		if completedFrameCount > 0 then
 			assert(
 				summary.clockRevision >= lastClockRevision
@@ -1517,12 +1685,18 @@ function EntityFrameDispatcherService.Run(frameValue: unknown)
 
 		while true do
 			assert(not faulted, "entity-frame dispatcher faulted during traversal")
-			assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active during Full traversal")
+			assert(
+				activePreparedDynamicBatch == nil,
+				"prepared dynamic batch is active during Full traversal"
+			)
 			assert(
 				exactOpenFrameSummary(frame) == summary,
 				"entity-frame dispatcher open-frame dependency became stale"
 			)
-			assert(EntityFrameTraversalRules.Inspect(cursor) == cursor, "entity-frame traversal cursor became stale")
+			assert(
+				EntityFrameTraversalRules.Inspect(cursor) == cursor,
+				"entity-frame traversal cursor became stale"
+			)
 			local upperBound = EntitySlotService.GetTraversalUpperBound()
 			assert(upperBound ~= nil, "entity-slot transaction is open during entity traversal")
 			local sourceOrder = cursor.nextSourceOrder
@@ -1533,7 +1707,8 @@ function EntityFrameDispatcherService.Run(frameValue: unknown)
 				occupied = registration ~= nil
 			end
 
-			local nextCursor, step, advanceError = EntityFrameTraversalRules.Advance(cursor, upperBound, occupied)
+			local nextCursor, step, advanceError =
+				EntityFrameTraversalRules.Advance(cursor, upperBound, occupied)
 			assert(
 				nextCursor ~= nil and step ~= nil and advanceError == nil,
 				"entity-frame traversal did not advance monotonically"
@@ -1547,7 +1722,10 @@ function EntityFrameDispatcherService.Run(frameValue: unknown)
 				)
 				break
 			end
-			assert(step.sourceOrder == sourceOrder, "entity-frame traversal visited a mismatched numeric slot")
+			assert(
+				step.sourceOrder == sourceOrder,
+				"entity-frame traversal visited a mismatched numeric slot"
+			)
 			if step.kind == "Skip" then
 				assert(registration == nil, "entity-frame traversal skipped an active registration")
 				assert(
@@ -1565,7 +1743,10 @@ function EntityFrameDispatcherService.Run(frameValue: unknown)
 			exactOpenFrameSummary(frame) == summary,
 			"entity-frame dispatcher frame closed before traversal completed"
 		)
-		assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active after Full traversal")
+		assert(
+			activePreparedDynamicBatch == nil,
+			"prepared dynamic batch is active after Full traversal"
+		)
 		local finalCursor = EntityFrameTraversalRules.Inspect(cursor)
 		assert(
 			finalCursor ~= nil
@@ -1593,8 +1774,15 @@ function EntityFrameDispatcherService.Run(frameValue: unknown)
 	running = false
 	if not succeeded then
 		latchTerminalFault()
+		endDispatchSite()
+		activeTraversalPhase = nil
+		activeFaultCheckpoint = nil
+		activeFrameStep = nil
 		error("entity frame dispatcher faulted", 0)
 	end
+	activeTraversalPhase = nil
+	activeFaultCheckpoint = nil
+	activeFrameStep = nil
 end
 
 function EntityFrameDispatcherService.RunPreMoverWorld(ownerValue: unknown, frameValue: unknown)
@@ -1608,18 +1796,27 @@ function EntityFrameDispatcherService.RunPreMoverWorld(ownerValue: unknown, fram
 		latchTerminalFault()
 		error("entity frame dispatcher faulted", 0)
 	end
-	local firstMoverSourceOrder =
-		assert(dynamicTailFirstMoverSourceOrder, "dynamic-tail first mover source order is unavailable")
+	local firstMoverSourceOrder = assert(
+		dynamicTailFirstMoverSourceOrder,
+		"dynamic-tail first mover source order is unavailable"
+	)
 
 	running = true
+	activeTraversalPhase = "PreMoverWorld"
+	activeFaultCheckpoint = "Traversal"
 	local succeeded = xpcall(function()
-		assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active before pre-mover traversal")
+		assert(
+			activePreparedDynamicBatch == nil,
+			"prepared dynamic batch is active before pre-mover traversal"
+		)
 		assertDynamicTailPrefixCurrent()
 		local summary = exactOpenFrameSummary(frameValue)
 		assert(summary ~= nil, "pre-mover dispatcher requires the exact open frame")
+		activeFrameStep = summary.toStep
 		if completedFrameCount > 0 then
 			assert(
-				summary.toStep > lastFrameStep and summary.currentTimeMilliseconds > lastFrameLevelTimeMilliseconds,
+				summary.toStep > lastFrameStep
+					and summary.currentTimeMilliseconds > lastFrameLevelTimeMilliseconds,
 				"pre-mover dispatcher received a duplicate or regressed frame"
 			)
 		end
@@ -1628,34 +1825,59 @@ function EntityFrameDispatcherService.RunPreMoverWorld(ownerValue: unknown, fram
 		if rangeEnd >= FIRST_WORLD_SOURCE_ORDER then
 			local cursor = assert(EntityFrameTraversalRules.BeginAt(FIRST_WORLD_SOURCE_ORDER))
 			while true do
-				assert(activePreparedDynamicBatch == nil, "prepared batch leaked during pre-mover traversal")
-				assert(exactOpenFrameSummary(frame) == summary, "pre-mover frame dependency became stale")
+				assert(
+					activePreparedDynamicBatch == nil,
+					"prepared batch leaked during pre-mover traversal"
+				)
+				assert(
+					exactOpenFrameSummary(frame) == summary,
+					"pre-mover frame dependency became stale"
+				)
 				local sourceOrder = cursor.nextSourceOrder
-				local registration = if sourceOrder <= rangeEnd then EntitySlotService.InspectSlot(sourceOrder) else nil
+				local registration = if sourceOrder <= rangeEnd
+					then EntitySlotService.InspectSlot(sourceOrder)
+					else nil
 				local occupied = if sourceOrder <= rangeEnd then registration ~= nil else nil
-				local nextCursor, step, advanceError = EntityFrameTraversalRules.Advance(cursor, rangeEnd, occupied)
+				local nextCursor, step, advanceError =
+					EntityFrameTraversalRules.Advance(cursor, rangeEnd, occupied)
 				assert(nextCursor and step and not advanceError, "pre-mover cursor did not advance")
 				cursor = nextCursor
 				if step.kind == "Complete" then
 					break
 				elseif step.kind == "Skip" then
-					assert(dynamicBindingsBySourceOrder[sourceOrder] == nil, "pre-mover gap retained a binding")
+					assert(
+						dynamicBindingsBySourceOrder[sourceOrder] == nil,
+						"pre-mover gap retained a binding"
+					)
 				else
-					local exactRegistration = assert(registration, "pre-mover visit lost registration")
+					local exactRegistration =
+						assert(registration, "pre-mover visit lost registration")
+					beginVisitSite(exactRegistration)
 					if exactRegistration.kind == "BodyQueue" then
 						local handler = bodyQueueHandler
 						if handler then
+							beginDispatchSite("BodyQueue", exactRegistration)
 							handler(frame, summary, exactRegistration)
+							beginDispatchPostconditions()
 							assertHandlerPostconditions(frame, summary)
+							endDispatchSite()
+						else
+							endDispatchSite()
 						end
 					else
-						local mapRegistration, mapError = mapRegistrationForExactWorld(exactRegistration)
+						local mapRegistration, mapError =
+							mapRegistrationForExactWorld(exactRegistration)
 						assert(mapError == nil, "pre-mover map classification is unavailable")
 						if mapRegistration then
 							local handler = mapHandlers[mapRegistration.kind]
 							if handler then
+								beginDispatchSite(mapRegistration.kind, exactRegistration)
 								handler(frame, summary, mapRegistration)
+								beginDispatchPostconditions()
 								assertHandlerPostconditions(frame, summary)
+								endDispatchSite()
+							else
+								endDispatchSite()
 							end
 						else
 							local counters: RunCounters = {
@@ -1664,7 +1886,12 @@ function EntityFrameDispatcherService.RunPreMoverWorld(ownerValue: unknown, fram
 								map = 0,
 								dynamic = 0,
 							}
-							dispatchDynamicTailRegistration(frame, summary, exactRegistration, counters)
+							dispatchDynamicTailRegistration(
+								frame,
+								summary,
+								exactRegistration,
+								counters
+							)
 						end
 					end
 				end
@@ -1677,8 +1904,15 @@ function EntityFrameDispatcherService.RunPreMoverWorld(ownerValue: unknown, fram
 	running = false
 	if not succeeded then
 		latchTerminalFault()
+		endDispatchSite()
+		activeTraversalPhase = nil
+		activeFaultCheckpoint = nil
+		activeFrameStep = nil
 		error("entity frame dispatcher faulted", 0)
 	end
+	activeTraversalPhase = nil
+	activeFaultCheckpoint = nil
+	activeFrameStep = nil
 end
 
 function EntityFrameDispatcherService.RunDynamicTail(ownerValue: unknown, frameValue: unknown)
@@ -1696,11 +1930,17 @@ function EntityFrameDispatcherService.RunDynamicTail(ownerValue: unknown, frameV
 	assert(firstDynamicSourceOrder ~= nil, "dynamic-tail first source order is unavailable")
 
 	running = true
+	activeTraversalPhase = "DynamicTail"
+	activeFaultCheckpoint = "Traversal"
 	local succeeded = xpcall(function()
-		assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active before dynamic-tail traversal")
+		assert(
+			activePreparedDynamicBatch == nil,
+			"prepared dynamic batch is active before dynamic-tail traversal"
+		)
 		assertDynamicTailPrefixCurrent()
 		local summary = exactOpenFrameSummary(frameValue)
 		assert(summary ~= nil, "dynamic-tail dispatcher requires the exact open frame")
+		activeFrameStep = summary.toStep
 		assert(
 			dynamicPrefixFrameSummary == summary,
 			"dynamic-tail dispatcher requires this frame's pre-mover traversal"
@@ -1727,14 +1967,23 @@ function EntityFrameDispatcherService.RunDynamicTail(ownerValue: unknown, frameV
 
 		while true do
 			assert(not faulted, "entity-frame dispatcher faulted during dynamic-tail traversal")
-			assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active during dynamic-tail traversal")
+			assert(
+				activePreparedDynamicBatch == nil,
+				"prepared dynamic batch is active during dynamic-tail traversal"
+			)
 			assert(
 				exactOpenFrameSummary(frame) == summary,
 				"dynamic-tail dispatcher open-frame dependency became stale"
 			)
-			assert(EntityFrameTraversalRules.Inspect(cursor) == cursor, "dynamic-tail traversal cursor became stale")
+			assert(
+				EntityFrameTraversalRules.Inspect(cursor) == cursor,
+				"dynamic-tail traversal cursor became stale"
+			)
 			local upperBound = EntitySlotService.GetTraversalUpperBound()
-			assert(upperBound ~= nil, "entity-slot transaction is open during dynamic-tail traversal")
+			assert(
+				upperBound ~= nil,
+				"entity-slot transaction is open during dynamic-tail traversal"
+			)
 			local sourceOrder = cursor.nextSourceOrder
 			local registration: EntitySlotService.Registration? = nil
 			local occupied: boolean? = nil
@@ -1743,7 +1992,8 @@ function EntityFrameDispatcherService.RunDynamicTail(ownerValue: unknown, frameV
 				occupied = registration ~= nil
 			end
 
-			local nextCursor, step, advanceError = EntityFrameTraversalRules.Advance(cursor, upperBound, occupied)
+			local nextCursor, step, advanceError =
+				EntityFrameTraversalRules.Advance(cursor, upperBound, occupied)
 			assert(
 				nextCursor ~= nil and step ~= nil and advanceError == nil,
 				"dynamic-tail traversal did not advance monotonically"
@@ -1778,7 +2028,10 @@ function EntityFrameDispatcherService.RunDynamicTail(ownerValue: unknown, frameV
 			end
 		end
 
-		assert(activePreparedDynamicBatch == nil, "prepared dynamic batch is active after dynamic-tail traversal")
+		assert(
+			activePreparedDynamicBatch == nil,
+			"prepared dynamic batch is active after dynamic-tail traversal"
+		)
 		assertDynamicTailPrefixCurrent()
 		assert(
 			exactOpenFrameSummary(frame) == summary,
@@ -1818,8 +2071,15 @@ function EntityFrameDispatcherService.RunDynamicTail(ownerValue: unknown, frameV
 	running = false
 	if not succeeded then
 		latchTerminalFault()
+		endDispatchSite()
+		activeTraversalPhase = nil
+		activeFaultCheckpoint = nil
+		activeFrameStep = nil
 		error("entity frame dispatcher faulted", 0)
 	end
+	activeTraversalPhase = nil
+	activeFaultCheckpoint = nil
+	activeFrameStep = nil
 end
 
 function EntityFrameDispatcherService.GetDebugSnapshot(): DebugSnapshot
@@ -1868,6 +2128,12 @@ function EntityFrameDispatcherService.GetDebugSnapshot(): DebugSnapshot
 		clientHandlerConfigured = clientHandler ~= nil,
 		bodyQueueHandlerConfigured = bodyQueueHandler ~= nil,
 		mapHandlerCount = mapHandlerCount,
+		faultPhase = faultPhase,
+		faultCheckpoint = faultCheckpoint,
+		faultKind = faultKind,
+		faultSourceOrder = faultSourceOrder,
+		faultGeneration = faultGeneration,
+		faultFrameStep = faultFrameStep,
 	})
 end
 

@@ -190,7 +190,8 @@ local function isBoundedVector(value: unknown, maximumComponent: number): boolea
 	return isFinite(vector.X)
 		and isFinite(vector.Y)
 		and isFinite(vector.Z)
-		and math.max(math.abs(vector.X), math.abs(vector.Y), math.abs(vector.Z)) <= maximumComponent
+		and math.max(math.abs(vector.X), math.abs(vector.Y), math.abs(vector.Z))
+			<= maximumComponent
 end
 
 local function hasExactKeys(
@@ -216,7 +217,8 @@ local function snapTrajectoryBase(position: Vector3): Vector3
 end
 
 local function validPointContents(value: unknown): boolean
-	return isInteger(value, 0, 4_294_967_295) and value == bit32.band(value :: number, KNOWN_POINT_CONTENTS_MASK)
+	return isInteger(value, 0, 4_294_967_295)
+		and value == bit32.band(value :: number, KNOWN_POINT_CONTENTS_MASK)
 end
 
 local function captureCurrentError(capability: PostPmoveCaptureCapability): string?
@@ -421,7 +423,10 @@ local function normalCopySourceCurrentError(
 	return nil
 end
 
-local function preparedCurrentError(preparedValue: unknown, capability: PreparedRespawnCapability): string?
+local function preparedCurrentError(
+	preparedValue: unknown,
+	capability: PreparedRespawnCapability
+): string?
 	local captureError = captureCurrentError(capability.captureCapability)
 	if captureError then
 		return captureError
@@ -468,15 +473,17 @@ local function preparedCurrentError(preparedValue: unknown, capability: Prepared
 		return "stale-prepared-post-pmove-corpse-source"
 	end
 	if not source.noDrop then
-		local copySourceError = normalCopySourceCurrentError(source, summary, capability.corpseSource)
+		local copySourceError =
+			normalCopySourceCurrentError(source, summary, capability.corpseSource)
 		if copySourceError then
 			return copySourceError
 		end
 	end
-	local validCorpseDependency = CorpseService.ValidatePreparedRespawnCopyTombstoneConsumeDependency(
-		capability.corpsePrepared,
-		capability.corpseSource
-	)
+	local validCorpseDependency =
+		CorpseService.ValidatePreparedRespawnCopyTombstoneConsumeDependency(
+			capability.corpsePrepared,
+			capability.corpseSource
+		)
 	if not validCorpseDependency then
 		return "stale-prepared-post-pmove-corpse-dependency"
 	end
@@ -506,7 +513,11 @@ end
 function PostPmoveCorpseSourceService.CapturePostPmove(
 	playerValue: unknown,
 	requestValue: unknown
-): (PostPmoveCapture?, PostPmoveCaptureSummary?, string?)
+): (
+	PostPmoveCapture?,
+	PostPmoveCaptureSummary?,
+	string?
+)
 	if typeof(playerValue) ~= "Instance" or not (playerValue :: Instance):IsA("Player") then
 		return nil, nil, "invalid-post-pmove-corpse-player"
 	end
@@ -603,7 +614,9 @@ function PostPmoveCorpseSourceService.CapturePostPmove(
 	return handle, summary, nil
 end
 
-function PostPmoveCorpseSourceService.InspectPostPmoveCaptureSummary(captureValue: unknown): PostPmoveCaptureSummary?
+function PostPmoveCorpseSourceService.InspectPostPmoveCaptureSummary(
+	captureValue: unknown
+): PostPmoveCaptureSummary?
 	local capability = select(1, getCaptureCapability(captureValue))
 	return if capability then capability.summary else nil
 end
@@ -652,7 +665,11 @@ function PostPmoveCorpseSourceService.PrepareRespawnGate(
 	corpseSourceValue: unknown,
 	playerStateVelocityValue: unknown,
 	pointContentsValue: unknown
-): (PreparedRespawnSource?, PreparedRespawnSourceData?, string?)
+): (
+	PreparedRespawnSource?,
+	PreparedRespawnSourceData?,
+	string?
+)
 	local captureCapability, captureError = getCaptureCapability(captureValue)
 	if not captureCapability then
 		return nil, nil, captureError
@@ -673,7 +690,10 @@ function PostPmoveCorpseSourceService.PrepareRespawnGate(
 	local corpsePrepared = corpsePreparedValue :: CorpseService.PreparedRespawnCopyTombstoneConsume
 	local corpseSource = corpseSourceValue :: CorpseService.RespawnCopyTombstoneData
 	local validCorpseDependency, corpseDependencyError =
-		CorpseService.ValidatePreparedRespawnCopyTombstoneConsumeDependency(corpsePrepared, corpseSource)
+		CorpseService.ValidatePreparedRespawnCopyTombstoneConsumeDependency(
+			corpsePrepared,
+			corpseSource
+		)
 	if not validCorpseDependency then
 		return nil, nil, corpseDependencyError or "invalid-post-pmove-corpse-dependency"
 	end
@@ -702,10 +722,14 @@ function PostPmoveCorpseSourceService.PrepareRespawnGate(
 		return failPreparing(postSampleCaptureError)
 	end
 	local postSampleCorpseValid =
-		CorpseService.ValidatePreparedRespawnCopyTombstoneConsumeDependency(corpsePrepared, corpseSource)
+		CorpseService.ValidatePreparedRespawnCopyTombstoneConsumeDependency(
+			corpsePrepared,
+			corpseSource
+		)
 	if
 		not postSampleCorpseValid
-		or CorpseService.InspectPreparedRespawnCopyTombstoneConsumeSource(corpsePrepared) ~= corpseSource
+		or CorpseService.InspectPreparedRespawnCopyTombstoneConsumeSource(corpsePrepared)
+			~= corpseSource
 	then
 		return failPreparing("stale-prepared-post-pmove-corpse-dependency")
 	end
@@ -777,7 +801,9 @@ function PostPmoveCorpseSourceService.PrepareRespawnGate(
 	return prepared, source, nil
 end
 
-function PostPmoveCorpseSourceService.InspectPreparedSource(preparedValue: unknown): PreparedRespawnSourceData?
+function PostPmoveCorpseSourceService.InspectPreparedSource(
+	preparedValue: unknown
+): PreparedRespawnSourceData?
 	local capability = select(1, getPreparedCapability(preparedValue))
 	if not capability or preparedCurrentError(preparedValue, capability) then
 		return nil
@@ -816,7 +842,10 @@ function PostPmoveCorpseSourceService.ValidatePreparedCorpseDependency(
 	if not capability then
 		return false, capabilityError
 	end
-	if capability.corpsePrepared ~= corpsePreparedValue or capability.corpseSource ~= corpseSourceValue then
+	if
+		capability.corpsePrepared ~= corpsePreparedValue
+		or capability.corpseSource ~= corpseSourceValue
+	then
 		return false, "forged-prepared-post-pmove-corpse-dependency"
 	end
 	local currentError = preparedCurrentError(preparedValue, capability)
@@ -861,12 +890,17 @@ function PostPmoveCorpseSourceService.ApplyPrepared(preparedValue: unknown): Com
 	return capability.commitReceipt
 end
 
-function PostPmoveCorpseSourceService.AbortPrepared(preparedValue: unknown): (AbortReceipt?, string?)
+function PostPmoveCorpseSourceService.AbortPrepared(
+	preparedValue: unknown
+): (AbortReceipt?, string?)
 	local capability, capabilityError = getPreparedCapability(preparedValue)
 	if not capability then
 		return nil, capabilityError
 	end
-	if capability.status ~= "Prepared" or activePreparedByPlayer[capability.player] ~= capability then
+	if
+		capability.status ~= "Prepared"
+		or activePreparedByPlayer[capability.player] ~= capability
+	then
 		return nil, "stale-prepared-post-pmove-corpse-source"
 	end
 	capability.status = "Aborted"

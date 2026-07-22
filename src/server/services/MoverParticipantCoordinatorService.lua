@@ -27,7 +27,10 @@ type ChildAdapter = {
 	Apply: (prepared: unknown) -> unknown,
 	Flush: (receipt: unknown) -> boolean,
 	Abort: (prepared: unknown) -> boolean,
-	BindSharedMutation: ((prepared: unknown, sharedPrepared: ReleaseBroker.Prepared) -> (boolean, string?))?,
+	BindSharedMutation: ((
+		prepared: unknown,
+		sharedPrepared: ReleaseBroker.Prepared
+	) -> (boolean, string?))?,
 }
 
 type CoordinatorAdapter = ChildAdapter & {
@@ -121,9 +124,14 @@ function MoverParticipantCoordinatorService.Create(adaptersValue: unknown): Coor
 			local collection = adapter.Collect()
 			for _, body in collection.bodies do
 				assert(bindingsByBodyId[body.id] == nil, "mover participant body identity collided")
-				assert(not sourceOrders[body.sourceOrder], "mover participant source order collided")
-				local binding =
-					assert(collection.bindingsByBodyId[body.id], "mover participant body omitted its binding")
+				assert(
+					not sourceOrders[body.sourceOrder],
+					"mover participant source order collided"
+				)
+				local binding = assert(
+					collection.bindingsByBodyId[body.id],
+					"mover participant body omitted its binding"
+				)
 				bindingsByBodyId[body.id] = binding
 				sourceOrders[body.sourceOrder] = true
 				table.insert(bodies, body)
@@ -215,7 +223,10 @@ function MoverParticipantCoordinatorService.Create(adaptersValue: unknown): Coor
 				if not bound then
 					for index = #children, 1, -1 do
 						local abortChild = children[index]
-						if not abortChild.aborted and not abortChild.adapter.Abort(abortChild.prepared) then
+						if
+							not abortChild.aborted
+							and not abortChild.adapter.Abort(abortChild.prepared)
+						then
 							return nil, "mover-participant-child-shared-bind-abort-failed"
 						end
 						abortChild.aborted = true
@@ -244,7 +255,9 @@ function MoverParticipantCoordinatorService.Create(adaptersValue: unknown): Coor
 	end
 
 	local function canApply(preparedValue: unknown): (boolean, string?)
-		local capability = if type(preparedValue) == "table" then preparedCapabilities[preparedValue :: {}] else nil
+		local capability = if type(preparedValue) == "table"
+			then preparedCapabilities[preparedValue :: {}]
+			else nil
 		if not capability or capability.status ~= "Prepared" or activePrepared ~= preparedValue then
 			return false, "stale-mover-participant-coordinator-prepare"
 		end
@@ -264,7 +277,10 @@ function MoverParticipantCoordinatorService.Create(adaptersValue: unknown): Coor
 	local function apply(preparedValue: unknown): unknown
 		local prepared = preparedValue :: {}
 		local capability = assert(preparedCapabilities[prepared], "invalid coordinator prepare")
-		assert(capability.status == "Prepared" and activePrepared == prepared, "stale coordinator apply")
+		assert(
+			capability.status == "Prepared" and activePrepared == prepared,
+			"stale coordinator apply"
+		)
 		capability.releaseReceipt = ReleaseBroker.Apply(capability.releasePrepared)
 		for _, child in capability.children do
 			child.receipt = child.adapter.Apply(child.prepared)
@@ -277,7 +293,9 @@ function MoverParticipantCoordinatorService.Create(adaptersValue: unknown): Coor
 	end
 
 	local function flush(receiptValue: unknown): boolean
-		local capability = if type(receiptValue) == "table" then receiptCapabilities[receiptValue :: {}] else nil
+		local capability = if type(receiptValue) == "table"
+			then receiptCapabilities[receiptValue :: {}]
+			else nil
 		if not capability or capability.status ~= "Applied" then
 			return false
 		end

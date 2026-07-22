@@ -48,13 +48,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
-local EntitySourceOrderRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("EntitySourceOrderRules"))
-local MoverConsequenceRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverConsequenceRules"))
+local EntitySourceOrderRules =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("EntitySourceOrderRules"))
+local MoverConsequenceRules =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverConsequenceRules"))
 local MoverItemFlagParticipantRules =
 	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverItemFlagParticipantRules"))
-local WorldPointContents = require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
+local WorldPointContents =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("WorldPointContents"))
 local ItemDefs = require(sharedRoot:WaitForChild("items"):WaitForChild("ItemDefs"))
-local DroppedWeaponRules = require(sharedRoot:WaitForChild("items"):WaitForChild("DroppedWeaponRules"))
+local DroppedWeaponRules =
+	require(sharedRoot:WaitForChild("items"):WaitForChild("DroppedWeaponRules"))
 local MatchFrameRules = require(sharedRoot:WaitForChild("match"):WaitForChild("MatchFrameRules"))
 local AuthoritativeFrameService = require(script.Parent.AuthoritativeFrameService)
 local EntityFrameDispatcherService = require(script.Parent.EntityFrameDispatcherService)
@@ -62,7 +66,8 @@ local EntitySlotService = require(script.Parent.EntitySlotService)
 local ItemFramePublicationService = require(script.Parent.ItemFramePublicationService)
 local MatchService = require(script.Parent.MatchService)
 local MoverParticipantCoordinatorService = require(script.Parent.MoverParticipantCoordinatorService)
-local MoverParticipantReleaseBrokerService = require(script.Parent.MoverParticipantReleaseBrokerService)
+local MoverParticipantReleaseBrokerService =
+	require(script.Parent.MoverParticipantReleaseBrokerService)
 
 local ItemService = {}
 
@@ -153,7 +158,10 @@ export type PreparedDeathDropInsertionAdapter = {
 	read ValidatePreparedDependency: (preparedValue: unknown, summaryValue: unknown) -> boolean,
 	read CanApplyPrepared: (preparedValue: unknown) -> (boolean, string?),
 	read ApplyPrepared: (preparedValue: unknown) -> DeathDropInsertionApplyReceipt,
-	read ValidateAppliedDependency: (receiptValue: unknown, summaryValue: unknown) -> (boolean, string?),
+	read ValidateAppliedDependency: (
+		receiptValue: unknown,
+		summaryValue: unknown
+	) -> (boolean, string?),
 	read FlushPrepared: (receiptValue: unknown) -> (MoverDeathDropPublicationReport?, string?),
 	read AbortPrepared: (preparedValue: unknown) -> (boolean, string?),
 	read PrepareBatch: (
@@ -163,11 +171,19 @@ export type PreparedDeathDropInsertionAdapter = {
 		frameSummaryValue: unknown
 	) -> (PreparedDeathDropBatch?, PreparedDeathDropBatchSummary?, string?),
 	read InspectPreparedBatch: (preparedValue: unknown) -> PreparedDeathDropBatchSummary?,
-	read ValidatePreparedBatchDependency: (preparedValue: unknown, summaryValue: unknown) -> boolean,
+	read ValidatePreparedBatchDependency: (
+		preparedValue: unknown,
+		summaryValue: unknown
+	) -> boolean,
 	read CanApplyPreparedBatch: (preparedValue: unknown) -> (boolean, string?),
 	read ApplyPreparedBatch: (preparedValue: unknown) -> DeathDropBatchApplyReceipt,
-	read ValidateAppliedBatchDependency: (receiptValue: unknown, summaryValue: unknown) -> (boolean, string?),
-	read FlushPreparedBatch: (receiptValue: unknown) -> (DeathDropBatchPublicationReport?, string?),
+	read ValidateAppliedBatchDependency: (
+		receiptValue: unknown,
+		summaryValue: unknown
+	) -> (boolean, string?),
+	read FlushPreparedBatch: (
+		receiptValue: unknown
+	) -> (DeathDropBatchPublicationReport?, string?),
 	read AbortPreparedBatch: (preparedValue: unknown) -> (boolean, string?),
 }
 
@@ -219,8 +235,18 @@ export type GrantContext = {
 
 export type Hooks = {
 	GetPlayerState: (player: Player) -> PlayerItemState?,
-	TryGrantHealth: (player: Player, amount: number, cap: number, context: GrantContext) -> boolean,
-	TryGrantArmor: (player: Player, amount: number, cap: number, context: GrantContext) -> boolean,
+	TryGrantHealth: (
+		player: Player,
+		amount: number,
+		cap: number,
+		context: GrantContext
+	) -> boolean,
+	TryGrantArmor: (
+		player: Player,
+		amount: number,
+		cap: number,
+		context: GrantContext
+	) -> boolean,
 	TryGrantAmmo: (
 		player: Player,
 		weaponId: number,
@@ -238,7 +264,11 @@ export type Hooks = {
 	TryGrantHoldable: (player: Player, holdableId: number, context: GrantContext) -> boolean,
 	TryGrantPowerup: (player: Player, powerupId: number, context: GrantContext) -> boolean,
 	CanPickup: ((player: Player, definition: ItemDefinition, marker: BasePart) -> boolean)?,
-	UseFullWeaponAmmo: ((player: Player, definition: ItemDefinition, marker: BasePart) -> boolean)?,
+	UseFullWeaponAmmo: ((
+		player: Player,
+		definition: ItemDefinition,
+		marker: BasePart
+	) -> boolean)?,
 	ResolveRespawnSeconds: ((
 		player: Player,
 		definition: ItemDefinition,
@@ -462,7 +492,13 @@ type MoverDeathDropReceiptCapability = {
 	presentation: MoverDeathDropPresentation,
 }
 
-type DeathDropInsertionStatus = "Prepared" | "Applied" | "Flushing" | "Flushed" | "Aborting" | "Aborted"
+type DeathDropInsertionStatus =
+	"Prepared"
+	| "Applied"
+	| "Flushing"
+	| "Flushed"
+	| "Aborting"
+	| "Aborted"
 
 type DeathDropInsertionCapability = {
 	prepared: PreparedDeathDropInsertion,
@@ -556,8 +592,8 @@ local preMoverFrameLevelTimeMilliseconds = -1
 local postMoverFrameLevelTimeMilliseconds = -1
 local activePreMoverMapFrameLevelTimeMilliseconds: number? = nil
 local activePreMoverMapLastSourceOrder = -1
-local PREPARED_MOVER_DROP_PRESENTATION_ATTRIBUTE = "ArenaPreparedMoverDropPresentation"
-local MAP_ENTITY_ID_ATTRIBUTE = "ArenaMapEntityId"
+local PREPARED_MOVER_DROP_PRESENTATION_ATTRIBUTE = "Q3EnginePreparedMoverDropPresentation"
+local MAP_ENTITY_ID_ATTRIBUTE = "Q3EngineMapEntityId"
 
 local applyMarkerState: (record: PickupRecord) -> ()
 local unregisterMarker: (marker: BasePart, restore: boolean) -> ()
@@ -673,7 +709,10 @@ local function isFinite(value: unknown): boolean
 end
 
 local function updatePresentationBasis(summary: AuthoritativeFrameService.Summary)
-	assert(summary.currentTimeMilliseconds >= lastFrameLevelTimeMilliseconds, "Item presentation basis regressed")
+	assert(
+		summary.currentTimeMilliseconds >= lastFrameLevelTimeMilliseconds,
+		"Item presentation basis regressed"
+	)
 	lastFrameLevelTimeMilliseconds = summary.currentTimeMilliseconds
 	lastFrameServerTimeSeconds = summary.currentServerTimeSeconds
 end
@@ -686,7 +725,9 @@ local function currentPresentationBasis(): (number, number)
 		return openSummary.currentTimeMilliseconds, openSummary.currentServerTimeSeconds
 	end
 	local currentFrame = AuthoritativeFrameService.GetCurrentFrame()
-	local currentSummary = if currentFrame then AuthoritativeFrameService.InspectCurrentFrame(currentFrame) else nil
+	local currentSummary = if currentFrame
+		then AuthoritativeFrameService.InspectCurrentFrame(currentFrame)
+		else nil
 	if currentSummary then
 		updatePresentationBasis(currentSummary)
 		return currentSummary.currentTimeMilliseconds, currentSummary.currentServerTimeSeconds
@@ -697,7 +738,11 @@ end
 local function presentationTimeForLevel(levelTimeMilliseconds: number): number
 	local basisLevelTime, basisServerTime = currentPresentationBasis()
 	return assert(
-		MatchFrameRules.PresentationTimeForLevel(basisLevelTime, basisServerTime, levelTimeMilliseconds),
+		MatchFrameRules.PresentationTimeForLevel(
+			basisLevelTime,
+			basisServerTime,
+			levelTimeMilliseconds
+		),
 		"Item level time could not map to presentation time"
 	)
 end
@@ -721,10 +766,16 @@ local function deadlineMilliseconds(startMilliseconds: number, seconds: number):
 	)
 end
 
-local function inspectOpenFrame(frameValue: unknown, phaseName: string): AuthoritativeFrameService.Summary
+local function inspectOpenFrame(
+	frameValue: unknown,
+	phaseName: string
+): AuthoritativeFrameService.Summary
 	assert(started, string.format("ItemService must start before %s", phaseName))
 	local openFrame = AuthoritativeFrameService.GetOpenFrame()
-	assert(openFrame ~= nil and frameValue == openFrame, phaseName .. " requires the exact open frame")
+	assert(
+		openFrame ~= nil and frameValue == openFrame,
+		phaseName .. " requires the exact open frame"
+	)
 	local summary = AuthoritativeFrameService.InspectFrame(frameValue)
 	assert(summary, phaseName .. " received a stale authoritative frame")
 	assert(
@@ -734,7 +785,8 @@ local function inspectOpenFrame(frameValue: unknown, phaseName: string): Authori
 	assert(
 		summary.msec % 1 == 0
 			and summary.msec > 0
-			and summary.currentTimeMilliseconds - summary.previousTimeMilliseconds == summary.msec,
+			and summary.currentTimeMilliseconds - summary.previousTimeMilliseconds
+				== summary.msec,
 		phaseName .. " received an invalid integer frame interval"
 	)
 	updatePresentationBasis(summary)
@@ -742,7 +794,10 @@ local function inspectOpenFrame(frameValue: unknown, phaseName: string): Authori
 end
 
 local function isFiniteVector(value: unknown): boolean
-	return typeof(value) == "Vector3" and isFinite(value.X) and isFinite(value.Y) and isFinite(value.Z)
+	return typeof(value) == "Vector3"
+		and isFinite(value.X)
+		and isFinite(value.Y)
+		and isFinite(value.Z)
 end
 
 local function warnHook(message: string)
@@ -811,7 +866,9 @@ local function mapRecordsInSourceOrder(): { PickupRecord }
 				and mapRegistration.kind == "Item"
 				and record.mapSourceOrder == registration.sourceOrder
 				and EntitySlotService.GetMapRegistration(mapEntityId) == mapRegistration
-				and EntitySlotService.GetWorldRegistrationBySourceOrder(registration.sourceOrder)
+				and EntitySlotService.GetWorldRegistrationBySourceOrder(
+						registration.sourceOrder
+					)
 					== registration,
 			"map pickup EntitySlot binding became stale"
 		)
@@ -880,14 +937,19 @@ local function replaceMapMoverRecord(
 	participantOverride: MoverItemFlagParticipantRules.Participant?,
 	eventStartedAtMilliseconds: number?
 )
-	assert(not preparedMoverParticipantUpdateBlocksAuthority(), "map Item changed during mover prepare")
+	assert(
+		not preparedMoverParticipantUpdateBlocksAuthority(),
+		"map Item changed during mover prepare"
+	)
 	local baseAuthority = mapMoverAuthority
 	local previous = baseAuthority.recordsById[record.pickupId]
 	local previousParticipant = if previous then previous.participant else nil
 	local participant = participantOverride
 		or mapParticipantForRecord(
 			record,
-			if previousParticipant then previousParticipant.body.position else record.authorityPosition,
+			if previousParticipant
+				then previousParticipant.body.position
+				else record.authorityPosition,
 			if previousParticipant then previousParticipant.body.groundMoverId else nil
 		)
 	local nextRecord: MapMoverRecord = table.freeze({
@@ -924,7 +986,10 @@ local function removeMapMoverRecord(pickupId: string)
 	if baseAuthority.recordsById[pickupId] == nil then
 		return
 	end
-	assert(not preparedMoverParticipantUpdateBlocksAuthority(), "map Item removed during mover prepare")
+	assert(
+		not preparedMoverParticipantUpdateBlocksAuthority(),
+		"map Item removed during mover prepare"
+	)
 	local nextRecordsById = table.clone(baseAuthority.recordsById)
 	nextRecordsById[pickupId] = nil
 	table.freeze(nextRecordsById)
@@ -964,7 +1029,9 @@ local function registeredDeathDropsInSourceOrder(): { MoverDeathDropRecord }
 	for index, record in records do
 		assert(
 			moverDeathDropAuthority.recordsById[record.dropId] == record
-				and EntitySlotService.GetWorldRegistrationBySourceOrder(record.registration.sourceOrder) == record.registration
+				and EntitySlotService.GetWorldRegistrationBySourceOrder(
+					record.registration.sourceOrder
+				) == record.registration
 				and moverDeathDropDispatcherBindings[record.dropId] ~= nil,
 			"registered death-drop authority became stale"
 		)
@@ -1004,9 +1071,10 @@ function ItemService.CollectRegisteredMoverParticipants(): MoverItemFlagParticip
 	return assert(collection, collectionError or "registered mover participant collection failed")
 end
 
-function ItemService.PrepareRegisteredMoverParticipantUpdate(
-	finalBodiesValue: unknown
-): (PreparedMoverParticipantUpdate?, string?)
+function ItemService.PrepareRegisteredMoverParticipantUpdate(finalBodiesValue: unknown): (
+	PreparedMoverParticipantUpdate?,
+	string?
+)
 	local sharedDeathDropPrepareds = table.clone(activeSharedMoverDeathDrops)
 	local latestSharedPrepared = sharedDeathDropPrepareds[#sharedDeathDropPrepareds]
 	local latestSharedShadowCapability = if latestSharedPrepared
@@ -1049,12 +1117,17 @@ function ItemService.PrepareRegisteredMoverParticipantUpdate(
 	for index = #sharedDeathDropPrepareds, 1, -1 do
 		local sharedPrepared = sharedDeathDropPrepareds[index]
 		local sharedCapability = activeSharedMoverDeathDropCapabilities[sharedPrepared]
-		if sharedCapability and finalBodiesById[sharedCapability.record.participant.body.id] == nil then
+		if
+			sharedCapability
+			and finalBodiesById[sharedCapability.record.participant.body.id] == nil
+		then
 			if not brokerToken then
 				return nil, "removed-shared-mover-death-drop-lost-broker"
 			end
-			local canceled, cancelError =
-				MoverParticipantReleaseBrokerService.CancelAllocation(brokerToken, sharedCapability.record.registration)
+			local canceled, cancelError = MoverParticipantReleaseBrokerService.CancelAllocation(
+				brokerToken,
+				sharedCapability.record.registration
+			)
 			if not canceled then
 				return nil, cancelError or "removed-shared-mover-death-drop-cancel-failed"
 			end
@@ -1193,8 +1266,11 @@ function ItemService.PrepareRegisteredMoverParticipantUpdate(
 	local releaseBrokerToken = MoverParticipantReleaseBrokerService.GetActiveToken()
 	if (#removedRecords > 0 or #removedMapRecords > 0) and releaseBrokerToken then
 		for _, record in removedMapRecords do
-			local staged, stageError =
-				MoverParticipantReleaseBrokerService.StageRelease(releaseBrokerToken, record.registration, nil)
+			local staged, stageError = MoverParticipantReleaseBrokerService.StageRelease(
+				releaseBrokerToken,
+				record.registration,
+				nil
+			)
 			if not staged then
 				return nil, stageError or "map-item-shared-release-stage-failed"
 			end
@@ -1214,8 +1290,11 @@ function ItemService.PrepareRegisteredMoverParticipantUpdate(
 			if not binding then
 				return nil, "dropped-item-shared-release-binding-missing"
 			end
-			local staged, stageError =
-				MoverParticipantReleaseBrokerService.StageRelease(releaseBrokerToken, record.registration, binding)
+			local staged, stageError = MoverParticipantReleaseBrokerService.StageRelease(
+				releaseBrokerToken,
+				record.registration,
+				binding
+			)
 			if not staged then
 				return nil, stageError or "dropped-item-shared-release-stage-failed"
 			end
@@ -1264,13 +1343,18 @@ function ItemService.PrepareRegisteredMoverParticipantUpdate(
 		end
 		if #operations > 0 then
 			local preparedDispatcher, _dispatcherSummary, dispatcherError =
-				EntityFrameDispatcherService.PrepareDynamicBatch(preparedChild, entitySummary, operations)
+				EntityFrameDispatcherService.PrepareDynamicBatch(
+					preparedChild,
+					entitySummary,
+					operations
+				)
 			if not preparedDispatcher then
 				EntitySlotService.Abort(token)
 				return nil, dispatcherError or "item-mover-participant-unbind-prepare-failed"
 			end
 			dispatcherPrepared = preparedDispatcher
-			dispatcherReceipt = EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(preparedDispatcher)
+			dispatcherReceipt =
+				EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(preparedDispatcher)
 			if not dispatcherReceipt then
 				EntityFrameDispatcherService.AbortPreparedDynamicBatch(preparedDispatcher)
 				EntitySlotService.Abort(token)
@@ -1281,7 +1365,9 @@ function ItemService.PrepareRegisteredMoverParticipantUpdate(
 	local canceledEvictedRecords: { MoverDeathDropRecord } = {}
 	for _, canceledCapability in canceledSharedDeathDropCapabilities do
 		local evictedDropId = canceledCapability.summary.evictedDropId
-		local evictedRecord = if evictedDropId then baseAuthority.recordsById[evictedDropId] else nil
+		local evictedRecord = if evictedDropId
+			then baseAuthority.recordsById[evictedDropId]
+			else nil
 		if evictedRecord and not table.find(canceledEvictedRecords, evictedRecord) then
 			table.insert(canceledEvictedRecords, evictedRecord)
 		end
@@ -1328,11 +1414,14 @@ function ItemService.PrepareRegisteredMoverParticipantUpdate(
 	return prepared, nil
 end
 
-function ItemService.CanApplyPreparedMoverParticipantUpdate(preparedValue: unknown): (boolean, string?)
+function ItemService.CanApplyPreparedMoverParticipantUpdate(
+	preparedValue: unknown
+): (boolean, string?)
 	if type(preparedValue) ~= "table" then
 		return false, "invalid-prepared-item-mover-participant-update"
 	end
-	local capability = preparedMoverParticipantUpdateCapabilities[preparedValue :: PreparedMoverParticipantUpdate]
+	local capability =
+		preparedMoverParticipantUpdateCapabilities[preparedValue :: PreparedMoverParticipantUpdate]
 	if
 		not capability
 		or capability.status ~= "Prepared"
@@ -1354,13 +1443,16 @@ function ItemService.CanApplyPreparedMoverParticipantUpdate(preparedValue: unkno
 		end
 	end
 	if capability.entitySlotPrepared then
-		local entityCanApply, entityError = EntitySlotService.CanApplyPrepared(capability.entitySlotPrepared)
+		local entityCanApply, entityError =
+			EntitySlotService.CanApplyPrepared(capability.entitySlotPrepared)
 		if not entityCanApply then
 			return false, entityError or "item-mover-participant-release-preflight-failed"
 		end
 		if capability.dispatcherPrepared then
 			local dispatcherCanApply, dispatcherError =
-				EntityFrameDispatcherService.CanApplyPreparedDynamicBatch(capability.dispatcherPrepared)
+				EntityFrameDispatcherService.CanApplyPreparedDynamicBatch(
+					capability.dispatcherPrepared
+				)
 			if not dispatcherCanApply then
 				return false, dispatcherError or "item-mover-participant-unbind-preflight-failed"
 			end
@@ -1371,10 +1463,14 @@ function ItemService.CanApplyPreparedMoverParticipantUpdate(preparedValue: unkno
 	return true, nil
 end
 
-function ItemService.ApplyPreparedMoverParticipantUpdate(preparedValue: unknown): MoverParticipantUpdateReceipt
+function ItemService.ApplyPreparedMoverParticipantUpdate(
+	preparedValue: unknown
+): MoverParticipantUpdateReceipt
 	local prepared = preparedValue :: PreparedMoverParticipantUpdate
-	local capability =
-		assert(preparedMoverParticipantUpdateCapabilities[prepared], "invalid prepared Item mover participant update")
+	local capability = assert(
+		preparedMoverParticipantUpdateCapabilities[prepared],
+		"invalid prepared Item mover participant update"
+	)
 	assert(
 		capability.status == "Prepared"
 			and capability.applyValidated
@@ -1421,13 +1517,15 @@ function ItemService.ApplyPreparedMoverParticipantUpdate(preparedValue: unknown)
 	end
 	if capability.entitySlotPrepared then
 		assert(
-			EntitySlotService.ApplyPrepared(capability.entitySlotPrepared) == capability.entitySlotReceipt,
+			EntitySlotService.ApplyPrepared(capability.entitySlotPrepared)
+				== capability.entitySlotReceipt,
 			"Item mover participant EntitySlot receipt drifted"
 		)
 		if capability.dispatcherPrepared then
 			assert(
-				EntityFrameDispatcherService.ApplyPreparedDynamicBatch(capability.dispatcherPrepared)
-					== capability.dispatcherReceipt,
+				EntityFrameDispatcherService.ApplyPreparedDynamicBatch(
+					capability.dispatcherPrepared
+				) == capability.dispatcherReceipt,
 				"Item mover participant Dispatcher receipt drifted"
 			)
 		end
@@ -1438,6 +1536,12 @@ function ItemService.ApplyPreparedMoverParticipantUpdate(preparedValue: unknown)
 	capability.status = "Applied"
 	capability.applyValidated = false
 	preparedMoverParticipantUpdateCapabilities[prepared] = nil
+	-- Authority is committed at Apply. Publication retains the receipt below, but
+	-- must not keep the child owner busy through the later dynamic entity suffix:
+	-- a lethal projectile can synchronously prepare a weapon/powerup drop there.
+	if activePreparedMoverParticipantUpdate == prepared then
+		activePreparedMoverParticipantUpdate = nil
+	end
 	return capability.receipt
 end
 
@@ -1465,48 +1569,66 @@ function ItemService.FlushPreparedMoverParticipantUpdate(receiptValue: unknown):
 	end
 	capability.status = "Flushed"
 	moverParticipantUpdateReceiptCapabilities[receipt] = nil
-	activePreparedMoverParticipantUpdate = nil
+	-- An older deferred publication must never release a newer prepare.
+	if activePreparedMoverParticipantUpdate == capability.prepared then
+		activePreparedMoverParticipantUpdate = nil
+	end
 	for _, record in capability.changedRecords do
-		applyMoverDeathDropPresentation(record)
+		-- A registered drop may have advanced again in the dynamic suffix after
+		-- this mover authority was applied. Do not publish its older position over
+		-- that newer canonical record.
+		if moverDeathDropAuthority.recordsById[record.dropId] == record then
+			applyMoverDeathDropPresentation(record)
+		end
 	end
 	for _, record in capability.removedRecords do
-		moverDeathDropCleanupIntents[record.dropId] = nil
-		moverDeathDropClaims[record.dropId] = nil
-		local marker = moverDeathDropPresentationMarkers[record.dropId]
-		moverDeathDropPresentationMarkers[record.dropId] = nil
-		if marker then
-			ItemFramePublicationService.RetirePart(marker)
+		if moverDeathDropAuthority.recordsById[record.dropId] == nil then
+			moverDeathDropCleanupIntents[record.dropId] = nil
+			moverDeathDropClaims[record.dropId] = nil
+			local marker = moverDeathDropPresentationMarkers[record.dropId]
+			moverDeathDropPresentationMarkers[record.dropId] = nil
+			if marker then
+				ItemFramePublicationService.RetirePart(marker)
+			end
 		end
 	end
 	for _, canceledEvictedRecord in capability.sharedCanceledEvictedRecords do
-		local marker = moverDeathDropPresentationMarkers[canceledEvictedRecord.dropId]
-		moverDeathDropPresentationMarkers[canceledEvictedRecord.dropId] = nil
-		if marker then
-			ItemFramePublicationService.RetirePart(marker)
+		if moverDeathDropAuthority.recordsById[canceledEvictedRecord.dropId] == nil then
+			local marker = moverDeathDropPresentationMarkers[canceledEvictedRecord.dropId]
+			moverDeathDropPresentationMarkers[canceledEvictedRecord.dropId] = nil
+			if marker then
+				ItemFramePublicationService.RetirePart(marker)
+			end
 		end
 	end
 	for _, moverRecord in capability.changedMapRecords do
-		local record = recordsById[moverRecord.pickupId]
-		assert(
-			record ~= nil
-				and record.source == "Map"
-				and record.generation == moverRecord.recordGeneration
-				and record.mapRegistration ~= nil
-				and record.mapRegistration.registration == moverRecord.registration,
-			"moved map Item presentation binding drifted"
-		)
-		record.authorityPosition = moverRecord.participant.body.position
-		applyMarkerState(record)
+		if mapMoverAuthority.recordsById[moverRecord.pickupId] == moverRecord then
+			local record = recordsById[moverRecord.pickupId]
+			assert(
+				record ~= nil
+					and record.source == "Map"
+					and record.generation == moverRecord.recordGeneration
+					and record.mapRegistration ~= nil
+					and record.mapRegistration.registration == moverRecord.registration,
+				"moved map Item presentation binding drifted"
+			)
+			record.authorityPosition = moverRecord.participant.body.position
+			applyMarkerState(record)
+		end
 	end
 	for _, moverRecord in capability.removedMapRecords do
-		local record = recordsById[moverRecord.pickupId]
-		assert(
-			record ~= nil and record.source == "Map" and record.generation == moverRecord.recordGeneration,
-			"removed map Item presentation binding drifted"
-		)
-		local marker = record.marker
-		unregisterMarker(marker, false)
-		ItemFramePublicationService.RetirePart(marker)
+		if mapMoverAuthority.recordsById[moverRecord.pickupId] == nil then
+			local record = recordsById[moverRecord.pickupId]
+			assert(
+				record ~= nil
+					and record.source == "Map"
+					and record.generation == moverRecord.recordGeneration,
+				"removed map Item presentation binding drifted"
+			)
+			local marker = record.marker
+			unregisterMarker(marker, false)
+			ItemFramePublicationService.RetirePart(marker)
+		end
 	end
 	if
 		#capability.changedRecords > 0
@@ -1525,11 +1647,16 @@ function ItemService.AbortPreparedMoverParticipantUpdate(preparedValue: unknown)
 	end
 	local prepared = preparedValue :: PreparedMoverParticipantUpdate
 	local capability = preparedMoverParticipantUpdateCapabilities[prepared]
-	if not capability or capability.status ~= "Prepared" or activePreparedMoverParticipantUpdate ~= prepared then
+	if
+		not capability
+		or capability.status ~= "Prepared"
+		or activePreparedMoverParticipantUpdate ~= prepared
+	then
 		return false
 	end
 	while capability.sharedDeathDropAbortIndex >= 1 do
-		local sharedPrepared = capability.sharedDeathDropPrepareds[capability.sharedDeathDropAbortIndex]
+		local sharedPrepared =
+			capability.sharedDeathDropPrepareds[capability.sharedDeathDropAbortIndex]
 		if not ItemService.AbortPreparedMoverDeathDrop(sharedPrepared) then
 			return false
 		end
@@ -1546,7 +1673,11 @@ function ItemService.AbortPreparedMoverParticipantUpdate(preparedValue: unknown)
 		capability.dispatcherAborted = true
 	end
 	if not capability.entitySlotAborted then
-		if not EntitySlotService.Abort(assert(capability.entitySlotToken, "EntitySlot token disappeared")) then
+		if
+			not EntitySlotService.Abort(
+				assert(capability.entitySlotToken, "EntitySlot token disappeared")
+			)
+		then
 			return false
 		end
 		capability.entitySlotAborted = true
@@ -1559,7 +1690,9 @@ function ItemService.AbortPreparedMoverParticipantUpdate(preparedValue: unknown)
 	return true
 end
 
-local function registeredParticipantForBodyId(bodyId: string): MoverItemFlagParticipantRules.Participant
+local function registeredParticipantForBodyId(
+	bodyId: string
+): MoverItemFlagParticipantRules.Participant
 	for _, record in mapMoverAuthority.order do
 		if record.participant.body.id == bodyId then
 			return record.participant
@@ -1579,14 +1712,18 @@ local function registeredParticipantForBodyId(bodyId: string): MoverItemFlagPart
 	error("registered Item mover participant body is stale")
 end
 
-function ItemService.ResolveRegisteredMoverSine(bodyId: string): MoverItemFlagParticipantRules.SynchronousCrushEffect
+function ItemService.ResolveRegisteredMoverSine(
+	bodyId: string
+): MoverItemFlagParticipantRules.SynchronousCrushEffect
 	return assert(
 		MoverItemFlagParticipantRules.ResolveSineCrush(registeredParticipantForBodyId(bodyId)),
 		"registered Item Sine consequence failed"
 	)
 end
 
-function ItemService.ResolveRegisteredMoverBlockedDoor(bodyId: string): MoverItemFlagParticipantRules.Transition
+function ItemService.ResolveRegisteredMoverBlockedDoor(
+	bodyId: string
+): MoverItemFlagParticipantRules.Transition
 	return assert(
 		MoverItemFlagParticipantRules.ResolveBlockedDoor(registeredParticipantForBodyId(bodyId)),
 		"registered Item Door consequence failed"
@@ -1607,12 +1744,16 @@ function ItemService.BindPreparedMoverParticipantSharedMutation(
 		return true, nil
 	end
 	local entityPrepared, entitySummary =
-		MoverParticipantReleaseBrokerService.InspectPreparedEntitySlotDependency(sharedPreparedValue)
+		MoverParticipantReleaseBrokerService.InspectPreparedEntitySlotDependency(
+			sharedPreparedValue
+		)
 	if not entityPrepared or not entitySummary then
 		return false, "shared-mover-death-drop-entity-dependency-bind-failed"
 	end
 	local dispatcherPrepared, dispatcherSummary =
-		MoverParticipantReleaseBrokerService.InspectPreparedDispatcherDependency(sharedPreparedValue)
+		MoverParticipantReleaseBrokerService.InspectPreparedDispatcherDependency(
+			sharedPreparedValue
+		)
 	if not dispatcherPrepared or not dispatcherSummary then
 		return false, "shared-mover-death-drop-dispatcher-dependency-bind-failed"
 	end
@@ -1671,7 +1812,9 @@ function ItemService.GetMoverParticipantUpdateAdapter(): MoverParticipantUpdateA
 	return moverParticipantUpdateAdapter
 end
 
-local function moverDeathDropForRegistration(registration: EntitySlotService.Registration): MoverDeathDropRecord?
+local function moverDeathDropForRegistration(
+	registration: EntitySlotService.Registration
+): MoverDeathDropRecord?
 	local found: MoverDeathDropRecord? = nil
 	for _, record in moverDeathDropAuthority.order do
 		if record.registration.sourceOrder == registration.sourceOrder then
@@ -1714,7 +1857,10 @@ cloneMoverDeathDropRecord = function(
 	return nextRecord
 end
 
-local function replaceMoverDeathDropRecord(currentRecord: MoverDeathDropRecord, nextRecord: MoverDeathDropRecord)
+local function replaceMoverDeathDropRecord(
+	currentRecord: MoverDeathDropRecord,
+	nextRecord: MoverDeathDropRecord
+)
 	local baseAuthority = moverDeathDropAuthority
 	assert(
 		baseAuthority.recordsById[currentRecord.dropId] == currentRecord
@@ -1850,7 +1996,13 @@ local function emitItemEvent(
 	eventSequence += 1
 	local event = ItemFramePublicationService.Snapshot({
 		sequence = eventSequence,
-		eventId = string.format("item:%s:%d:%d:%s", record.pickupId, record.generation, record.revision, kind),
+		eventId = string.format(
+			"item:%s:%d:%d:%s",
+			record.pickupId,
+			record.generation,
+			record.revision,
+			kind
+		),
 		kind = kind,
 		serverTime = summary.currentServerTimeSeconds,
 		pickupId = record.pickupId,
@@ -1885,7 +2037,12 @@ local function emitMoverDeathDropTakenEvent(
 	eventSequence += 1
 	local event = ItemFramePublicationService.Snapshot({
 		sequence = eventSequence,
-		eventId = string.format("item:%s:%d:%d:PickupTaken", record.dropId, record.spawnSequence, record.revision),
+		eventId = string.format(
+			"item:%s:%d:%d:PickupTaken",
+			record.dropId,
+			record.spawnSequence,
+			record.revision
+		),
 		kind = "PickupTaken",
 		serverTime = summary.currentServerTimeSeconds,
 		pickupId = record.dropId,
@@ -1959,7 +2116,13 @@ local function readQuantity(marker: BasePart, definition: ItemDefinition): numbe
 	if isFinite(value) and value % 1 == 0 and value > 0 and value <= 10_000 then
 		return value
 	end
-	warn(string.format("Ignoring invalid %s on %s", ItemDefs.Attributes.Quantity, marker:GetFullName()))
+	warn(
+		string.format(
+			"Ignoring invalid %s on %s",
+			ItemDefs.Attributes.Quantity,
+			marker:GetFullName()
+		)
+	)
 	return definition.quantity
 end
 
@@ -1971,7 +2134,13 @@ local function readRespawnOverride(marker: BasePart): number?
 	if isFinite(value) and (value == -1 or value >= 1) then
 		return value
 	end
-	warn(string.format("Ignoring invalid %s on %s", ItemDefs.Attributes.RespawnSeconds, marker:GetFullName()))
+	warn(
+		string.format(
+			"Ignoring invalid %s on %s",
+			ItemDefs.Attributes.RespawnSeconds,
+			marker:GetFullName()
+		)
+	)
 	return nil
 end
 
@@ -2085,7 +2254,9 @@ local function rejectAuthoredMarker(marker: BasePart, message: string)
 	warn(string.format("Ignoring pickup %s: %s", marker:GetFullName(), message))
 end
 
-local function mapRegistrationForMarker(marker: BasePart): (string?, EntitySlotService.MapRegistration?)
+local function mapRegistrationForMarker(
+	marker: BasePart
+): (string?, EntitySlotService.MapRegistration?)
 	local mapEntityId = marker:GetAttribute(MAP_ENTITY_ID_ATTRIBUTE)
 	if type(mapEntityId) ~= "string" or mapEntityId == "" then
 		rejectAuthoredMarker(marker, "missing string ArenaMapEntityId")
@@ -2097,10 +2268,12 @@ local function mapRegistrationForMarker(marker: BasePart): (string?, EntitySlotS
 		or mapRegistration.eventId ~= mapEntityId
 		or mapRegistration.kind ~= "Item"
 		or mapRegistration.registration.kind ~= "World"
-		or EntitySlotService.GetWorldRegistrationBySourceOrder(mapRegistration.registration.sourceOrder)
+		or EntitySlotService.GetWorldRegistrationBySourceOrder(
+				mapRegistration.registration.sourceOrder
+			)
 			~= mapRegistration.registration
 	then
-		rejectAuthoredMarker(marker, "ArenaMapEntityId is not the installed Item registration")
+		rejectAuthoredMarker(marker, "Q3EngineMapEntityId is not the installed Item registration")
 		return nil, nil
 	end
 	return mapEntityId, mapRegistration
@@ -2143,7 +2316,9 @@ tryRegisterMarker = function(marker: BasePart, dynamicDeathDrop: boolean?)
 	if not definition then
 		if not warnedMarkers[marker] then
 			warnedMarkers[marker] = true
-			warn(string.format("Unknown pickup item id %s on %s", itemIdValue, marker:GetFullName()))
+			warn(
+				string.format("Unknown pickup item id %s on %s", itemIdValue, marker:GetFullName())
+			)
 		end
 		return
 	end
@@ -2159,7 +2334,10 @@ tryRegisterMarker = function(marker: BasePart, dynamicDeathDrop: boolean?)
 			return
 		end
 		if mapRecordsByRegistration[mapRegistration] then
-			rejectAuthoredMarker(marker, "ArenaMapEntityId is already bound to another pickup marker")
+			rejectAuthoredMarker(
+				marker,
+				"Q3EngineMapEntityId is already bound to another pickup marker"
+			)
 			return
 		end
 	end
@@ -2346,7 +2524,11 @@ local function getPlayerState(player: Player): PlayerItemState?
 	return state
 end
 
-local function canUsePickup(player: Player, record: PickupRecord, state: PlayerItemState): (boolean, number, number)
+local function canUsePickup(
+	player: Player,
+	record: PickupRecord,
+	state: PlayerItemState
+): (boolean, number, number)
 	if
 		not serviceEnabled
 		or not record.enabled
@@ -2436,7 +2618,8 @@ local function invokeGrant(
 	local weaponId = definition.weaponId
 	local grantAmount: number
 	if definition.kind == "Weapon" then
-		grantAmount = ItemDefs.GetWeaponAmmoGrant(current, record.quantity, useFullWeaponAmmo(player, record))
+		grantAmount =
+			ItemDefs.GetWeaponAmmoGrant(current, record.quantity, useFullWeaponAmmo(player, record))
 	else
 		grantAmount = ItemDefs.GetGrantAmount(current, record.quantity, cap)
 	end
@@ -2525,8 +2708,10 @@ local function takePickup(
 	record.respawnAtMilliseconds = if respawnSeconds < 0
 		then nil
 		else deadlineMilliseconds(summary.currentTimeMilliseconds, respawnSeconds)
-	local moverRecord =
-		assert(mapMoverAuthority.recordsById[record.pickupId], "map mover record is unavailable during touch")
+	local moverRecord = assert(
+		mapMoverAuthority.recordsById[record.pickupId],
+		"map mover record is unavailable during touch"
+	)
 	local transition, transitionError = MoverItemFlagParticipantRules.ResolveTouch(
 		moverRecord.participant,
 		if respawnSeconds < 0 then "MapNeverRespawn" else "MapRespawn"
@@ -2559,7 +2744,9 @@ local function tryPickupRecord(
 			or not mapRegistration
 			or mapRegistration.kind ~= "Item"
 			or EntitySlotService.GetMapRegistration(mapEntityId) ~= mapRegistration
-			or EntitySlotService.GetWorldRegistrationBySourceOrder(mapRegistration.registration.sourceOrder)
+			or EntitySlotService.GetWorldRegistrationBySourceOrder(
+					mapRegistration.registration.sourceOrder
+				)
 				~= mapRegistration.registration
 		then
 			return false
@@ -2602,9 +2789,12 @@ local function respawnMapPickup(
 	record.claiming = false
 	record.respawnAtMilliseconds = nil
 	record.revision += 1
-	local moverRecord =
-		assert(mapMoverAuthority.recordsById[record.pickupId], "map mover record is unavailable during respawn")
-	local transition, transitionError = MoverItemFlagParticipantRules.Respawn(moverRecord.participant)
+	local moverRecord = assert(
+		mapMoverAuthority.recordsById[record.pickupId],
+		"map mover record is unavailable during respawn"
+	)
+	local transition, transitionError =
+		MoverItemFlagParticipantRules.Respawn(moverRecord.participant)
 	assert(transition, transitionError or "map Item respawn transition failed")
 	replaceMapMoverRecord(record, transition.participant, nil)
 	applyMarkerState(record)
@@ -2621,8 +2811,10 @@ local function finishMapItemEvent(record: PickupRecord, currentMilliseconds: num
 	if currentMilliseconds - eventStartedAt <= 300 then
 		return
 	end
-	local transition, transitionError =
-		MoverItemFlagParticipantRules.FinishEvent(moverRecord.participant, currentMilliseconds - eventStartedAt)
+	local transition, transitionError = MoverItemFlagParticipantRules.FinishEvent(
+		moverRecord.participant,
+		currentMilliseconds - eventStartedAt
+	)
 	assert(transition, transitionError or "map Item event completion failed")
 	assert(
 		record.generation == moverRecord.recordGeneration and record.source == "Map",
@@ -2670,16 +2862,16 @@ local function stepLegacyDeathDrops(summary: AuthoritativeFrameService.Summary)
 			or not isFiniteVector(velocity)
 			or type(trajectoryTimeMilliseconds) ~= "number"
 			or trajectoryTimeMilliseconds % 1 ~= 0
+			or trajectoryTimeMilliseconds < 0
 			or trajectoryTimeMilliseconds > currentMilliseconds
 		then
 			destroyDeathDrop(record)
 			continue
 		end
 		local deltaMilliseconds = currentMilliseconds - trajectoryTimeMilliseconds
-		assert(
-			deltaMilliseconds == 0 or deltaMilliseconds == summary.msec,
-			"legacy death drop missed its canonical dynamic frame"
-		)
+		-- G_RunItem evaluates the trajectory at absolute level.time and traces
+		-- from the entity's last linked origin. A late visit therefore advances
+		-- the whole monotonic interval; it is not restricted to one frame.
 		record.trajectoryTimeMilliseconds = currentMilliseconds
 		if deltaMilliseconds == 0 then
 			continue
@@ -2695,7 +2887,12 @@ local function stepLegacyDeathDrops(summary: AuthoritativeFrameService.Summary)
 		local displacement = target - start
 		local distance = displacement.Magnitude
 		local result = if distance > 1e-6
-			then Workspace:Blockcast(CFrame.new(start), DroppedWeaponRules.ItemHullSize, displacement, parameters)
+			then Workspace:Blockcast(
+				CFrame.new(start),
+				DroppedWeaponRules.ItemHullSize,
+				displacement,
+				parameters
+			)
 			else nil
 		if not result then
 			record.authorityPosition = target
@@ -2705,7 +2902,8 @@ local function stepLegacyDeathDrops(summary: AuthoritativeFrameService.Summary)
 		end
 
 		local fraction = math.clamp(result.Distance / math.max(distance, 1e-6), 0, 1)
-		local _, impactVelocity = DroppedWeaponRules.Integrate(start, velocity, deltaTime * fraction)
+		local _, impactVelocity =
+			DroppedWeaponRules.Integrate(start, velocity, deltaTime * fraction)
 		local bouncedVelocity, settled = DroppedWeaponRules.Bounce(impactVelocity, result.Normal)
 		local impactPosition = start + displacement.Unit * result.Distance
 		if settled then
@@ -2775,13 +2973,20 @@ local function validatePreparedMoverDeathDropRequest(
 	end
 	if definition.kind == "Weapon" then
 		local weaponId = definition.weaponId
-		local expected = if weaponId then DroppedWeaponRules.ResolveCandidate(weaponId, true, 1, false, true) else nil
-		if not expected or expected.itemId ~= request.itemId or expected.quantity ~= request.quantity then
+		local expected = if weaponId
+			then DroppedWeaponRules.ResolveCandidate(weaponId, true, 1, false, true)
+			else nil
+		if
+			not expected
+			or expected.itemId ~= request.itemId
+			or expected.quantity ~= request.quantity
+		then
 			return nil, nil, "mover-death-drop-candidate-drifted"
 		end
 	elseif
 		not definition.powerupId
-		or MoverConsequenceRules.PowerupItemOrdinal[request.itemId :: string] ~= definition.powerupId
+		or MoverConsequenceRules.PowerupItemOrdinal[request.itemId :: string]
+			~= definition.powerupId
 	then
 		return nil, nil, "mover-powerup-drop-candidate-drifted"
 	end
@@ -2821,10 +3026,13 @@ local function preparedMoverDeathDropCurrentError(
 ): string?
 	local receiptCapability = moverDeathDropReceiptCapabilities[capability.receipt]
 	local sharedCurrent = capability.sharedMoverFrame
-		and activeSharedMoverDeathDropCapabilities[preparedValue :: PreparedMoverDeathDrop] == capability
+		and activeSharedMoverDeathDropCapabilities[preparedValue :: PreparedMoverDeathDrop]
+			== capability
 	if
 		capability.status ~= "Prepared"
-		or (if capability.sharedMoverFrame then not sharedCurrent else activePreparedMoverDeathDrop ~= preparedValue)
+		or (if capability.sharedMoverFrame
+			then not sharedCurrent
+			else activePreparedMoverDeathDrop ~= preparedValue)
 		or moverDeathDropFlushActive
 		or (not capability.sharedMoverFrame and moverDeathDropAuthority ~= capability.baseAuthority)
 		or (not capability.sharedMoverFrame and moverDeathDropDispatcherBindings ~= capability.baseDispatcherBindings)
@@ -2839,7 +3047,9 @@ local function preparedMoverDeathDropCurrentError(
 		or not table.isfrozen(capability.nextAuthority.recordsById)
 		or not table.isfrozen(capability.nextAuthority.order)
 		or not table.isfrozen(capability.baseDispatcherBindings)
-		or (capability.nextDispatcherBindings ~= nil and not table.isfrozen(capability.nextDispatcherBindings))
+		or (capability.nextDispatcherBindings ~= nil and not table.isfrozen(
+			capability.nextDispatcherBindings
+		))
 		or not table.isfrozen(capability.record)
 		or not table.isfrozen(capability.request)
 		or not table.isfrozen(capability.summary)
@@ -2908,12 +3118,19 @@ function ItemService.PrepareMoverDeathDrop(
 	evictedLeaseValue: unknown?,
 	sharedMoverFrameValue: unknown?,
 	baseAuthorityValue: unknown?
-): (PreparedMoverDeathDrop?, PreparedMoverDeathDropSummary?, string?)
+): (
+	PreparedMoverDeathDrop?,
+	PreparedMoverDeathDropSummary?,
+	string?
+)
 	if not started then
 		return nil, nil, "item-service-not-started"
 	end
 	local sharedMoverFrame = sharedMoverFrameValue == true
-	if activePreparedMoverDeathDrop ~= nil or (not sharedMoverFrame and #activeSharedMoverDeathDrops > 0) then
+	if
+		activePreparedMoverDeathDrop ~= nil
+		or (not sharedMoverFrame and #activeSharedMoverDeathDrops > 0)
+	then
 		return nil, nil, "mover-death-drop-prepare-active"
 	end
 	if activePreparedMoverParticipantUpdate ~= nil then
@@ -2941,7 +3158,9 @@ function ItemService.PrepareMoverDeathDrop(
 		or levelTimeMillisecondsValue % 1 ~= 0
 		or levelTimeMillisecondsValue < 0
 		or levelTimeMillisecondsValue
-			> MatchFrameRules.MaximumLevelTimeMilliseconds - durationMilliseconds(DroppedWeaponRules.ExpireSeconds)
+			> MatchFrameRules.MaximumLevelTimeMilliseconds - durationMilliseconds(
+				DroppedWeaponRules.ExpireSeconds
+			)
 	then
 		return nil, nil, "invalid-mover-death-drop-order-or-time"
 	end
@@ -3046,7 +3265,8 @@ function ItemService.PrepareMoverDeathDrop(
 	if not insertion then
 		return nil, nil, insertionError or "mover-death-drop-insertion-invalid"
 	end
-	local participant, participantError = MoverItemFlagParticipantRules.CreateFromInsertion(insertion)
+	local participant, participantError =
+		MoverItemFlagParticipantRules.CreateFromInsertion(insertion)
 	if not participant then
 		return nil, nil, participantError or "mover-death-drop-participant-invalid"
 	end
@@ -3189,7 +3409,9 @@ function ItemService.StageSynchronousMoverDeathDrop(
 	local lastSharedCapability = if lastSharedPrepared
 		then activeSharedMoverDeathDropCapabilities[lastSharedPrepared]
 		else nil
-	local shadowAuthority = if lastSharedCapability then lastSharedCapability.nextAuthority else moverDeathDropAuthority
+	local shadowAuthority = if lastSharedCapability
+		then lastSharedCapability.nextAuthority
+		else moverDeathDropAuthority
 	local evicted = if shadowAuthority.count >= DroppedWeaponRules.MaximumLiveDrops
 		then shadowAuthority.order[1]
 		else nil
@@ -3203,18 +3425,24 @@ function ItemService.StageSynchronousMoverDeathDrop(
 			end
 		end
 		if provisionalPrepared then
-			local canceled, cancelError =
-				MoverParticipantReleaseBrokerService.CancelAllocation(brokerToken, evicted.registration)
+			local canceled, cancelError = MoverParticipantReleaseBrokerService.CancelAllocation(
+				brokerToken,
+				evicted.registration
+			)
 			if not canceled or not ItemService.AbortPreparedMoverDeathDrop(provisionalPrepared) then
-				return nil, cancelError or "synchronous-mover-death-drop-provisional-eviction-failed"
+				return nil,
+					cancelError or "synchronous-mover-death-drop-provisional-eviction-failed"
 			end
 		else
 			local binding = moverDeathDropDispatcherBindings[evicted.dropId]
 			if not binding then
 				return nil, "synchronous-mover-death-drop-eviction-binding-missing"
 			end
-			local released, releaseError =
-				MoverParticipantReleaseBrokerService.StageRelease(brokerToken, evicted.registration, binding)
+			local released, releaseError = MoverParticipantReleaseBrokerService.StageRelease(
+				brokerToken,
+				evicted.registration,
+				binding
+			)
 			if not released then
 				return nil, releaseError or "synchronous-mover-death-drop-eviction-stage-failed"
 			end
@@ -3229,7 +3457,8 @@ function ItemService.StageSynchronousMoverDeathDrop(
 	if not registration then
 		return nil, allocationError or "synchronous-mover-death-drop-allocation-failed"
 	end
-	local lease = MoverParticipantReleaseBrokerService.GetProvisionalWorldLease(brokerToken, registration)
+	local lease =
+		MoverParticipantReleaseBrokerService.GetProvisionalWorldLease(brokerToken, registration)
 	local entitySlotToken = MoverParticipantReleaseBrokerService.GetOpenEntitySlotToken(brokerToken)
 	if not lease or not entitySlotToken then
 		return nil, "synchronous-mover-death-drop-provisional-lineage-missing"
@@ -3322,11 +3551,12 @@ function ItemService.BindPreparedMoverDeathDropEntitySlotDependency(
 			capability.entitySlotPrepared == entitySlotPreparedValue
 			and capability.entitySlotSummary == entitySlotSummaryValue
 		then
-			local validDependency, dependencyError = validatePreparedMoverDeathDropEntitySlotDependency(
-				capability,
-				entitySlotPreparedValue,
-				entitySlotSummaryValue
-			)
+			local validDependency, dependencyError =
+				validatePreparedMoverDeathDropEntitySlotDependency(
+					capability,
+					entitySlotPreparedValue,
+					entitySlotSummaryValue
+				)
 			if not validDependency then
 				return false, dependencyError
 			end
@@ -3340,12 +3570,16 @@ function ItemService.BindPreparedMoverDeathDropEntitySlotDependency(
 		end
 		return false, "mover-death-drop-entity-slot-dependency-already-bound"
 	end
-	local validDependency, dependencyError =
-		validatePreparedMoverDeathDropEntitySlotDependency(capability, entitySlotPreparedValue, entitySlotSummaryValue)
+	local validDependency, dependencyError = validatePreparedMoverDeathDropEntitySlotDependency(
+		capability,
+		entitySlotPreparedValue,
+		entitySlotSummaryValue
+	)
 	if not validDependency then
 		return false, dependencyError
 	end
-	local entitySlotReceipt = EntitySlotService.InspectPreparedCommitReceipt(entitySlotPreparedValue)
+	local entitySlotReceipt =
+		EntitySlotService.InspectPreparedCommitReceipt(entitySlotPreparedValue)
 	if not entitySlotReceipt then
 		return false, "mover-death-drop-entity-slot-receipt-unavailable"
 	end
@@ -3371,13 +3605,16 @@ local function validatePreparedMoverDeathDropDispatcherDependency(
 	then
 		return nil, "invalid-mover-death-drop-dispatcher-summary"
 	end
-	local summary = dispatcherSummaryValue :: EntityFrameDispatcherService.PreparedDynamicBatchSummary
+	local summary =
+		dispatcherSummaryValue :: EntityFrameDispatcherService.PreparedDynamicBatchSummary
 	if summary.entitySlotSummary ~= capability.entitySlotSummary then
 		return nil, "mover-death-drop-dispatcher-entity-slot-summary-mismatch"
 	end
 	local evictedRegistration = capability.summary.evictedRegistration
 	local evictedDropId = capability.summary.evictedDropId
-	local evictedBinding = if evictedDropId then capability.baseDispatcherBindings[evictedDropId] else nil
+	local evictedBinding = if evictedDropId
+		then capability.baseDispatcherBindings[evictedDropId]
+		else nil
 	local bound: EntityFrameDispatcherService.DynamicBinding? = nil
 	local sawEvictedUnbind = false
 	for _, outcome in summary.outcomes do
@@ -3436,12 +3673,16 @@ function ItemService.BindPreparedMoverDeathDropDispatcherDependency(
 	if not capability.entitySlotPrepared or not capability.entitySlotSummary then
 		return false, "mover-death-drop-entity-slot-dependency-not-bound"
 	end
-	local binding, dependencyError =
-		validatePreparedMoverDeathDropDispatcherDependency(capability, dispatcherPreparedValue, dispatcherSummaryValue)
+	local binding, dependencyError = validatePreparedMoverDeathDropDispatcherDependency(
+		capability,
+		dispatcherPreparedValue,
+		dispatcherSummaryValue
+	)
 	if not binding then
 		return false, dependencyError
 	end
-	local dispatcherReceipt = EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPreparedValue)
+	local dispatcherReceipt =
+		EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPreparedValue)
 	if not dispatcherReceipt then
 		return false, "mover-death-drop-dispatcher-receipt-unavailable"
 	end
@@ -3467,14 +3708,18 @@ function ItemService.BindPreparedMoverDeathDropDispatcherDependency(
 	end
 	nextBindings[capability.record.dropId] = binding
 	table.freeze(nextBindings)
-	capability.dispatcherPrepared = dispatcherPreparedValue :: EntityFrameDispatcherService.PreparedDynamicBatch
-	capability.dispatcherSummary = dispatcherSummaryValue :: EntityFrameDispatcherService.PreparedDynamicBatchSummary
+	capability.dispatcherPrepared =
+		dispatcherPreparedValue :: EntityFrameDispatcherService.PreparedDynamicBatch
+	capability.dispatcherSummary =
+		dispatcherSummaryValue :: EntityFrameDispatcherService.PreparedDynamicBatchSummary
 	capability.dispatcherReceipt = dispatcherReceipt
 	capability.nextDispatcherBindings = nextBindings
 	return true, nil
 end
 
-function ItemService.InspectPreparedMoverDeathDrop(preparedValue: unknown): PreparedMoverDeathDropSummary?
+function ItemService.InspectPreparedMoverDeathDrop(
+	preparedValue: unknown
+): PreparedMoverDeathDropSummary?
 	if type(preparedValue) ~= "table" then
 		return nil
 	end
@@ -3485,7 +3730,10 @@ function ItemService.InspectPreparedMoverDeathDrop(preparedValue: unknown): Prep
 	return capability.summary
 end
 
-function ItemService.ValidatePreparedMoverDeathDropDependency(preparedValue: unknown, summaryValue: unknown): boolean
+function ItemService.ValidatePreparedMoverDeathDropDependency(
+	preparedValue: unknown,
+	summaryValue: unknown
+): boolean
 	local summary = ItemService.InspectPreparedMoverDeathDrop(preparedValue)
 	return summary ~= nil and summary == summaryValue
 end
@@ -3508,28 +3756,44 @@ function ItemService.CanApplyPreparedMoverDeathDrop(preparedValue: unknown): (bo
 	if not entitySlotPrepared or not entitySlotSummary then
 		return false, "prepared-mover-death-drop-entity-slot-outcome-not-bound"
 	end
-	local dependencyCurrent, dependencyError =
-		validatePreparedMoverDeathDropEntitySlotDependency(capability, entitySlotPrepared, entitySlotSummary)
+	local dependencyCurrent, dependencyError = validatePreparedMoverDeathDropEntitySlotDependency(
+		capability,
+		entitySlotPrepared,
+		entitySlotSummary
+	)
 	if not dependencyCurrent then
 		return false, dependencyError
 	end
-	if EntitySlotService.InspectPreparedCommitReceipt(entitySlotPrepared) ~= capability.entitySlotReceipt then
+	if
+		EntitySlotService.InspectPreparedCommitReceipt(entitySlotPrepared)
+		~= capability.entitySlotReceipt
+	then
 		return false, "stale-mover-death-drop-entity-slot-receipt"
 	end
 	local dispatcherPrepared = capability.dispatcherPrepared
 	local dispatcherSummary = capability.dispatcherSummary
 	local dispatcherReceipt = capability.dispatcherReceipt
 	local nextDispatcherBindings = capability.nextDispatcherBindings
-	if not dispatcherPrepared or not dispatcherSummary or not dispatcherReceipt or not nextDispatcherBindings then
+	if
+		not dispatcherPrepared
+		or not dispatcherSummary
+		or not dispatcherReceipt
+		or not nextDispatcherBindings
+	then
 		return false, "prepared-mover-death-drop-dispatcher-outcome-not-bound"
 	end
 	local dispatcherBinding, dispatcherDependencyError =
-		validatePreparedMoverDeathDropDispatcherDependency(capability, dispatcherPrepared, dispatcherSummary)
+		validatePreparedMoverDeathDropDispatcherDependency(
+			capability,
+			dispatcherPrepared,
+			dispatcherSummary
+		)
 	if not dispatcherBinding then
 		return false, dispatcherDependencyError
 	end
 	if
-		EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared) ~= dispatcherReceipt
+		EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared)
+			~= dispatcherReceipt
 		or nextDispatcherBindings[capability.record.dropId] ~= dispatcherBinding
 	then
 		return false, "stale-mover-death-drop-dispatcher-receipt-or-binding"
@@ -3549,14 +3813,20 @@ function ItemService.ApplyPreparedMoverDeathDrop(
 	local capability = preparedMoverDeathDropCapabilities[prepared]
 	assert(capability, "invalid-prepared-mover-death-drop")
 	assert(capability.applyValidated, "prepared-mover-death-drop-not-validated")
-	assert(capability.preflightPassCount >= 2, "prepared mover death-drop requires two complete preflight passes")
+	assert(
+		capability.preflightPassCount >= 2,
+		"prepared mover death-drop requires two complete preflight passes"
+	)
 	assert(
 		capability.status == "Prepared"
 			and (if capability.sharedMoverFrame
 				then activeSharedMoverDeathDropCapabilities[prepared] == capability
 				else activePreparedMoverDeathDrop == prepared)
 			and (capability.sharedMoverFrame or moverDeathDropAuthority == capability.baseAuthority)
-			and (capability.sharedMoverFrame or moverDeathDropDispatcherBindings == capability.baseDispatcherBindings),
+			and (
+				capability.sharedMoverFrame
+				or moverDeathDropDispatcherBindings == capability.baseDispatcherBindings
+			),
 		"stale prepared mover death-drop at apply"
 	)
 	assert(
@@ -3567,15 +3837,25 @@ function ItemService.ApplyPreparedMoverDeathDrop(
 		dispatcherReceiptValue == capability.dispatcherReceipt,
 		"prepared mover death-drop received the wrong dispatcher receipt"
 	)
-	local entitySlotSummary =
-		assert(capability.entitySlotSummary, "prepared mover death-drop EntitySlot summary disappeared")
+	local entitySlotSummary = assert(
+		capability.entitySlotSummary,
+		"prepared mover death-drop EntitySlot summary disappeared"
+	)
 	local entityApplied, entityAppliedError =
 		EntitySlotService.ValidateAppliedCommitDependency(entitySlotReceiptValue, entitySlotSummary)
-	assert(entityApplied, entityAppliedError or "prepared mover death-drop EntitySlot dependency was not applied")
-	local dispatcherSummary =
-		assert(capability.dispatcherSummary, "prepared mover death-drop dispatcher summary disappeared")
+	assert(
+		entityApplied,
+		entityAppliedError or "prepared mover death-drop EntitySlot dependency was not applied"
+	)
+	local dispatcherSummary = assert(
+		capability.dispatcherSummary,
+		"prepared mover death-drop dispatcher summary disappeared"
+	)
 	local dispatcherApplied, dispatcherAppliedError =
-		EntityFrameDispatcherService.ValidateAppliedDynamicBatchDependency(dispatcherReceiptValue, dispatcherSummary)
+		EntityFrameDispatcherService.ValidateAppliedDynamicBatchDependency(
+			dispatcherReceiptValue,
+			dispatcherSummary
+		)
 	assert(
 		dispatcherApplied,
 		dispatcherAppliedError or "prepared mover death-drop dispatcher dependency was not applied"
@@ -3585,8 +3865,10 @@ function ItemService.ApplyPreparedMoverDeathDrop(
 		"prepared mover death-drop receipt capability disappeared"
 	)
 
-	local nextDispatcherBindings =
-		assert(capability.nextDispatcherBindings, "prepared mover death-drop dispatcher bindings are unavailable")
+	local nextDispatcherBindings = assert(
+		capability.nextDispatcherBindings,
+		"prepared mover death-drop dispatcher bindings are unavailable"
+	)
 	-- Both exact applied witnesses are now consumed. Everything below is a fixed
 	-- assignment into data allocated and frozen before either preceding owner
 	-- swapped roots; no further callback, allocation, or external validation occurs.
@@ -3625,11 +3907,15 @@ function ItemService.ApplyPreparedMoverDeathDrop(
 	return capability.receipt
 end
 
-local function createPreparedMoverDeathDropMarker(presentation: MoverDeathDropPresentation): BasePart
-	local definition =
-		assert(ItemDefs.ById[presentation.itemId], "prepared mover death-drop item definition disappeared")
+local function createPreparedMoverDeathDropMarker(
+	presentation: MoverDeathDropPresentation
+): BasePart
+	local definition = assert(
+		ItemDefs.ById[presentation.itemId],
+		"prepared mover death-drop item definition disappeared"
+	)
 	local root = assert(worldRoot, "ItemService world root is unavailable")
-	local folder = ensureFolder(root, "ArenaDroppedWeapons")
+	local folder = ensureFolder(root, "Q3EngineDroppedWeapons")
 	local marker = Instance.new("Part")
 	marker.Name = presentation.dropId
 	marker.Anchored = true
@@ -3666,7 +3952,9 @@ local function createPreparedMoverDeathDropMarker(presentation: MoverDeathDropPr
 	return marker
 end
 
-function ItemService.FlushPreparedMoverDeathDrop(receiptValue: unknown): (MoverDeathDropPublicationReport?, string?)
+function ItemService.FlushPreparedMoverDeathDrop(
+	receiptValue: unknown
+): (MoverDeathDropPublicationReport?, string?)
 	if type(receiptValue) ~= "table" then
 		return nil, "invalid-mover-death-drop-receipt"
 	end
@@ -3696,7 +3984,8 @@ function ItemService.FlushPreparedMoverDeathDrop(receiptValue: unknown): (MoverD
 	local presentation = capability.presentation
 	if presentation.evictedDropId then
 		publish(function()
-			local evictedMarker = moverDeathDropPresentationMarkers[presentation.evictedDropId :: string]
+			local evictedMarker =
+				moverDeathDropPresentationMarkers[presentation.evictedDropId :: string]
 			moverDeathDropPresentationMarkers[presentation.evictedDropId :: string] = nil
 			if evictedMarker then
 				ItemFramePublicationService.RetirePart(evictedMarker)
@@ -3903,7 +4192,8 @@ local function releaseRegisteredMoverDeathDrop(
 		EntitySlotService.Abort(token)
 		return false
 	end
-	local dispatcherReceipt = EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared)
+	local dispatcherReceipt =
+		EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared)
 	if not dispatcherReceipt then
 		EntityFrameDispatcherService.AbortPreparedDynamicBatch(dispatcherPrepared)
 		EntitySlotService.Abort(token)
@@ -3920,7 +4210,8 @@ local function releaseRegisteredMoverDeathDrop(
 			return false
 		end
 		local entityCanApply = EntitySlotService.CanApplyPrepared(entityPrepared)
-		local dispatcherCanApply = EntityFrameDispatcherService.CanApplyPreparedDynamicBatch(dispatcherPrepared)
+		local dispatcherCanApply =
+			EntityFrameDispatcherService.CanApplyPreparedDynamicBatch(dispatcherPrepared)
 		if not entityCanApply or not dispatcherCanApply then
 			EntityFrameDispatcherService.AbortPreparedDynamicBatch(dispatcherPrepared)
 			EntitySlotService.Abort(token)
@@ -3930,8 +4221,12 @@ local function releaseRegisteredMoverDeathDrop(
 
 	local appliedEntityReceipt = EntitySlotService.ApplyPrepared(entityPrepared)
 	assert(appliedEntityReceipt == entityReceipt, "death-drop release EntitySlot receipt drifted")
-	local appliedDispatcherReceipt = EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
-	assert(appliedDispatcherReceipt == dispatcherReceipt, "death-drop release dispatcher receipt drifted")
+	local appliedDispatcherReceipt =
+		EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
+	assert(
+		appliedDispatcherReceipt == dispatcherReceipt,
+		"death-drop release dispatcher receipt drifted"
+	)
 	moverDeathDropAuthority = nextAuthority
 	moverDeathDropDispatcherBindings = nextBindings
 	moverDeathDropCleanupIntents[record.dropId] = nil
@@ -3962,17 +4257,20 @@ runRegisteredMoverDeathDrop = function(
 	assert(
 		record ~= nil
 			and moverDeathDropDispatcherBindings[record.dropId] == binding
-			and EntitySlotService.GetWorldRegistrationBySourceOrder(registration.sourceOrder) == registration,
+			and EntitySlotService.GetWorldRegistrationBySourceOrder(registration.sourceOrder)
+				== registration,
 		"registered Item handler lost its exact authority"
 	)
 	local currentMilliseconds = summary.currentTimeMilliseconds
 	local cleanupReason = moverDeathDropCleanupIntents[record.dropId]
 	if cleanupReason ~= nil or record.matchId ~= currentMatchId() then
 		if cleanupReason == "NoDrop" then
-			local transition = assert(MoverItemFlagParticipantRules.ResolveNoDropCollision(record.participant))
+			local transition =
+				assert(MoverItemFlagParticipantRules.ResolveNoDropCollision(record.participant))
 			assert(
 				transition.releaseSourceOrder
-					and transition.participant.lifecycle == MoverItemFlagParticipantRules.Lifecycle.Freed,
+					and transition.participant.lifecycle
+						== MoverItemFlagParticipantRules.Lifecycle.Freed,
 				"queued no-drop Item cleanup did not free its exact source order"
 			)
 		end
@@ -3985,9 +4283,13 @@ runRegisteredMoverDeathDrop = function(
 
 	local participant = record.participant
 	if participant.lifecycle == MoverItemFlagParticipantRules.Lifecycle.PendingFreeAfterEvent then
-		local eventStartedAt = assert(record.eventStartedAtMilliseconds, "pending-free death drop lost its event start")
+		local eventStartedAt = assert(
+			record.eventStartedAtMilliseconds,
+			"pending-free death drop lost its event start"
+		)
 		local elapsed = currentMilliseconds - eventStartedAt
-		local transition, transitionError = MoverItemFlagParticipantRules.FinishEvent(participant, elapsed)
+		local transition, transitionError =
+			MoverItemFlagParticipantRules.FinishEvent(participant, elapsed)
 		if elapsed <= MoverItemFlagParticipantRules.EventValidMilliseconds then
 			assert(
 				transition == nil and transitionError == "event-still-valid",
@@ -4016,21 +4318,29 @@ runRegisteredMoverDeathDrop = function(
 		)
 		assert(
 			transition.releaseSourceOrder
-				and transition.participant.lifecycle == MoverItemFlagParticipantRules.Lifecycle.Freed,
+				and transition.participant.lifecycle
+					== MoverItemFlagParticipantRules.Lifecycle.Freed,
 			"30-second Item think did not free the exact source order"
 		)
-		assert(releaseRegisteredMoverDeathDrop(record, summary), "timed-out death drop did not release its composite")
+		assert(
+			releaseRegisteredMoverDeathDrop(record, summary),
+			"timed-out death drop did not release its composite"
+		)
 		return
 	end
 
+	assert(
+		record.trajectoryTimeMilliseconds >= record.spawnTimeMilliseconds
+			and record.trajectoryTimeMilliseconds <= currentMilliseconds,
+		"registered death-drop trajectory clock is corrupt"
+	)
 	if record.settled then
 		return
 	end
 	local deltaMilliseconds = currentMilliseconds - record.trajectoryTimeMilliseconds
-	assert(
-		deltaMilliseconds == 0 or deltaMilliseconds == summary.msec,
-		"registered death drop missed its canonical G_RunItem frame"
-	)
+	-- Q3 G_RunItem evaluates at absolute level.time and traces from the last
+	-- linked origin. Dynamic insertion or a late dispatcher visit may therefore
+	-- span multiple fixed steps; the full monotonic elapsed interval is canonical.
 	if deltaMilliseconds == 0 then
 		return
 	end
@@ -4047,17 +4357,27 @@ runRegisteredMoverDeathDrop = function(
 	local distance = displacement.Magnitude
 	local parameters = assert(deathDropCastParameters, "death-drop cast parameters are unavailable")
 	local result = if distance > 1e-6
-		then Workspace:Blockcast(CFrame.new(start), DroppedWeaponRules.ItemHullSize, displacement, parameters)
+		then Workspace:Blockcast(
+			CFrame.new(start),
+			DroppedWeaponRules.ItemHullSize,
+			displacement,
+			parameters
+		)
 		else nil
 	local nextPosition = target
 	local settled = false
 	if result then
 		local fraction = math.clamp(result.Distance / math.max(distance, 1e-6), 0, 1)
-		local _, impactVelocity = DroppedWeaponRules.Integrate(start, velocity, deltaTime * fraction)
+		local _, impactVelocity =
+			DroppedWeaponRules.Integrate(start, velocity, deltaTime * fraction)
 		nextPosition = start + displacement.Unit * result.Distance
 		if pointHasNoDrop(nextPosition) then
-			local transition = assert(MoverItemFlagParticipantRules.ResolveNoDropCollision(participant))
-			assert(transition.releaseSourceOrder, "colliding no-drop Item did not release its source order")
+			local transition =
+				assert(MoverItemFlagParticipantRules.ResolveNoDropCollision(participant))
+			assert(
+				transition.releaseSourceOrder,
+				"colliding no-drop Item did not release its source order"
+			)
 			assert(
 				releaseRegisteredMoverDeathDrop(record, summary),
 				"colliding no-drop Item did not release its composite"
@@ -4076,8 +4396,9 @@ runRegisteredMoverDeathDrop = function(
 			nextPosition += result.Normal * DroppedWeaponRules.SurfaceNudge
 		end
 	end
-	local nextParticipant =
-		assert(MoverItemFlagParticipantRules.ApplyRunItemBody(participant, nextPosition, nextVelocity, nil))
+	local nextParticipant = assert(
+		MoverItemFlagParticipantRules.ApplyRunItemBody(participant, nextPosition, nextVelocity, nil)
+	)
 	local nextRecord = cloneMoverDeathDropRecord(
 		record,
 		nextParticipant,
@@ -4090,7 +4411,9 @@ runRegisteredMoverDeathDrop = function(
 	scheduleSnapshot()
 end
 
-local function runDeathDropInsertionPrepareCleanup(cleanup: DeathDropInsertionPrepareCleanup): string?
+local function runDeathDropInsertionPrepareCleanup(
+	cleanup: DeathDropInsertionPrepareCleanup
+): string?
 	-- Item is the final prepared dependent, so release it before the Dispatcher
 	-- proof it consumes, and release Dispatcher before its EntitySlot source.
 	-- A partial-Prepare failure has no public handle, so a failed child stops the
@@ -4149,7 +4472,9 @@ local function deathDropInsertionPreparedCurrentError(
 	capability: DeathDropInsertionCapability
 ): string?
 	local itemCapability = preparedMoverDeathDropCapabilities[capability.itemPrepared]
-	local nextDispatcherBindings = if itemCapability then itemCapability.nextDispatcherBindings else nil
+	local nextDispatcherBindings = if itemCapability
+		then itemCapability.nextDispatcherBindings
+		else nil
 	if
 		capability.status ~= "Prepared"
 		or capability.prepared ~= preparedValue
@@ -4177,7 +4502,10 @@ local function deathDropInsertionPreparedCurrentError(
 		or capability.entitySlotAborted
 		or AuthoritativeFrameService.GetOpenFrame() ~= capability.frame
 		or AuthoritativeFrameService.InspectFrame(capability.frame) ~= capability.frameSummary
-		or not AuthoritativeFrameService.ValidateFrameDependency(capability.frame, capability.frameSummary)
+		or not AuthoritativeFrameService.ValidateFrameDependency(
+			capability.frame,
+			capability.frameSummary
+		)
 		or capability.entitySlotSummary.stepTimeMilliseconds ~= capability.frameSummary.currentTimeMilliseconds
 		or not EntitySlotService.ValidatePreparedCommitDependency(
 			capability.entitySlotPrepared,
@@ -4188,9 +4516,14 @@ local function deathDropInsertionPreparedCurrentError(
 			capability.dispatcherPrepared,
 			capability.dispatcherSummary
 		)
-		or EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(capability.dispatcherPrepared) ~= capability.dispatcherReceipt
+		or EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(
+			capability.dispatcherPrepared
+		) ~= capability.dispatcherReceipt
 		or capability.dispatcherSummary.entitySlotSummary ~= capability.entitySlotSummary
-		or not ItemService.ValidatePreparedMoverDeathDropDependency(capability.itemPrepared, capability.itemSummary)
+		or not ItemService.ValidatePreparedMoverDeathDropDependency(
+			capability.itemPrepared,
+			capability.itemSummary
+		)
 	then
 		return "stale-prepared-death-drop-insertion"
 	end
@@ -4205,7 +4538,8 @@ local function runDeathDropInsertionPreflight(
 	if currentError then
 		return false, currentError
 	end
-	local entityCanApply, entityCanApplyError = EntitySlotService.CanApplyPrepared(capability.entitySlotPrepared)
+	local entityCanApply, entityCanApplyError =
+		EntitySlotService.CanApplyPrepared(capability.entitySlotPrepared)
 	if not entityCanApply then
 		return false, entityCanApplyError or "death-drop-insertion-entity-slot-preflight-failed"
 	end
@@ -4214,7 +4548,8 @@ local function runDeathDropInsertionPreflight(
 	if not dispatcherCanApply then
 		return false, dispatcherCanApplyError or "death-drop-insertion-dispatcher-preflight-failed"
 	end
-	local itemCanApply, itemCanApplyError = ItemService.CanApplyPreparedMoverDeathDrop(capability.itemPrepared)
+	local itemCanApply, itemCanApplyError =
+		ItemService.CanApplyPreparedMoverDeathDrop(capability.itemPrepared)
 	if not itemCanApply then
 		return false, itemCanApplyError or "death-drop-insertion-item-preflight-failed"
 	end
@@ -4270,13 +4605,18 @@ function ItemService.PrepareDeathDropInsertion(
 	if activePreparedMoverParticipantUpdate ~= nil then
 		return nil, nil, "item-mover-participant-update-active"
 	end
-	if activePreparedMoverDeathDrop ~= nil or #activeSharedMoverDeathDrops > 0 or moverDeathDropFlushActive then
+	if
+		activePreparedMoverDeathDrop ~= nil
+		or #activeSharedMoverDeathDrops > 0
+		or moverDeathDropFlushActive
+	then
 		return nil, nil, "mover-death-drop-owner-unavailable"
 	end
 
 	local frame = frameValue :: AuthoritativeFrameService.Frame
 	local frameSummary = frameSummaryValue :: AuthoritativeFrameService.Summary
-	local entitySlotToken, entitySlotBeginError = EntitySlotService.Begin(frameSummary.currentTimeMilliseconds)
+	local entitySlotToken, entitySlotBeginError =
+		EntitySlotService.Begin(frameSummary.currentTimeMilliseconds)
 	if not entitySlotToken then
 		return nil, nil, entitySlotBeginError or "death-drop-insertion-entity-slot-begin-failed"
 	end
@@ -4286,13 +4626,17 @@ function ItemService.PrepareDeathDropInsertion(
 		else nil
 	local evictedBinding = if evicted then moverDeathDropDispatcherBindings[evicted.dropId] else nil
 	if evicted then
-		if not evictedBinding or not EntitySlotService.ReleaseWorld(entitySlotToken, evicted.registration) then
+		if
+			not evictedBinding
+			or not EntitySlotService.ReleaseWorld(entitySlotToken, evicted.registration)
+		then
 			local abortError = abortDeathDropInsertionPrepareChildren(nil, nil, entitySlotToken)
 			return nil, nil, abortError or "death-drop-insertion-eviction-release-failed"
 		end
 	end
 
-	local registration, allocationError = EntitySlotService.AllocateWorld(entitySlotToken, "dropped_item")
+	local registration, allocationError =
+		EntitySlotService.AllocateWorld(entitySlotToken, "dropped_item")
 	if not registration then
 		local abortError = abortDeathDropInsertionPrepareChildren(nil, nil, entitySlotToken)
 		return nil, nil, abortError or allocationError or "death-drop-insertion-allocation-failed"
@@ -4314,14 +4658,22 @@ function ItemService.PrepareDeathDropInsertion(
 		if evicted then evicted.lease else nil
 	)
 	if not itemPrepared or not itemSummary then
-		local abortError = abortDeathDropInsertionPrepareChildren(nil, itemPrepared, entitySlotToken)
-		return nil, nil, abortError or itemPrepareError or "death-drop-insertion-item-prepare-failed"
+		local abortError =
+			abortDeathDropInsertionPrepareChildren(nil, itemPrepared, entitySlotToken)
+		return nil,
+			nil,
+			abortError or itemPrepareError or "death-drop-insertion-item-prepare-failed"
 	end
 
 	local entitySlotPrepared, entitySlotPrepareError = EntitySlotService.Prepare(entitySlotToken)
 	if not entitySlotPrepared then
-		local abortError = abortDeathDropInsertionPrepareChildren(nil, itemPrepared, entitySlotToken)
-		return nil, nil, abortError or entitySlotPrepareError or "death-drop-insertion-entity-slot-prepare-failed"
+		local abortError =
+			abortDeathDropInsertionPrepareChildren(nil, itemPrepared, entitySlotToken)
+		return nil,
+			nil,
+			abortError
+				or entitySlotPrepareError
+				or "death-drop-insertion-entity-slot-prepare-failed"
 	end
 	local entitySlotSummary = EntitySlotService.InspectPreparedCommitSummary(entitySlotPrepared)
 	local entitySlotReceipt = EntitySlotService.InspectPreparedCommitReceipt(entitySlotPrepared)
@@ -4334,7 +4686,8 @@ function ItemService.PrepareDeathDropInsertion(
 			entitySlotSummary
 		)
 	then
-		local abortError = abortDeathDropInsertionPrepareChildren(nil, itemPrepared, entitySlotToken)
+		local abortError =
+			abortDeathDropInsertionPrepareChildren(nil, itemPrepared, entitySlotToken)
 		return nil, nil, abortError or "death-drop-insertion-entity-slot-dependency-failed"
 	end
 
@@ -4353,12 +4706,23 @@ function ItemService.PrepareDeathDropInsertion(
 		handler = runRegisteredMoverDeathDrop,
 	})
 	local dispatcherPrepared, dispatcherSummary, dispatcherPrepareError =
-		EntityFrameDispatcherService.PrepareDynamicBatch(entitySlotPrepared, entitySlotSummary, dispatcherOperations)
+		EntityFrameDispatcherService.PrepareDynamicBatch(
+			entitySlotPrepared,
+			entitySlotSummary,
+			dispatcherOperations
+		)
 	if not dispatcherPrepared or not dispatcherSummary then
-		local abortError = abortDeathDropInsertionPrepareChildren(dispatcherPrepared, itemPrepared, entitySlotToken)
-		return nil, nil, abortError or dispatcherPrepareError or "death-drop-insertion-dispatcher-prepare-failed"
+		local abortError = abortDeathDropInsertionPrepareChildren(
+			dispatcherPrepared,
+			itemPrepared,
+			entitySlotToken
+		)
+		return nil,
+			nil,
+			abortError or dispatcherPrepareError or "death-drop-insertion-dispatcher-prepare-failed"
 	end
-	local dispatcherReceipt = EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared)
+	local dispatcherReceipt =
+		EntityFrameDispatcherService.InspectPreparedDynamicBatchReceipt(dispatcherPrepared)
 	if
 		not dispatcherReceipt
 		or not ItemService.BindPreparedMoverDeathDropDispatcherDependency(
@@ -4367,7 +4731,11 @@ function ItemService.PrepareDeathDropInsertion(
 			dispatcherSummary
 		)
 	then
-		local abortError = abortDeathDropInsertionPrepareChildren(dispatcherPrepared, itemPrepared, entitySlotToken)
+		local abortError = abortDeathDropInsertionPrepareChildren(
+			dispatcherPrepared,
+			itemPrepared,
+			entitySlotToken
+		)
 		return nil, nil, abortError or "death-drop-insertion-dispatcher-dependency-failed"
 	end
 
@@ -4383,7 +4751,11 @@ function ItemService.PrepareDeathDropInsertion(
 		or not itemReceipt
 		or moverDeathDropReceiptCapabilities[itemReceipt] == nil
 	then
-		local abortError = abortDeathDropInsertionPrepareChildren(dispatcherPrepared, itemPrepared, entitySlotToken)
+		local abortError = abortDeathDropInsertionPrepareChildren(
+			dispatcherPrepared,
+			itemPrepared,
+			entitySlotToken
+		)
 		return nil, nil, abortError or "death-drop-insertion-item-receipt-unavailable"
 	end
 	local request = itemCapability.request
@@ -4432,12 +4804,18 @@ function ItemService.PrepareDeathDropInsertion(
 	return prepared, summary, nil
 end
 
-function ItemService.InspectPreparedDeathDropInsertion(preparedValue: unknown): PreparedDeathDropInsertionSummary?
+function ItemService.InspectPreparedDeathDropInsertion(
+	preparedValue: unknown
+): PreparedDeathDropInsertionSummary?
 	if type(preparedValue) ~= "table" then
 		return nil
 	end
-	local capability = preparedDeathDropInsertionCapabilities[preparedValue :: PreparedDeathDropInsertion]
-	if not capability or deathDropInsertionPreparedCurrentError(preparedValue, capability) ~= nil then
+	local capability =
+		preparedDeathDropInsertionCapabilities[preparedValue :: PreparedDeathDropInsertion]
+	if
+		not capability
+		or deathDropInsertionPreparedCurrentError(preparedValue, capability) ~= nil
+	then
 		return nil
 	end
 	return capability.summary
@@ -4470,28 +4848,45 @@ function ItemService.CanApplyPreparedDeathDropInsertion(preparedValue: unknown):
 	return true, nil
 end
 
-function ItemService.ApplyPreparedDeathDropInsertion(preparedValue: unknown): DeathDropInsertionApplyReceipt
+function ItemService.ApplyPreparedDeathDropInsertion(
+	preparedValue: unknown
+): DeathDropInsertionApplyReceipt
 	assert(type(preparedValue) == "table", "invalid-prepared-death-drop-insertion")
 	local prepared = preparedValue :: PreparedDeathDropInsertion
-	local capability = assert(preparedDeathDropInsertionCapabilities[prepared], "invalid-prepared-death-drop-insertion")
+	local capability = assert(
+		preparedDeathDropInsertionCapabilities[prepared],
+		"invalid-prepared-death-drop-insertion"
+	)
 	assert(capability.applyValidated, "prepared-death-drop-insertion-not-validated")
-	assert(capability.preflightPassCount >= 2, "prepared death-drop insertion requires two complete preflight passes")
+	assert(
+		capability.preflightPassCount >= 2,
+		"prepared death-drop insertion requires two complete preflight passes"
+	)
 	capability.applyValidated = false
 
 	-- The caller has already run two whole-composite passes immediately before
 	-- its first authority write. Do not call CanApply again here: a direct-death
 	-- coordinator reaches this tail only after its preceding owner assignments.
 	local appliedEntitySlotReceipt = EntitySlotService.ApplyPrepared(capability.entitySlotPrepared)
-	assert(appliedEntitySlotReceipt == capability.entitySlotReceipt, "death-drop insertion EntitySlot receipt drifted")
+	assert(
+		appliedEntitySlotReceipt == capability.entitySlotReceipt,
+		"death-drop insertion EntitySlot receipt drifted"
+	)
 	local appliedDispatcherReceipt =
 		EntityFrameDispatcherService.ApplyPreparedDynamicBatch(capability.dispatcherPrepared)
-	assert(appliedDispatcherReceipt == capability.dispatcherReceipt, "death-drop insertion Dispatcher receipt drifted")
+	assert(
+		appliedDispatcherReceipt == capability.dispatcherReceipt,
+		"death-drop insertion Dispatcher receipt drifted"
+	)
 	local appliedItemReceipt = ItemService.ApplyPreparedMoverDeathDrop(
 		capability.itemPrepared,
 		appliedEntitySlotReceipt,
 		appliedDispatcherReceipt
 	)
-	assert(appliedItemReceipt == capability.itemReceipt, "death-drop insertion Item receipt drifted")
+	assert(
+		appliedItemReceipt == capability.itemReceipt,
+		"death-drop insertion Item receipt drifted"
+	)
 
 	-- Keep the outer slot through Flush. This prevents a second insertion from
 	-- retiring the exact applied EntitySlot/Dispatcher witnesses before the
@@ -4522,12 +4917,17 @@ local function validateAppliedDeathDropInsertion(
 		or not table.isfrozen(capability.request)
 		or AuthoritativeFrameService.GetOpenFrame() ~= capability.frame
 		or AuthoritativeFrameService.InspectFrame(capability.frame) ~= capability.frameSummary
-		or not AuthoritativeFrameService.ValidateFrameDependency(capability.frame, capability.frameSummary)
+		or not AuthoritativeFrameService.ValidateFrameDependency(
+			capability.frame,
+			capability.frameSummary
+		)
 	then
 		return nil, "stale-applied-death-drop-insertion"
 	end
-	local entityApplied, entityAppliedError =
-		EntitySlotService.ValidateAppliedCommitDependency(capability.entitySlotReceipt, capability.entitySlotSummary)
+	local entityApplied, entityAppliedError = EntitySlotService.ValidateAppliedCommitDependency(
+		capability.entitySlotReceipt,
+		capability.entitySlotSummary
+	)
 	if not entityApplied then
 		return nil, entityAppliedError or "death-drop-insertion-entity-slot-dependency-not-applied"
 	end
@@ -4537,7 +4937,8 @@ local function validateAppliedDeathDropInsertion(
 			capability.dispatcherSummary
 		)
 	if not dispatcherApplied then
-		return nil, dispatcherAppliedError or "death-drop-insertion-dispatcher-dependency-not-applied"
+		return nil,
+			dispatcherAppliedError or "death-drop-insertion-dispatcher-dependency-not-applied"
 	end
 	local itemReceiptCapability = moverDeathDropReceiptCapabilities[capability.itemReceipt]
 	local itemRecord = moverDeathDropAuthority.recordsById[capability.itemSummary.dropId]
@@ -4566,11 +4967,14 @@ function ItemService.ValidateAppliedDeathDropInsertionDependency(
 	receiptValue: unknown,
 	summaryValue: unknown
 ): (boolean, string?)
-	local capability, dependencyError = validateAppliedDeathDropInsertion(receiptValue, summaryValue)
+	local capability, dependencyError =
+		validateAppliedDeathDropInsertion(receiptValue, summaryValue)
 	return capability ~= nil, dependencyError
 end
 
-function ItemService.FlushPreparedDeathDropInsertion(receiptValue: unknown): (MoverDeathDropPublicationReport?, string?)
+function ItemService.FlushPreparedDeathDropInsertion(
+	receiptValue: unknown
+): (MoverDeathDropPublicationReport?, string?)
 	if type(receiptValue) ~= "table" then
 		return nil, "invalid-death-drop-insertion-receipt"
 	end
@@ -4628,7 +5032,11 @@ function ItemService.AbortPreparedDeathDropInsertion(preparedValue: unknown): (b
 		capability.itemAborted = true
 	end
 	if not capability.dispatcherAborted then
-		if not EntityFrameDispatcherService.AbortPreparedDynamicBatch(capability.dispatcherPrepared) then
+		if
+			not EntityFrameDispatcherService.AbortPreparedDynamicBatch(
+				capability.dispatcherPrepared
+			)
+		then
 			return false, "death-drop-insertion-dispatcher-abort-failed"
 		end
 		capability.dispatcherAborted = true
@@ -4654,7 +5062,8 @@ end
 -- mover callback, but hold it behind one opaque child capability. This keeps
 -- weapon -> PW_QUAD..PW_FLIGHT registration in one EntitySlot/Dispatcher/Item
 -- transaction that can be completely preflighted before Combat applies death.
-local directDeathDropBatchCoordinator = MoverParticipantCoordinatorService.Create({ moverParticipantUpdateAdapter })
+local directDeathDropBatchCoordinator =
+	MoverParticipantCoordinatorService.Create({ moverParticipantUpdateAdapter })
 
 local function cleanupOpenDeathDropBatch(): (boolean, string?)
 	for index = #activeSharedMoverDeathDrops, 1, -1 do
@@ -4670,7 +5079,10 @@ local function cleanupOpenDeathDropBatch(): (boolean, string?)
 	return true, nil
 end
 
-local function preparedDeathDropBatchCurrentError(preparedValue: unknown, capability: DeathDropBatchCapability): string?
+local function preparedDeathDropBatchCurrentError(
+	preparedValue: unknown,
+	capability: DeathDropBatchCapability
+): string?
 	if
 		capability.status ~= "Prepared"
 		or capability.prepared ~= preparedValue
@@ -4685,7 +5097,10 @@ local function preparedDeathDropBatchCurrentError(preparedValue: unknown, capabi
 		or capability.itemParticipantCapability.nextDispatcherBindings ~= capability.expectedDispatcherBindings
 		or AuthoritativeFrameService.GetOpenFrame() ~= capability.frame
 		or AuthoritativeFrameService.InspectFrame(capability.frame) ~= capability.frameSummary
-		or not AuthoritativeFrameService.ValidateFrameDependency(capability.frame, capability.frameSummary)
+		or not AuthoritativeFrameService.ValidateFrameDependency(
+			capability.frame,
+			capability.frameSummary
+		)
 		or MoverParticipantReleaseBrokerService.GetActiveToken() == nil
 		or #capability.requests ~= #capability.itemPrepareds
 		or #capability.requests ~= #capability.itemSummaries
@@ -4727,7 +5142,11 @@ function ItemService.PrepareDeathDropBatch(
 	operationOrderValue: unknown,
 	frameValue: unknown,
 	frameSummaryValue: unknown
-): (PreparedDeathDropBatch?, PreparedDeathDropBatchSummary?, string?)
+): (
+	PreparedDeathDropBatch?,
+	PreparedDeathDropBatchSummary?,
+	string?
+)
 	if not started then
 		return nil, nil, "item-service-not-started"
 	end
@@ -4789,7 +5208,8 @@ function ItemService.PrepareDeathDropBatch(
 
 	local frame = frameValue :: AuthoritativeFrameService.Frame
 	local frameSummary = frameSummaryValue :: AuthoritativeFrameService.Summary
-	local began, beginError = directDeathDropBatchCoordinator.BeginFrame(frameSummary.currentTimeMilliseconds)
+	local began, beginError =
+		directDeathDropBatchCoordinator.BeginFrame(frameSummary.currentTimeMilliseconds)
 	if not began then
 		return nil, nil, beginError or "death-drop-batch-broker-begin-failed"
 	end
@@ -4800,9 +5220,12 @@ function ItemService.PrepareDeathDropBatch(
 	local insertions: { MoverConsequenceRules.InsertionDescriptor } = {}
 	for requestIndex, request in requestsValue :: { unknown } do
 		local previousSharedCount = #activeSharedMoverDeathDrops
-		local body, stageError = ItemService.StageSynchronousMoverDeathDrop(request, operationOrderValue)
+		local body, stageError =
+			ItemService.StageSynchronousMoverDeathDrop(request, operationOrderValue)
 		local itemPrepared = activeSharedMoverDeathDrops[#activeSharedMoverDeathDrops]
-		local itemCapability = if itemPrepared then activeSharedMoverDeathDropCapabilities[itemPrepared] else nil
+		local itemCapability = if itemPrepared
+			then activeSharedMoverDeathDropCapabilities[itemPrepared]
+			else nil
 		if
 			not body
 			or #activeSharedMoverDeathDrops ~= previousSharedCount + 1
@@ -4815,14 +5238,18 @@ function ItemService.PrepareDeathDropBatch(
 				nil,
 				if not cleaned
 					then cleanupError or "death-drop-batch-stage-cleanup-failed"
-					else stageError or string.format("death-drop-batch-item-%d-stage-failed", requestIndex)
+					else stageError or string.format(
+						"death-drop-batch-item-%d-stage-failed",
+						requestIndex
+					)
 		end
 		table.insert(itemPrepareds, itemPrepared)
 		table.insert(itemSummaries, itemCapability.summary)
 		table.insert(requests, itemCapability.request)
 		table.insert(insertions, itemCapability.summary.insertion)
 	end
-	local orderedInsertions, insertionOrderError = MoverConsequenceRules.ValidateAndOrderInsertions(insertions)
+	local orderedInsertions, insertionOrderError =
+		MoverConsequenceRules.ValidateAndOrderInsertions(insertions)
 	if not orderedInsertions then
 		local cleaned, cleanupError = cleanupOpenDeathDropBatch()
 		return nil,
@@ -4832,7 +5259,11 @@ function ItemService.PrepareDeathDropBatch(
 				else insertionOrderError or "death-drop-batch-order-invalid"
 	end
 	for index, insertion in orderedInsertions do
-		if insertion ~= insertions[index] then
+		-- ValidateAndOrderInsertions reconstructs every descriptor as a canonical,
+		-- frozen value, so reference identity can never match the staged input.
+		-- Body ids are unique within the validated batch and preserve the exact
+		-- Q3 TossClientItems weapon -> powerup order across that reconstruction.
+		if insertion.body.id ~= insertions[index].body.id then
 			local cleaned, cleanupError = cleanupOpenDeathDropBatch()
 			return nil,
 				nil,
@@ -4847,7 +5278,8 @@ function ItemService.PrepareDeathDropBatch(
 	table.freeze(insertions)
 
 	local collection = directDeathDropBatchCoordinator.Collect()
-	local coordinatorPrepared, coordinatorPrepareError = directDeathDropBatchCoordinator.Prepare(collection.bodies)
+	local coordinatorPrepared, coordinatorPrepareError =
+		directDeathDropBatchCoordinator.Prepare(collection.bodies)
 	if not coordinatorPrepared then
 		local cleaned, cleanupError = cleanupOpenDeathDropBatch()
 		return nil,
@@ -4909,7 +5341,9 @@ function ItemService.PrepareDeathDropBatch(
 	return prepared, summary, nil
 end
 
-function ItemService.InspectPreparedDeathDropBatch(preparedValue: unknown): PreparedDeathDropBatchSummary?
+function ItemService.InspectPreparedDeathDropBatch(
+	preparedValue: unknown
+): PreparedDeathDropBatchSummary?
 	if type(preparedValue) ~= "table" then
 		return nil
 	end
@@ -4920,7 +5354,10 @@ function ItemService.InspectPreparedDeathDropBatch(preparedValue: unknown): Prep
 	return capability.summary
 end
 
-function ItemService.ValidatePreparedDeathDropBatchDependency(preparedValue: unknown, summaryValue: unknown): boolean
+function ItemService.ValidatePreparedDeathDropBatchDependency(
+	preparedValue: unknown,
+	summaryValue: unknown
+): boolean
 	if type(summaryValue) ~= "table" then
 		return false
 	end
@@ -4940,7 +5377,8 @@ function ItemService.CanApplyPreparedDeathDropBatch(preparedValue: unknown): (bo
 	if currentError then
 		return false, currentError
 	end
-	local canApply, applyError = directDeathDropBatchCoordinator.CanApply(capability.coordinatorPrepared)
+	local canApply, applyError =
+		directDeathDropBatchCoordinator.CanApply(capability.coordinatorPrepared)
 	if not canApply then
 		return false, applyError or "death-drop-batch-coordinator-preflight-failed"
 	end
@@ -4952,14 +5390,16 @@ end
 function ItemService.ApplyPreparedDeathDropBatch(preparedValue: unknown): DeathDropBatchApplyReceipt
 	assert(type(preparedValue) == "table", "invalid-prepared-death-drop-batch")
 	local prepared = preparedValue :: PreparedDeathDropBatch
-	local capability = assert(preparedDeathDropBatchCapabilities[prepared], "invalid-prepared-death-drop-batch")
+	local capability =
+		assert(preparedDeathDropBatchCapabilities[prepared], "invalid-prepared-death-drop-batch")
 	assert(
 		capability.applyValidated
 			and capability.preflightPassCount >= 2
 			and preparedDeathDropBatchCurrentError(prepared, capability) == nil,
 		"stale-prepared-death-drop-batch-at-apply"
 	)
-	capability.coordinatorReceipt = directDeathDropBatchCoordinator.Apply(capability.coordinatorPrepared)
+	capability.coordinatorReceipt =
+		directDeathDropBatchCoordinator.Apply(capability.coordinatorPrepared)
 	assert(
 		moverDeathDropAuthority == capability.expectedAuthority
 			and moverDeathDropDispatcherBindings == capability.expectedDispatcherBindings
@@ -4995,7 +5435,10 @@ local function validateAppliedDeathDropBatch(
 		or moverParticipantUpdateReceiptCapabilities[capability.itemParticipantCapability.receipt] ~= capability.itemParticipantCapability
 		or AuthoritativeFrameService.GetOpenFrame() ~= capability.frame
 		or AuthoritativeFrameService.InspectFrame(capability.frame) ~= capability.frameSummary
-		or not AuthoritativeFrameService.ValidateFrameDependency(capability.frame, capability.frameSummary)
+		or not AuthoritativeFrameService.ValidateFrameDependency(
+			capability.frame,
+			capability.frameSummary
+		)
 		or #capability.itemParticipantCapability.sharedDeathDropReceipts ~= #capability.requests
 	then
 		return nil, "stale-applied-death-drop-batch"
@@ -5030,8 +5473,12 @@ function ItemService.ValidateAppliedDeathDropBatchDependency(
 	return capability ~= nil, dependencyError
 end
 
-function ItemService.FlushPreparedDeathDropBatch(receiptValue: unknown): (DeathDropBatchPublicationReport?, string?)
-	local receipt = if type(receiptValue) == "table" then receiptValue :: DeathDropBatchApplyReceipt else nil
+function ItemService.FlushPreparedDeathDropBatch(
+	receiptValue: unknown
+): (DeathDropBatchPublicationReport?, string?)
+	local receipt = if type(receiptValue) == "table"
+		then receiptValue :: DeathDropBatchApplyReceipt
+		else nil
 	local capability = if receipt then deathDropBatchReceiptCapabilities[receipt] else nil
 	if not receipt or not capability then
 		return nil, "invalid-death-drop-batch-receipt"
@@ -5055,7 +5502,10 @@ function ItemService.FlushPreparedDeathDropBatch(receiptValue: unknown): (DeathD
 			insertedCount += 1
 		end
 	end
-	assert(insertedCount == #capability.requests, "death-drop batch committed fewer records than requested")
+	assert(
+		insertedCount == #capability.requests,
+		"death-drop batch committed fewer records than requested"
+	)
 	local itemCapability = capability.itemParticipantCapability
 	local report: DeathDropBatchPublicationReport = {
 		authorityApplied = true,
@@ -5124,7 +5574,8 @@ function ItemService.SpawnDroppedWeapon(request: DeathDropRequest): boolean
 		return false
 	end
 	local frameSummary = inspectOpenFrame(openFrame, "ItemService.SpawnDroppedWeapon")
-	local prepared, summary = ItemService.PrepareDeathDropInsertion(request, 1, openFrame, frameSummary)
+	local prepared, summary =
+		ItemService.PrepareDeathDropInsertion(request, 1, openFrame, frameSummary)
 	if not prepared or not summary then
 		return false
 	end
@@ -5137,7 +5588,8 @@ function ItemService.SpawnDroppedWeapon(request: DeathDropRequest): boolean
 		end
 	end
 	local receipt = ItemService.ApplyPreparedDeathDropInsertion(prepared)
-	local applied, appliedError = ItemService.ValidateAppliedDeathDropInsertionDependency(receipt, summary)
+	local applied, appliedError =
+		ItemService.ValidateAppliedDeathDropInsertionDependency(receipt, summary)
 	assert(applied, appliedError or "death-drop insertion applied dependency drifted")
 	local publication, publicationError = ItemService.FlushPreparedDeathDropInsertion(receipt)
 	assert(publication, publicationError or "death-drop insertion publication failed")
@@ -5148,7 +5600,10 @@ function ItemService.GetDeathDropCount(): number
 	return deathDropCount + moverDeathDropAuthority.count
 end
 
-function ItemService.RequestMoverDeathDropCleanup(dropIdValue: unknown, reasonValue: unknown): boolean
+function ItemService.RequestMoverDeathDropCleanup(
+	dropIdValue: unknown,
+	reasonValue: unknown
+): boolean
 	if
 		type(dropIdValue) ~= "string"
 		or (reasonValue ~= "Match" and reasonValue ~= "NoDrop" and reasonValue ~= "Cleanup")
@@ -5327,8 +5782,12 @@ local function tryPickupMoverDeathDrop(
 			context
 		)
 	else
-		grantedCall, granted =
-			pcall(hooks.TryGrantPowerup, player, assert(powerupId, "dropped powerup lost its powerup id"), context)
+		grantedCall, granted = pcall(
+			hooks.TryGrantPowerup,
+			player,
+			assert(powerupId, "dropped powerup lost its powerup id"),
+			context
+		)
 	end
 	moverDeathDropClaims[record.dropId] = nil
 	if not grantedCall or not granted then
@@ -5341,9 +5800,11 @@ local function tryPickupMoverDeathDrop(
 		)
 	)
 	assert(
-		transition.participant.lifecycle == MoverItemFlagParticipantRules.Lifecycle.PendingFreeAfterEvent
+		transition.participant.lifecycle
+				== MoverItemFlagParticipantRules.Lifecycle.PendingFreeAfterEvent
 			and not transition.releaseSourceOrder
-			and transition.participant.body.contents == MoverItemFlagParticipantRules.ContentsNone,
+			and transition.participant.body.contents
+				== MoverItemFlagParticipantRules.ContentsNone,
 		"DroppedTaken did not enter hidden pending-free authority"
 	)
 	local nextRecord = cloneMoverDeathDropRecord(
@@ -5400,7 +5861,11 @@ function ItemService.HandleClientTriggerFrame(frameValue: unknown, player: Playe
 	end
 	local function touch(records: { PickupRecord }): boolean
 		for _, record in records do
-			if record.enabled and record.active and tryPickupRecord(player, record, state, summary) then
+			if
+				record.enabled
+				and record.active
+				and tryPickupRecord(player, record, state, summary)
+			then
 				local refreshed = getPlayerState(player)
 				if not refreshed then
 					return false
@@ -5477,7 +5942,10 @@ function ItemService.HandleMapEntityFrame(
 	)
 	assert(mapRegistration.kind == "Item", "ItemService received a non-Item map entity")
 	local registration = mapRegistration.registration
-	assert(registration.sourceOrder > activePreMoverMapLastSourceOrder, "map Items did not run in numeric source order")
+	assert(
+		registration.sourceOrder > activePreMoverMapLastSourceOrder,
+		"map Items did not run in numeric source order"
+	)
 	activePreMoverMapLastSourceOrder = registration.sourceOrder
 	local record = mapRecordsByRegistration[mapRegistration]
 	if not record then
@@ -5490,7 +5958,8 @@ function ItemService.HandleMapEntityFrame(
 			and recordsById[record.pickupId] == record
 			and recordsByMarker[record.marker] == record
 			and EntitySlotService.GetMapRegistration(mapRegistration.eventId) == mapRegistration
-			and EntitySlotService.GetWorldRegistrationBySourceOrder(registration.sourceOrder) == registration,
+			and EntitySlotService.GetWorldRegistrationBySourceOrder(registration.sourceOrder)
+				== registration,
 		"map Item registration index became stale"
 	)
 	finishMapItemEvent(record, summary.currentTimeMilliseconds)
@@ -5547,7 +6016,10 @@ function ItemService.TryPickup(player: Player, pickupId: string): boolean
 		return false
 	end
 	local summary = AuthoritativeFrameService.InspectCurrentFrame(currentFrame)
-	if not summary or not AuthoritativeFrameService.ValidateFrameDependency(currentFrame, summary) then
+	if
+		not summary
+		or not AuthoritativeFrameService.ValidateFrameDependency(currentFrame, summary)
+	then
 		return false
 	end
 	updatePresentationBasis(summary)
@@ -5557,7 +6029,9 @@ function ItemService.TryPickup(player: Player, pickupId: string): boolean
 	end
 	local moverRecord = moverDeathDropAuthority.recordsById[pickupId]
 	local state = if moverRecord then getPlayerState(player) else nil
-	return moverRecord ~= nil and state ~= nil and tryPickupMoverDeathDrop(player, moverRecord, state, summary)
+	return moverRecord ~= nil
+		and state ~= nil
+		and tryPickupMoverDeathDrop(player, moverRecord, state, summary)
 end
 
 function ItemService.Refresh()
@@ -5628,19 +6102,24 @@ function ItemService.Start(root: Instance, hooks: Hooks)
 	)
 	table.insert(
 		_serviceConnections,
-		CollectionService:GetInstanceAddedSignal(ItemDefs.MarkerTag):Connect(function(instance: Instance)
-			if instance:IsA("BasePart") and isWithinWorldRoot(instance) then
-				tryRegisterMarker(instance)
-			end
-		end)
+		CollectionService:GetInstanceAddedSignal(ItemDefs.MarkerTag)
+			:Connect(function(instance: Instance)
+				if instance:IsA("BasePart") and isWithinWorldRoot(instance) then
+					tryRegisterMarker(instance)
+				end
+			end)
 	)
 	table.insert(
 		_serviceConnections,
-		CollectionService:GetInstanceRemovedSignal(ItemDefs.MarkerTag):Connect(function(instance: Instance)
-			if instance:IsA("BasePart") and instance:GetAttribute(ItemDefs.Attributes.ItemId) == nil then
-				unregisterMarker(instance, true)
-			end
-		end)
+		CollectionService:GetInstanceRemovedSignal(ItemDefs.MarkerTag)
+			:Connect(function(instance: Instance)
+				if
+					instance:IsA("BasePart")
+					and instance:GetAttribute(ItemDefs.Attributes.ItemId) == nil
+				then
+					unregisterMarker(instance, true)
+				end
+			end)
 	)
 	table.insert(
 		_serviceConnections,

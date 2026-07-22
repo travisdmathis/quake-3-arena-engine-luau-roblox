@@ -43,17 +43,31 @@ function MatchEliminationPreparedRegistry.GetPrepared(self: Registry, prepared: 
 	return if type(prepared) == "table" then self._prepared[prepared :: table] else nil
 end
 
-function MatchEliminationPreparedRegistry.SetPrepared(self: Registry, prepared: table, capability: any?)
+function MatchEliminationPreparedRegistry.SetPrepared(
+	self: Registry,
+	prepared: table,
+	capability: any?
+)
 	assert(type(prepared) == "table", "prepared Match handle must be opaque")
-	assert(capability == nil or type(capability) == "table", "prepared Match capability must be table")
+	assert(
+		capability == nil or type(capability) == "table",
+		"prepared Match capability must be table"
+	)
 	self._prepared[prepared] = capability
 end
 
-function MatchEliminationPreparedRegistry.GetPreparedForSummary(self: Registry, summary: unknown): table?
+function MatchEliminationPreparedRegistry.GetPreparedForSummary(
+	self: Registry,
+	summary: unknown
+): table?
 	return if type(summary) == "table" then self._summaries[summary :: table] else nil
 end
 
-function MatchEliminationPreparedRegistry.SetPreparedForSummary(self: Registry, summary: table, prepared: table?)
+function MatchEliminationPreparedRegistry.SetPreparedForSummary(
+	self: Registry,
+	summary: table,
+	prepared: table?
+)
 	assert(type(summary) == "table", "prepared Match summary must be table")
 	assert(prepared == nil or type(prepared) == "table", "prepared Match handle must be opaque")
 	self._summaries[summary] = prepared
@@ -63,9 +77,16 @@ function MatchEliminationPreparedRegistry.GetApplied(self: Registry, receipt: un
 	return if type(receipt) == "table" then self._applied[receipt :: table] else nil
 end
 
-function MatchEliminationPreparedRegistry.SetApplied(self: Registry, receipt: table, capability: any?)
+function MatchEliminationPreparedRegistry.SetApplied(
+	self: Registry,
+	receipt: table,
+	capability: any?
+)
 	assert(type(receipt) == "table", "applied Match receipt must be opaque")
-	assert(capability == nil or type(capability) == "table", "applied Match capability must be table")
+	assert(
+		capability == nil or type(capability) == "table",
+		"applied Match capability must be table"
+	)
 	self._applied[receipt] = capability
 end
 

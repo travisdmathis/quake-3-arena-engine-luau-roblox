@@ -58,7 +58,9 @@ local function validateProjectileAdapter(value: unknown): ProjectileAdapter
 		observed += 1
 	end
 	assert(
-		observed == 2 and type(rawget(raw, "Capture")) == "function" and type(rawget(raw, "Validate")) == "function",
+		observed == 2
+			and type(rawget(raw, "Capture")) == "function"
+			and type(rawget(raw, "Validate")) == "function",
 		"projectile death-source adapter is incomplete"
 	)
 	return value :: ProjectileAdapter
@@ -149,7 +151,11 @@ function MovementNormalToDeadSourceRuntime.new(): Runtime
 			return nil, nil, "invalid-normal-to-dead-projectile-provider-summary"
 		end
 		local trajectory = trajectoryValue :: Vector3
-		if not isFinite(trajectory.X) or not isFinite(trajectory.Y) or not isFinite(trajectory.Z) then
+		if
+			not isFinite(trajectory.X)
+			or not isFinite(trajectory.Y)
+			or not isFinite(trajectory.Z)
+		then
 			return nil, nil, "invalid-normal-to-dead-projectile-trajectory-base"
 		end
 		local source = table.freeze({}) :: Source
@@ -216,8 +222,13 @@ function MovementNormalToDeadSourceRuntime.new(): Runtime
 				return nil, "stale-normal-to-dead-projectile-source"
 			end
 			if validateExternalLife then
-				local valid =
-					select(1, adapter.Validate(capability.projectileInflictor, capability.projectileInflictorSummary))
+				local valid = select(
+					1,
+					adapter.Validate(
+						capability.projectileInflictor,
+						capability.projectileInflictorSummary
+					)
+				)
 				if not valid then
 					return nil, "stale-normal-to-dead-projectile-source-provider"
 				end
@@ -245,7 +256,8 @@ function MovementNormalToDeadSourceRuntime.new(): Runtime
 		if not capability then
 			return nil
 		end
-		local current = select(1, runtime:Current(sourceValue, capability.summary, true, validatePlayer))
+		local current =
+			select(1, runtime:Current(sourceValue, capability.summary, true, validatePlayer))
 		return if current then capability.summary else nil
 	end
 

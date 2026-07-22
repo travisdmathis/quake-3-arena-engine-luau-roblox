@@ -30,7 +30,8 @@ function CombatPersonalTeleporterCoordinator.Prepare(player: Player): (Prepared?
 	if not flagPrepared or not flagSummary then
 		return nil, nil, flagError or "personal-teleporter-flag-prepare-failed"
 	end
-	local movementPrepared, movementSummary, movementError = MovementService.PreparePersonalTeleport(player)
+	local movementPrepared, movementSummary, movementError =
+		MovementService.PreparePersonalTeleport(player)
 	if not movementPrepared or not movementSummary then
 		FlagService.AbortPreparedPersonalTeleporterDrop(flagPrepared)
 		return nil, nil, movementError or "personal-teleporter-movement-prepare-failed"
@@ -55,11 +56,13 @@ function CombatPersonalTeleporterCoordinator.CanApply(value: unknown): (boolean,
 	if not capability or capability.status ~= "Prepared" then
 		return false, "invalid-personal-teleporter-composite"
 	end
-	local flagCurrent, flagError = FlagService.CanApplyPreparedPersonalTeleporterDrop(capability.flagPrepared)
+	local flagCurrent, flagError =
+		FlagService.CanApplyPreparedPersonalTeleporterDrop(capability.flagPrepared)
 	if not flagCurrent then
 		return false, flagError
 	end
-	local movementCurrent, movementError = MovementService.CanApplyPreparedPersonalTeleport(capability.movementPrepared)
+	local movementCurrent, movementError =
+		MovementService.CanApplyPreparedPersonalTeleport(capability.movementPrepared)
 	if not movementCurrent then
 		return false, movementError
 	end
@@ -69,7 +72,10 @@ end
 function CombatPersonalTeleporterCoordinator.Apply(value: unknown): boolean
 	local prepared = if type(value) == "table" then value :: Prepared else nil
 	local capability = if prepared then capabilities[prepared] else nil
-	if not capability or select(1, CombatPersonalTeleporterCoordinator.CanApply(prepared)) ~= true then
+	if
+		not capability
+		or select(1, CombatPersonalTeleporterCoordinator.CanApply(prepared)) ~= true
+	then
 		return false
 	end
 	assert(
@@ -91,7 +97,8 @@ function CombatPersonalTeleporterCoordinator.Abort(value: unknown): boolean
 	if not capability or capability.status ~= "Prepared" then
 		return false
 	end
-	local movementAborted = MovementService.AbortPreparedPersonalTeleport(capability.movementPrepared)
+	local movementAborted =
+		MovementService.AbortPreparedPersonalTeleport(capability.movementPrepared)
 	local flagAborted = FlagService.AbortPreparedPersonalTeleporterDrop(capability.flagPrepared)
 	if not movementAborted or not flagAborted then
 		return false

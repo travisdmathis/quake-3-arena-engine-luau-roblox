@@ -56,7 +56,9 @@ local receiptCapabilities: { [Receipt]: Capability } = setmetatable({}, { __mode
 function Broker.Begin(stepTimeMilliseconds: number): Token
 	assert(activeToken == nil, "mover participant release broker is already active")
 	assert(
-		type(stepTimeMilliseconds) == "number" and stepTimeMilliseconds % 1 == 0 and stepTimeMilliseconds >= 0,
+		type(stepTimeMilliseconds) == "number"
+			and stepTimeMilliseconds % 1 == 0
+			and stepTimeMilliseconds >= 0,
 		"mover participant release broker requires integer level time"
 	)
 	local token: Token = table.freeze({})
@@ -81,7 +83,9 @@ function Broker.Begin(stepTimeMilliseconds: number): Token
 	return token
 end
 
-local function ensureEntityToken(capability: Capability): (EntitySlotService.TransactionToken?, string?)
+local function ensureEntityToken(
+	capability: Capability
+): (EntitySlotService.TransactionToken?, string?)
 	if capability.entityToken then
 		return capability.entityToken, nil
 	end
@@ -99,7 +103,9 @@ function Broker.AllocateWorld(
 	declaredKindValue: unknown,
 	handlerValue: unknown
 ): (EntitySlotService.Registration?, string?)
-	local capability = if type(tokenValue) == "table" then capabilities[tokenValue :: Token] else nil
+	local capability = if type(tokenValue) == "table"
+		then capabilities[tokenValue :: Token]
+		else nil
 	if not capability or capability.status ~= "Open" or activeToken ~= tokenValue then
 		return nil, "stale-mover-participant-mutation-broker"
 	end
@@ -131,7 +137,9 @@ function Broker.GetActiveToken(): Token?
 end
 
 function Broker.GetStepTime(tokenValue: unknown): number?
-	local capability = if type(tokenValue) == "table" then capabilities[tokenValue :: Token] else nil
+	local capability = if type(tokenValue) == "table"
+		then capabilities[tokenValue :: Token]
+		else nil
 	return if capability
 			and capability.status == "Open"
 			and activeToken == tokenValue
@@ -140,15 +148,22 @@ function Broker.GetStepTime(tokenValue: unknown): number?
 end
 
 function Broker.GetOpenEntitySlotToken(tokenValue: unknown): EntitySlotService.TransactionToken?
-	local capability = if type(tokenValue) == "table" then capabilities[tokenValue :: Token] else nil
+	local capability = if type(tokenValue) == "table"
+		then capabilities[tokenValue :: Token]
+		else nil
 	if not capability or capability.status ~= "Open" or activeToken ~= tokenValue then
 		return nil
 	end
 	return capability.entityToken
 end
 
-function Broker.GetProvisionalWorldLease(tokenValue: unknown, registrationValue: unknown): EntitySlotService.WorldLease?
-	local capability = if type(tokenValue) == "table" then capabilities[tokenValue :: Token] else nil
+function Broker.GetProvisionalWorldLease(
+	tokenValue: unknown,
+	registrationValue: unknown
+): EntitySlotService.WorldLease?
+	local capability = if type(tokenValue) == "table"
+		then capabilities[tokenValue :: Token]
+		else nil
 	if
 		not capability
 		or capability.status ~= "Open"
@@ -159,7 +174,10 @@ function Broker.GetProvisionalWorldLease(tokenValue: unknown, registrationValue:
 		return nil
 	end
 	local registration = registrationValue :: EntitySlotService.Registration
-	if registration.kind ~= "World" or not capability.observedSourceOrders[registration.sourceOrder] then
+	if
+		registration.kind ~= "World"
+		or not capability.observedSourceOrders[registration.sourceOrder]
+	then
 		return nil
 	end
 	for _, allocation in capability.allocations do
@@ -170,8 +188,13 @@ function Broker.GetProvisionalWorldLease(tokenValue: unknown, registrationValue:
 	return nil
 end
 
-function Broker.CancelAllocation(tokenValue: unknown, registrationValue: unknown): (boolean, string?)
-	local capability = if type(tokenValue) == "table" then capabilities[tokenValue :: Token] else nil
+function Broker.CancelAllocation(
+	tokenValue: unknown,
+	registrationValue: unknown
+): (boolean, string?)
+	local capability = if type(tokenValue) == "table"
+		then capabilities[tokenValue :: Token]
+		else nil
 	if
 		not capability
 		or capability.status ~= "Open"
@@ -192,7 +215,8 @@ function Broker.CancelAllocation(tokenValue: unknown, registrationValue: unknown
 	if not allocationIndex then
 		return false, "mover-participant-allocation-not-pending"
 	end
-	local released, releaseError = EntitySlotService.ReleaseWorld(capability.entityToken, registration)
+	local released, releaseError =
+		EntitySlotService.ReleaseWorld(capability.entityToken, registration)
 	if not released then
 		return false, releaseError or "mover-participant-allocation-cancel-failed"
 	end
@@ -205,7 +229,9 @@ function Broker.StageRelease(
 	registrationValue: unknown,
 	bindingValue: unknown?
 ): (boolean, string?)
-	local capability = if type(tokenValue) == "table" then capabilities[tokenValue :: Token] else nil
+	local capability = if type(tokenValue) == "table"
+		then capabilities[tokenValue :: Token]
+		else nil
 	if not capability or capability.status ~= "Open" or activeToken ~= tokenValue then
 		return false, "stale-mover-participant-release-broker"
 	end
@@ -269,7 +295,8 @@ function Broker.Prepare(tokenValue: unknown): (Prepared?, string?)
 			})
 		end
 		for _, release in capability.releases do
-			local released, releaseError = EntitySlotService.ReleaseWorld(entityToken, release.registration)
+			local released, releaseError =
+				EntitySlotService.ReleaseWorld(entityToken, release.registration)
 			if not released then
 				abortEntityAfterPrepareFailure()
 				return nil, releaseError or "mover-participant-release-stage-failed"
@@ -299,7 +326,11 @@ function Broker.Prepare(tokenValue: unknown): (Prepared?, string?)
 		end
 		if #operations > 0 then
 			local dispatcherPrepared, dispatcherSummary, dispatcherError =
-				EntityFrameDispatcherService.PrepareDynamicBatch(entityPrepared, entitySummary, operations)
+				EntityFrameDispatcherService.PrepareDynamicBatch(
+					entityPrepared,
+					entitySummary,
+					operations
+				)
 			if not dispatcherPrepared then
 				abortEntityAfterPrepareFailure()
 				return nil, dispatcherError or "mover-participant-release-unbind-prepare-failed"
@@ -333,7 +364,9 @@ function Broker.InspectPreparedAllocationBinding(
 	preparedValue: unknown,
 	registrationValue: unknown
 ): EntityFrameDispatcherService.DynamicBinding?
-	local capability = if type(preparedValue) == "table" then preparedCapabilities[preparedValue :: Prepared] else nil
+	local capability = if type(preparedValue) == "table"
+		then preparedCapabilities[preparedValue :: Prepared]
+		else nil
 	if not capability or capability.status ~= "Prepared" or type(registrationValue) ~= "table" then
 		return nil
 	end
@@ -357,21 +390,26 @@ function Broker.InspectPreparedEntitySlotDependency(preparedValue: unknown): (
 	EntitySlotService.PreparedCommit?,
 	EntitySlotService.PreparedCommitSummary?
 )
-	local capability = if type(preparedValue) == "table" then preparedCapabilities[preparedValue :: Prepared] else nil
+	local capability = if type(preparedValue) == "table"
+		then preparedCapabilities[preparedValue :: Prepared]
+		else nil
 	if not capability or capability.status ~= "Prepared" then
 		return nil, nil
 	end
 	if capability.entityPrepared == nil then
 		return nil, nil
 	end
-	return capability.entityPrepared, EntitySlotService.InspectPreparedCommitSummary(capability.entityPrepared)
+	return capability.entityPrepared,
+		EntitySlotService.InspectPreparedCommitSummary(capability.entityPrepared)
 end
 
 function Broker.InspectPreparedDispatcherDependency(preparedValue: unknown): (
 	EntityFrameDispatcherService.PreparedDynamicBatch?,
 	EntityFrameDispatcherService.PreparedDynamicBatchSummary?
 )
-	local capability = if type(preparedValue) == "table" then preparedCapabilities[preparedValue :: Prepared] else nil
+	local capability = if type(preparedValue) == "table"
+		then preparedCapabilities[preparedValue :: Prepared]
+		else nil
 	if not capability or capability.status ~= "Prepared" then
 		return nil, nil
 	end
@@ -379,12 +417,15 @@ function Broker.InspectPreparedDispatcherDependency(preparedValue: unknown): (
 end
 
 function Broker.CanApply(preparedValue: unknown): (boolean, string?)
-	local capability = if type(preparedValue) == "table" then preparedCapabilities[preparedValue :: Prepared] else nil
+	local capability = if type(preparedValue) == "table"
+		then preparedCapabilities[preparedValue :: Prepared]
+		else nil
 	if not capability or capability.status ~= "Prepared" then
 		return false, "stale-prepared-mover-participant-release-broker"
 	end
 	if capability.entityPrepared then
-		local entityCanApply, entityError = EntitySlotService.CanApplyPrepared(capability.entityPrepared)
+		local entityCanApply, entityError =
+			EntitySlotService.CanApplyPrepared(capability.entityPrepared)
 		if not entityCanApply then
 			return false, entityError
 		end
@@ -440,7 +481,11 @@ function Broker.Abort(tokenValue: unknown): boolean
 		return false
 	end
 	if capability.dispatcherPrepared and not capability.dispatcherAborted then
-		if not EntityFrameDispatcherService.AbortPreparedDynamicBatch(capability.dispatcherPrepared) then
+		if
+			not EntityFrameDispatcherService.AbortPreparedDynamicBatch(
+				capability.dispatcherPrepared
+			)
+		then
 			return false
 		end
 		capability.dispatcherAborted = true

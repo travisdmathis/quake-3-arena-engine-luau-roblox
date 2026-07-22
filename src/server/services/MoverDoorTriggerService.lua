@@ -19,8 +19,10 @@ assert(RunService:IsServer(), "MoverDoorTriggerService is server-only")
 
 local sharedRoot = ReplicatedStorage:WaitForChild("Q3Engine")
 local Constants = require(sharedRoot:WaitForChild("simulation"):WaitForChild("Constants"))
-local MoverBinaryPolicy = require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverBinaryPolicy"))
-local MoverDoorTriggerRules = require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverDoorTriggerRules"))
+local MoverBinaryPolicy =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverBinaryPolicy"))
+local MoverDoorTriggerRules =
+	require(sharedRoot:WaitForChild("simulation"):WaitForChild("MoverDoorTriggerRules"))
 
 local EntityFrameDispatcherService = require(script.Parent.EntityFrameDispatcherService)
 local EntitySlotService = require(script.Parent.EntitySlotService)
@@ -64,11 +66,15 @@ local function abortStartup(
 	end
 end
 
-function MoverDoorTriggerService.Start(programsValue: unknown, policiesValue: unknown): (boolean, string?)
+function MoverDoorTriggerService.Start(
+	programsValue: unknown,
+	policiesValue: unknown
+): (boolean, string?)
 	if started then
 		return false, "mover-door-trigger-service-already-started"
 	end
-	local policies, policyError = MoverDoorTriggerRules.ValidateAndOrderPolicies(programsValue, policiesValue)
+	local policies, policyError =
+		MoverDoorTriggerRules.ValidateAndOrderPolicies(programsValue, policiesValue)
 	if not policies then
 		return false, policyError
 	end
@@ -95,7 +101,8 @@ function MoverDoorTriggerService.Start(programsValue: unknown, policiesValue: un
 		if policy.activationBehavior == MoverBinaryPolicy.ActivationBehavior.None then
 			continue
 		end
-		local entityKind = if policy.activationBehavior == MoverBinaryPolicy.ActivationBehavior.PlatTouch
+		local entityKind = if policy.activationBehavior
+				== MoverBinaryPolicy.ActivationBehavior.PlatTouch
 			then "plat_trigger"
 			else "door_trigger"
 		local registration, allocationError = EntitySlotService.AllocateWorld(token, entityKind)
@@ -111,7 +118,8 @@ function MoverDoorTriggerService.Start(programsValue: unknown, policiesValue: un
 			generation = registration.generation,
 		})
 	end
-	local nextDefinitions, definitionError = MoverDoorTriggerRules.Build(programsValue, policies, identities)
+	local nextDefinitions, definitionError =
+		MoverDoorTriggerRules.Build(programsValue, policies, identities)
 	if not nextDefinitions then
 		abortStartup(token, nil)
 		return false, definitionError
@@ -151,14 +159,19 @@ function MoverDoorTriggerService.Start(programsValue: unknown, policiesValue: un
 		end
 	end
 	EntitySlotService.ApplyPrepared(entityPrepared)
-	local dispatcherReceipt = EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
+	local dispatcherReceipt =
+		EntityFrameDispatcherService.ApplyPreparedDynamicBatch(dispatcherPrepared)
 	local applied, appliedError =
-		EntityFrameDispatcherService.ValidateAppliedDynamicBatchDependency(dispatcherReceipt, dispatcherSummary)
+		EntityFrameDispatcherService.ValidateAppliedDynamicBatchDependency(
+			dispatcherReceipt,
+			dispatcherSummary
+		)
 	if not applied then
 		return false, appliedError
 	end
 
-	local nextByRegistration: { [EntitySlotService.Registration]: MoverDoorTriggerRules.Definition } = {}
+	local nextByRegistration: { [EntitySlotService.Registration]: MoverDoorTriggerRules.Definition } =
+		{}
 	for index, registration in registrations do
 		local definition = nextDefinitions[index]
 		if not definition or definition.sourceOrder ~= registration.sourceOrder then
@@ -176,7 +189,7 @@ end
 function MoverDoorTriggerService.HandleClientTriggerFrame(_frame: unknown, player: Player)
 	assert(started, "MoverDoorTriggerService must be started before client trigger visits")
 	assert(player.Parent == Players, "door trigger client is not active")
-	if #definitions == 0 or player:GetAttribute("ArenaAlive") ~= true then
+	if #definitions == 0 or player:GetAttribute("Q3EngineAlive") ~= true then
 		return
 	end
 	local state = MovementService.GetState(player)
@@ -189,8 +202,12 @@ function MoverDoorTriggerService.HandleClientTriggerFrame(_frame: unknown, playe
 				local mover = MovementService.GetBinaryMoverState(definition.captainMoverId)
 				assert(mover, "platform top-contact parent mover state is unavailable")
 				if mover.state == "Pos2" then
-					local queued, queueError = MovementService.QueueBinaryDoorTriggerUse(definition.captainMoverId)
-					assert(queued or queueError == "DoorAlreadyOpening", queueError or "platform wait refresh failed")
+					local queued, queueError =
+						MovementService.QueueBinaryDoorTriggerUse(definition.captainMoverId)
+					assert(
+						queued or queueError == "DoorAlreadyOpening",
+						queueError or "platform wait refresh failed"
+					)
 				end
 				break
 			end
@@ -206,10 +223,12 @@ function MoverDoorTriggerService.HandleClientTriggerFrame(_frame: unknown, playe
 	for _, definition in touching do
 		local mover = MovementService.GetBinaryMoverState(definition.captainMoverId)
 		assert(mover, "door trigger parent mover state is unavailable")
-		local touch, touchError = MoverDoorTriggerRules.ResolveTouch(definition, mover.state, state.position, false)
+		local touch, touchError =
+			MoverDoorTriggerRules.ResolveTouch(definition, mover.state, state.position, false)
 		assert(touch, touchError or "door trigger touch resolution failed")
 		if touch.disposition == "Use" then
-			local captainMoverId = assert(touch.captainMoverId, "door-trigger Use disposition lost its captain")
+			local captainMoverId =
+				assert(touch.captainMoverId, "door-trigger Use disposition lost its captain")
 			local queued, queueError = MovementService.QueueBinaryDoorTriggerUse(captainMoverId)
 			assert(queued or queueError == "DoorAlreadyOpening", queueError or "door use failed")
 		end

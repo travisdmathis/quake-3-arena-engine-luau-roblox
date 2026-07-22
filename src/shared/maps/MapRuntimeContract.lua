@@ -326,11 +326,11 @@ function MapRuntimeContract.Inspect(root: Instance): Inspection
 	}
 
 	for _, descendant in sortedDescendants(root) do
-		local spawnOrigin = descendant:GetAttribute("ArenaSpawnOrigin")
+		local spawnOrigin = descendant:GetAttribute("Q3EngineSpawnOrigin")
 		if spawnOrigin ~= nil then
 			if isFiniteVector3(spawnOrigin) then
 				spawnCount += 1
-				local spawnTeam = descendant:GetAttribute("ArenaSpawnTeam")
+				local spawnTeam = descendant:GetAttribute("Q3EngineSpawnTeam")
 				if isTeamId(spawnTeam) then
 					teamSpawnCounts[spawnTeam :: string] += 1
 				elseif spawnTeam ~= nil then
